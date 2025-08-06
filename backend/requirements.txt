@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+python-jose
+pydantic
+pytest
+google-cloud-bigquery
