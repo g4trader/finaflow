@@ -4,6 +4,7 @@ options:
 steps:
   - id: 'Instalar dependências'
     name: 'python:3.11'
+    dir: 'backend'
     entrypoint: 'bash'
     args:
       - '-c'
@@ -12,10 +13,12 @@ steps:
 
   - id: 'Rodar testes'
     name: 'python:3.11'
-    entrypoint: 'pytest'
+    dir: 'backend'
+    entrypoint: 'bash'
     args:
-      - '--maxfail=1'
-      - '--disable-warnings'
+      - '-c'
+      - |
+        pytest --maxfail=1 --disable-warnings
 
   - id: 'Build Docker'
     name: 'gcr.io/cloud-builders/docker'
@@ -23,7 +26,7 @@ steps:
       - 'build'
       - '-t'
       - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
-      - '.'
+      - './backend'
 
   - id: 'Push Docker'
     name: 'gcr.io/cloud-builders/docker'
