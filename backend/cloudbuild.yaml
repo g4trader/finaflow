@@ -2,52 +2,53 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
-  - id: 'Instalar dependências'
-    name: 'python:3.11'
-    dir: 'backend'
-    entrypoint: 'bash'
+  - id: "Instalar dependências"
+    name: "python:3.11"
+    dir: "backend"
+    entrypoint: "sh"
     args:
-      - '-c'
+      - "-c"
       - |
+        pip install --upgrade pip
         pip install -r requirements.txt
 
-  - id: 'Rodar testes'
-    name: 'python:3.11'
-    dir: 'backend'
-    entrypoint: 'bash'
+  - id: "Rodar testes"
+    name: "python:3.11"
+    dir: "backend"
+    entrypoint: "sh"
     args:
-      - '-c'
+      - "-c"
       - |
         pytest --maxfail=1 --disable-warnings
 
-  - id: 'Build Docker'
-    name: 'gcr.io/cloud-builders/docker'
+  - id: "Build Docker"
+    name: "gcr.io/cloud-builders/docker"
     args:
-      - 'build'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
-      - './backend'
+      - "build"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA"
+      - "./backend"
 
-  - id: 'Push Docker'
-    name: 'gcr.io/cloud-builders/docker'
+  - id: "Push Docker"
+    name: "gcr.io/cloud-builders/docker"
     args:
-      - 'push'
-      - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
+      - "push"
+      - "gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA"
 
-  - id: 'Deploy no Cloud Run'
-    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+  - id: "Deploy no Cloud Run"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "gcloud"
     args:
-      - 'run'
-      - 'deploy'
-      - 'finaflow-backend'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
-      - '--region=us-central1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
+      - "run"
+      - "deploy"
+      - "finaflow-backend"
+      - "--image"
+      - "gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA"
+      - "--region=us-central1"
+      - "--platform=managed"
+      - "--allow-unauthenticated"
 
 images:
-  - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
+  - "gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA"
 
-timeout: '1200s'
+timeout: "1200s"
