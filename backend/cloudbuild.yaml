@@ -2,53 +2,66 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
-  - id: "Instalar dependências"
-    name: "python:3.11"
-    dir: "backend"
-    entrypoint: "sh"
+  - id: 'Upgrade pip'
+    name: 'python:3.11'
+    dir: 'backend'
+    entrypoint: 'python3'
     args:
-      - "-c"
-      - |
-        pip install --upgrade pip
-        pip install -r requirements.txt
+      - '-m'
+      - 'pip'
+      - 'install'
+      - '--upgrade'
+      - 'pip'
 
-  - id: "Rodar testes"
-    name: "python:3.11"
-    dir: "backend"
-    entrypoint: "sh"
+  - id: 'Instalar requirements'
+    name: 'python:3.11'
+    dir: 'backend'
+    entrypoint: 'python3'
     args:
-      - "-c"
-      - |
-        pytest --maxfail=1 --disable-warnings
+      - '-m'
+      - 'pip'
+      - 'install'
+      - '-r'
+      - 'requirements.txt'
 
-  - id: "Build Docker"
-    name: "gcr.io/cloud-builders/docker"
+  - id: 'Rodar testes'
+    name: 'python:3.11'
+    dir: 'backend'
+    entrypoint: 'python3'
     args:
-      - "build"
-      - "-t"
-      - "gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA"
-      - "./backend"
+      - '-m'
+      - 'pytest'
+      - '--maxfail=1'
+      - '--disable-warnings'
 
-  - id: "Push Docker"
-    name: "gcr.io/cloud-builders/docker"
+  - id: 'Build Docker'
+    name: 'gcr.io/cloud-builders/docker'
     args:
-      - "push"
-      - "gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA"
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
+      - './backend'
 
-  - id: "Deploy no Cloud Run"
-    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    entrypoint: "gcloud"
+  - id: 'Push Docker'
+    name: 'gcr.io/cloud-builders/docker'
     args:
-      - "run"
-      - "deploy"
-      - "finaflow-backend"
-      - "--image"
-      - "gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA"
-      - "--region=us-central1"
-      - "--platform=managed"
-      - "--allow-unauthenticated"
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
+
+  - id: 'Deploy no Cloud Run'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'finaflow-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
 
 images:
-  - "gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA"
+  - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
 
-timeout: "1200s"
+timeout: '1200s'
