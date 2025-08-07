@@ -31,7 +31,6 @@ steps:
     args:
       - '-c'
       - |
-        echo "Executando pytest (ignorar falhas)..."
         pytest --maxfail=1 --disable-warnings || true
 
   - id: 'Build Docker'
@@ -48,30 +47,21 @@ steps:
       - 'push'
       - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
 
-  - id: 'Configurar gcloud'
-    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        gcloud config set project $PROJECT_ID
-
-  - id: 'Deploy no Cloud Run'
-    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+  - id: 'Deploy to Cloud Run'
+    name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
       - 'deploy'
       - 'finaflow-backend'
       - '--image'
       - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
-      - '--project'
-      - '$PROJECT_ID'
-      - '--region'
-      - 'us-central1'
       - '--platform'
       - 'managed'
+      - '--region'
+      - 'us-central1'
       - '--allow-unauthenticated'
+      - '--project'
+      - '$PROJECT_ID'
 
 images:
   - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
