@@ -1,90 +1,57 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import jwtDecode from 'jwt-decode';
+import { login as apiLogin, signup as apiSignup } from '../services/api';
 
 interface AuthContextType {
-  user: User | null;
-  login: (token: string) => void;
+  token: string | null;
+  role: string | null;
+  tenantId: string | null;
+  login: (username: string, password: string) => Promise<void>;
+  signup: (data: any) => Promise<void>;
   logout: () => void;
-  isAuthenticated: boolean;
-  loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [token, setToken] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Verificar se há token armazenado
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          // Aqui você pode decodificar o JWT para obter informações do usuário
-          // Por enquanto, vamos apenas marcar como autenticado
-          setIsAuthenticated(true);
-          
-          // Exemplo de como você pode extrair dados do token
-          // const decoded = jwt_decode(token);
-          // setUser(decoded);
-        } catch (error) {
-          console.error('Token inválido:', error);
-          localStorage.removeItem('token');
-        }
-      }
-      setLoading(false);
+    const stored = localStorage.getItem('token');
+    if (stored) {
+      setToken(stored);
+      const decoded: any = jwtDecode(stored);
+      setRole(decoded.role);
+      setTenantId(decoded.tenant_id || null);
     }
   }, []);
 
-  const login = (token: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', token);
-      setIsAuthenticated(true);
-      
-      // Aqui você pode decodificar o token para obter dados do usuário
-      // const decoded = jwt_decode(token);
-      // setUser(decoded);
-    }
+  const login = async (username: string, password: string) => {
+    const data = await apiLogin(username, password);
+    setToken(data.access_token);
+    localStorage.setItem('token', data.access_token);
+    const decoded: any = jwtDecode(data.access_token);
+    setRole(decoded.role);
+    setTenantId(decoded.tenant_id || null);
+  };
+
+  const signup = async (data: any) => {
+    const response = await apiSignup(data, token!);
+    return response;
   };
 
   const logout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-    }
-    setUser(null);
-    setIsAuthenticated(false);
-  };
-
-  const value = {
-    user,
-    login,
-    logout,
-    isAuthenticated,
-    loading,
+    setToken(null);
+    localStorage.removeItem('token');
+    setRole(null);
+    setTenantId(null);
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ token, role, tenantId, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
-  }
-  return context;
-};
-
-export { AuthContext };
-
