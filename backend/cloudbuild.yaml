@@ -55,7 +55,6 @@ steps:
       - '-c'
       - |
         gcloud config set project $PROJECT_ID
-        gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
 
   - id: 'Deploy no Cloud Run'
     name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
