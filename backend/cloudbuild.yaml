@@ -48,6 +48,15 @@ steps:
       - 'push'
       - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
 
+  - id: 'Configurar gcloud'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud config set project $PROJECT_ID
+        gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+
   - id: 'Deploy no Cloud Run'
     name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
@@ -57,8 +66,12 @@ steps:
       - 'finaflow-backend'
       - '--image'
       - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
-      - '--region=us-central1'
-      - '--platform=managed'
+      - '--project'
+      - '$PROJECT_ID'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
       - '--allow-unauthenticated'
 
 images:
