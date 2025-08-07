@@ -15,7 +15,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def get_current_active_user(current: UserInDB = Depends(get_current_user)) -> UserInDB:
-    # Placeholder for additional checks (e.g. is_active)
     return current
 
 def require_super_admin(current: UserInDB = Depends(get_current_active_user)) -> UserInDB:
