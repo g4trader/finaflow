@@ -38,23 +38,27 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/finaflow/finaflow-backend:$SHORT_SHA'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/finaflow/finaflow-backend:latest'
       - './backend'
 
   - id: 'Push Docker'
     name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
+      - '--all-tags'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/finaflow/finaflow-backend'
 
   - id: 'Deploy to Cloud Run'
-    name: 'gcr.io/cloud-builders/gcloud'
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:latest'
+    entrypoint: 'gcloud'
     args:
       - 'run'
       - 'deploy'
       - 'finaflow-backend'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/finaflow/finaflow-backend:$SHORT_SHA'
       - '--platform'
       - 'managed'
       - '--region'
@@ -62,8 +66,19 @@ steps:
       - '--allow-unauthenticated'
       - '--project'
       - '$PROJECT_ID'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--set-env-vars'
+      - 'ENV=production'
 
 images:
-  - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/finaflow/finaflow-backend:$SHORT_SHA'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/finaflow/finaflow-backend:latest'
 
 timeout: '1200s'
