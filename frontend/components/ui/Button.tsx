@@ -1,10 +1,16 @@
+'use client';
 import React from 'react';
 import { motion, type HTMLMotionProps } from 'framer-motion';
 
 type Variants = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
 type Sizes = 'sm' | 'md' | 'lg';
 
-interface ButtonProps extends HTMLMotionProps<'button'> {
+/**
+ * Override 'children' from HTMLMotionProps<'button'> to ensure it's ReactNode only.
+ * This avoids the union with MotionValue that Next/TS complains about during build.
+ */
+interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
+  children?: React.ReactNode;
   variant?: Variants;
   size?: Sizes;
   loading?: boolean;
@@ -17,17 +23,17 @@ const Button: React.FC<ButtonProps> = ({
   children,
   variant = 'primary',
   size = 'md',
-  loading = false,
+  loading = False,
   icon,
   iconPosition = 'left',
-  fullWidth = false,
+  fullWidth = False,
   className = '',
   disabled,
   type = 'button',
   ...props
 }) => {
   const baseClasses = 'btn focus-ring transition-all duration-200 font-medium';
-
+  
   const variantClasses: Record<Variants, string> = {
     primary: 'btn-primary',
     secondary: 'btn-secondary',
@@ -87,7 +93,7 @@ const Button: React.FC<ButtonProps> = ({
       {!loading && icon && iconPosition === 'left' && (
         <span className="mr-2">{icon}</span>
       )}
-      {children}
+      {children as React.ReactNode}
       {!loading && icon && iconPosition === 'right' && (
         <span className="ml-2">{icon}</span>
       )}
