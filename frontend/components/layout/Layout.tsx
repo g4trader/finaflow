@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   Users,
@@ -62,68 +63,14 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     },
   ];
 
-  // Componente sidebar desktop
-  const DesktopSidebar = () => (
-    <div className="hidden lg:flex lg:w-64 lg:flex-col bg-white border-r border-gray-200">
-      <div className="flex flex-col flex-1 min-h-0">
-        {/* Logo */}
-        <div className="flex items-center h-16 px-6 border-b border-gray-200">
-          <div className="flex items-center">
-            <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-white" />
-            </div>
-            <span className="ml-3 text-xl font-bold text-gray-900">FinaFlow</span>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-1">
-          {menuItems.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                item.active
-                  ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              {item.icon}
-              <span className="ml-3">{item.label}</span>
-            </a>
-          ))}
-        </nav>
-
-        {/* User Menu */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-700">Admin User</p>
-              <p className="text-xs text-gray-500">admin@finaflow.com</p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<LogOut className="w-4 h-4" />}
-            className="w-full mt-3 justify-start"
-          >
-            Sair
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Componente sidebar mobile
-  const MobileSidebar = () => (
-    <div 
-      className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}
+  const Sidebar = ({ mobile = false }) => (
+    <motion.div
+      initial={mobile ? { x: -300 } : false}
+      animate={mobile ? { x: 0 } : false}
+      exit={mobile ? { x: -300 } : false}
+      className={`${
+        mobile ? 'fixed inset-y-0 left-0 z-50 w-64' : 'hidden lg:flex lg:w-64 lg:flex-col'
+      } bg-white border-r border-gray-200`}
     >
       <div className="flex flex-col flex-1 min-h-0">
         {/* Logo */}
@@ -134,13 +81,15 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
             </div>
             <span className="ml-3 text-xl font-bold text-gray-900">FinaFlow</span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSidebarOpen(false)}
-            icon={<X className="w-5 h-5" />}
-            className="ml-auto"
-          />
+          {mobile && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarOpen(false)}
+              icon={<X className="w-5 h-5" />}
+              className="ml-auto"
+            />
+          )}
         </div>
 
         {/* Navigation */}
@@ -182,24 +131,24 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           </Button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Desktop Sidebar */}
-      <DesktopSidebar />
+      <Sidebar />
 
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden transition-opacity duration-300"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-      
       {/* Mobile Sidebar */}
-      <MobileSidebar />
+      {sidebarOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <Sidebar mobile />
+        </>
+      )}
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
@@ -228,7 +177,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 <input
                   type="text"
                   placeholder="Buscar..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
@@ -247,9 +196,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          <div className="animate-fade-in">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
             {children}
-          </div>
+          </motion.div>
         </main>
       </div>
     </div>

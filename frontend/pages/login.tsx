@@ -1,4 +1,5 @@
 import React, { useState, useContext } from 'react';
+import { motion } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -35,16 +36,25 @@ export default function Login() {
       
       <div className="w-full max-w-md relative z-10">
         {/* Logo and Brand */}
-        <div className="text-center mb-8 animate-fade-in">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-8"
+        >
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl mb-4 shadow-lg">
             <TrendingUp className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">FinaFlow</h1>
           <p className="text-gray-600">Gestão financeira inteligente</p>
-        </div>
+        </motion.div>
 
         {/* Login Card */}
-        <div className="animate-fade-in">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+        >
           <Card className="backdrop-blur-sm bg-white/80 border-white/20 shadow-xl">
             <Card.Body className="p-8">
               <div className="text-center mb-6">
@@ -135,10 +145,15 @@ export default function Login() {
               </div>
             </Card.Body>
           </Card>
-        </div>
+        </motion.div>
 
         {/* Features */}
-        <div className="mt-8 text-center animate-fade-in">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mt-8 text-center"
+        >
           <div className="grid grid-cols-3 gap-4 text-sm text-gray-600">
             <div className="flex flex-col items-center">
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mb-2">
@@ -159,7 +174,7 @@ export default function Login() {
               <span>Suporte 24/7</span>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       <style jsx>{`
