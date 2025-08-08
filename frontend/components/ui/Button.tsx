@@ -6,8 +6,7 @@ type Variants = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
 type Sizes = 'sm' | 'md' | 'lg';
 
 /**
- * Override 'children' from HTMLMotionProps<'button'> to ensure it's ReactNode only.
- * This avoids the union with MotionValue that Next/TS complains about during build.
+ * Override 'children' to ReactNode-only to avoid MotionValue union in Next 13 + FM v11.
  */
 interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   children?: React.ReactNode;
@@ -23,17 +22,17 @@ const Button: React.FC<ButtonProps> = ({
   children,
   variant = 'primary',
   size = 'md',
-  loading = False,
+  loading = false,
   icon,
   iconPosition = 'left',
-  fullWidth = False,
+  fullWidth = false,
   className = '',
   disabled,
   type = 'button',
   ...props
 }) => {
   const baseClasses = 'btn focus-ring transition-all duration-200 font-medium';
-  
+
   const variantClasses: Record<Variants, string> = {
     primary: 'btn-primary',
     secondary: 'btn-secondary',
