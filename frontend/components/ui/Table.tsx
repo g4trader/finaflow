@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
 interface TableProps {
   children: React.ReactNode;
@@ -19,13 +18,14 @@ interface TableBodyProps {
 interface TableRowProps {
   children: React.ReactNode;
   className?: string;
-  onClick?: () => void;
+  hover?: boolean;
 }
 
 interface TableCellProps {
   children: React.ReactNode;
   className?: string;
   header?: boolean;
+  align?: 'left' | 'center' | 'right';
 }
 
 const Table: React.FC<TableProps> & {
@@ -35,12 +35,10 @@ const Table: React.FC<TableProps> & {
   Cell: React.FC<TableCellProps>;
 } = ({ children, className = '' }) => {
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <div className="overflow-x-auto">
-        <table className={`min-w-full divide-y divide-gray-200 ${className}`}>
-          {children}
-        </table>
-      </div>
+    <div className="overflow-x-auto">
+      <table className={`min-w-full divide-y divide-gray-200 ${className}`}>
+        {children}
+      </table>
     </div>
   );
 };
@@ -52,32 +50,58 @@ const TableHeader: React.FC<TableHeaderProps> = ({ children, className = '' }) =
 );
 
 const TableBody: React.FC<TableBodyProps> = ({ children, className = '' }) => (
-  <tbody className={`divide-y divide-gray-200 bg-white ${className}`}>
+  <tbody className={`bg-white divide-y divide-gray-200 ${className}`}>
     {children}
   </tbody>
 );
 
-const TableRow: React.FC<TableRowProps> = ({ children, className = '', onClick }) => (
-  <motion.tr
-    className={`${onClick ? 'cursor-pointer hover:bg-gray-50' : ''} ${className}`}
-    onClick={onClick}
-    whileHover={onClick ? { backgroundColor: '#f9fafb' } : {}}
-    transition={{ duration: 0.2 }}
-  >
+const TableRow: React.FC<TableRowProps> = ({ 
+  children, 
+  className = '', 
+  hover = true 
+}) => (
+  <tr className={`
+    ${hover ? 'hover:bg-gray-50 transition-colors duration-200' : ''} 
+    ${className}
+  `}>
     {children}
-  </motion.tr>
+  </tr>
 );
 
-const TableCell: React.FC<TableCellProps> = ({ children, className = '', header = false }) => {
-  const Tag = header ? 'th' : 'td';
-  const baseClasses = header
-    ? 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
-    : 'px-6 py-4 whitespace-nowrap text-sm text-gray-900';
+const TableCell: React.FC<TableCellProps> = ({ 
+  children, 
+  className = '', 
+  header = false,
+  align = 'left'
+}) => {
+  const alignClasses = {
+    left: 'text-left',
+    center: 'text-center',
+    right: 'text-right',
+  };
+
+  const baseClasses = `px-6 py-4 whitespace-nowrap ${alignClasses[align]}`;
+  
+  if (header) {
+    return (
+      <th className={`
+        ${baseClasses} 
+        text-xs font-medium text-gray-500 uppercase tracking-wider 
+        ${className}
+      `}>
+        {children}
+      </th>
+    );
+  }
 
   return (
-    <Tag className={`${baseClasses} ${className}`}>
+    <td className={`
+      ${baseClasses} 
+      text-sm text-gray-900 
+      ${className}
+    `}>
       {children}
-    </Tag>
+    </td>
   );
 };
 
@@ -87,4 +111,3 @@ Table.Row = TableRow;
 Table.Cell = TableCell;
 
 export default Table;
-
