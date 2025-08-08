@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
@@ -22,7 +21,7 @@ const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props
 }) => {
-  const baseClasses = 'btn focus-ring transition-all duration-200 font-medium';
+  const baseClasses = 'btn focus-ring transition-all duration-200 font-medium transform hover:scale-105 active:scale-95';
   
   const variantClasses = {
     primary: 'btn-primary',
@@ -43,6 +42,7 @@ const Button: React.FC<ButtonProps> = ({
     variantClasses[variant],
     sizeClasses[size],
     fullWidth ? 'w-full' : '',
+    (disabled || loading) ? 'transform-none hover:scale-100' : '',
     className,
   ].filter(Boolean).join(' ');
 
@@ -70,9 +70,7 @@ const Button: React.FC<ButtonProps> = ({
   );
 
   return (
-    <motion.button
-      whileHover={{ scale: disabled || loading ? 1 : 1.02 }}
-      whileTap={{ scale: disabled || loading ? 1 : 0.98 }}
+    <button
       className={classes}
       disabled={disabled || loading}
       {...props}
@@ -85,7 +83,7 @@ const Button: React.FC<ButtonProps> = ({
       {!loading && icon && iconPosition === 'right' && (
         <span className="ml-2">{icon}</span>
       )}
-    </motion.button>
+    </button>
   );
 };
 

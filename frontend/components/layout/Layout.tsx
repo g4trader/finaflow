@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Users,
@@ -63,7 +62,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     },
   ];
 
-  // Componente separado para sidebar desktop (sem animação)
+  // Componente sidebar desktop
   const DesktopSidebar = () => (
     <div className="hidden lg:flex lg:w-64 lg:flex-col bg-white border-r border-gray-200">
       <div className="flex flex-col flex-1 min-h-0">
@@ -119,14 +118,12 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     </div>
   );
 
-  // Componente separado para sidebar mobile (com animação)
+  // Componente sidebar mobile
   const MobileSidebar = () => (
-    <motion.div
-      initial={{ x: -300 }}
-      animate={{ x: 0 }}
-      exit={{ x: -300 }}
-      transition={{ duration: 0.3 }}
-      className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200"
+    <div 
+      className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
     >
       <div className="flex flex-col flex-1 min-h-0">
         {/* Logo */}
@@ -185,7 +182,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           </Button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 
   return (
@@ -194,20 +191,15 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       <DesktopSidebar />
 
       {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-            <MobileSidebar />
-          </>
-        )}
-      </AnimatePresence>
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden transition-opacity duration-300"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
+      {/* Mobile Sidebar */}
+      <MobileSidebar />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
@@ -236,7 +228,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 <input
                   type="text"
                   placeholder="Buscar..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 />
               </div>
 
@@ -255,13 +247,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
+          <div className="animate-fade-in">
             {children}
-          </motion.div>
+          </div>
         </main>
       </div>
     </div>

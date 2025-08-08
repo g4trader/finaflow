@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
 interface CardProps {
   children: React.ReactNode;
@@ -42,21 +41,16 @@ const Card: React.FC<CardProps> & {
 
   const classes = [
     'card',
+    'animate-fade-in',
     paddingClasses[padding],
-    hover ? 'hover:shadow-medium transition-shadow duration-200' : '',
+    hover ? 'hover:shadow-medium hover:-translate-y-1 transition-all duration-200' : '',
     className,
   ].filter(Boolean).join(' ');
 
   return (
-    <motion.div
-      className={classes}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      whileHover={hover ? { y: -2 } : {}}
-    >
+    <div className={classes}>
       {children}
-    </motion.div>
+    </div>
   );
 };
 

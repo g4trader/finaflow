@@ -1,5 +1,4 @@
 import React, { forwardRef } from 'react';
-import { motion } from 'framer-motion';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -22,6 +21,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
 }, ref) => {
   const inputClasses = [
     'input',
+    'transition-all duration-200',
+    'focus:scale-105',
     error ? 'input-error' : '',
     icon ? (iconPosition === 'left' ? 'pl-10' : 'pr-10') : '',
     fullWidth ? 'w-full' : '',
@@ -43,22 +44,16 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
             </span>
           </div>
         )}
-        <motion.input
+        <input
           ref={ref}
           className={inputClasses}
-          whileFocus={{ scale: 1.01 }}
-          transition={{ duration: 0.2 }}
           {...props}
         />
       </div>
       {error && (
-        <motion.p
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-1 text-sm text-red-600"
-        >
+        <p className="mt-1 text-sm text-red-600 animate-fade-in">
           {error}
-        </motion.p>
+        </p>
       )}
       {helperText && !error && (
         <p className="mt-1 text-sm text-gray-500">
