@@ -1,7 +1,11 @@
+'use client';
 import React, { forwardRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, type HTMLMotionProps } from 'framer-motion';
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+type MotionInputProps = Omit<HTMLMotionProps<'input'>, 'children' | 'onAnimationStart' | 'onAnimationEnd' | 'onAnimationComplete'>;
+type DOMInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onAnimationStart' | 'onAnimationEnd' | 'onAnimationIteration' | 'children'>;
+
+interface InputProps extends MotionInputProps, DOMInputProps {
   label?: string;
   error?: string;
   helperText?: string;
@@ -18,6 +22,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   iconPosition = 'left',
   fullWidth = false,
   className = '',
+  whileFocus = { scale: 1.01 },
+  transition = { duration: 0.2 },
   ...props
 }, ref) => {
   const inputClasses = [
@@ -37,8 +43,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
       )}
       <div className="relative">
         {icon && (
-          <div className={`absolute inset-y-0 ${iconPosition === 'left' ? 'left-0 pl-3' : 'right-0 pr-3'} flex items-center pointer-events-none`}>
-            <span className={`text-gray-400 ${error ? 'text-red-400' : ''}`}>
+          <div className={\`absolute inset-y-0 \${iconPosition === 'left' ? 'left-0 pl-3' : 'right-0 pr-3'} flex items-center pointer-events-none\`}>
+            <span className={\`text-gray-400 \${error ? 'text-red-400' : ''}\`}>
               {icon}
             </span>
           </div>
@@ -46,19 +52,15 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
         <motion.input
           ref={ref}
           className={inputClasses}
-          whileFocus={{ scale: 1.01 }}
-          transition={{ duration: 0.2 }}
+          whileFocus={whileFocus}
+          transition={transition}
           {...props}
         />
       </div>
       {error && (
-        <motion.p
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-1 text-sm text-red-600"
-        >
+        <p className="mt-1 text-sm text-red-600">
           {error}
-        </motion.p>
+        </p>
       )}
       {helperText && !error && (
         <p className="mt-1 text-sm text-gray-500">
@@ -72,4 +74,3 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
 Input.displayName = 'Input';
 
 export default Input;
-
