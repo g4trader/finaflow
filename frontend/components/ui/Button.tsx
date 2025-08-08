@@ -1,9 +1,12 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type HTMLMotionProps } from 'framer-motion';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+type Variants = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
+type Sizes = 'sm' | 'md' | 'lg';
+
+interface ButtonProps extends HTMLMotionProps<'button'> {
+  variant?: Variants;
+  size?: Sizes;
   loading?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
@@ -20,11 +23,12 @@ const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   className = '',
   disabled,
+  type = 'button',
   ...props
 }) => {
   const baseClasses = 'btn focus-ring transition-all duration-200 font-medium';
-  
-  const variantClasses = {
+
+  const variantClasses: Record<Variants, string> = {
     primary: 'btn-primary',
     secondary: 'btn-secondary',
     success: 'btn-success',
@@ -32,7 +36,7 @@ const Button: React.FC<ButtonProps> = ({
     ghost: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
   };
 
-  const sizeClasses = {
+  const sizeClasses: Record<Sizes, string> = {
     sm: 'btn-sm',
     md: 'btn-md',
     lg: 'btn-lg',
@@ -52,6 +56,7 @@ const Button: React.FC<ButtonProps> = ({
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
+      aria-hidden="true"
     >
       <circle
         className="opacity-25"
@@ -74,7 +79,8 @@ const Button: React.FC<ButtonProps> = ({
       whileHover={{ scale: disabled || loading ? 1 : 1.02 }}
       whileTap={{ scale: disabled || loading ? 1 : 0.98 }}
       className={classes}
-      disabled={disabled || loading}
+      disabled={Boolean(disabled) || loading}
+      type={type}
       {...props}
     >
       {loading && <LoadingSpinner />}
@@ -90,4 +96,3 @@ const Button: React.FC<ButtonProps> = ({
 };
 
 export default Button;
-
