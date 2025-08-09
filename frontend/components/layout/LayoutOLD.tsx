@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   X,
+  TrendingUp,
   Bell,
   Search,
 } from 'lucide-react';
@@ -44,15 +45,19 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     return (
       <motion.div
         {...motionProps}
-        className={`${mobile ? 'fixed inset-y-0 left-0 z-50 w-64' : 'hidden lg:flex lg:w-64 lg:flex-col'} bg-white border-r border-gray-200`}
+        className={`${
+          mobile ? 'fixed inset-y-0 left-0 z-50 w-64' : 'hidden lg:flex lg:w-64 lg:flex-col'
+        } bg-white border-r border-gray-200`}
       >
         <div className="flex flex-col flex-1 min-h-0">
-          {/* Brand */}
+          {/* Logo */}
           <div className="flex items-center h-16 px-6 border-b border-gray-200">
-            <a href="/" className="flex items-center gap-3">
-              <img src="/logo-finaflow.svg" alt="finaFlow" className="h-8 w-auto" />
-              <span className="sr-only">finaFlow</span>
-            </a>
+            <div className="flex items-center">
+              <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-white" />
+              </div>
+              <span className="ml-3 text-xl font-bold text-gray-900">FinaFlow</span>
+            </div>
             {mobile && (
               <Button
                 variant="ghost"
@@ -71,7 +76,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 key={item.href}
                 href={item.href}
                 className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  item.active ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  item.active
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
                 {item.icon}
@@ -113,8 +120,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       {/* Mobile Sidebar */}
       {sidebarOpen && (
         <>
-          <div className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden" onClick={() => setSidebarOpen(false)} />
-          <AnimatePresence>{sidebarOpen && <Sidebar mobile />}</AnimatePresence>
+          <div
+            className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <AnimatePresence>
+            {sidebarOpen && <Sidebar mobile />}
+          </AnimatePresence>
         </>
       )}
 
@@ -132,7 +144,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 className="lg:hidden"
               />
               {title && (
-                <h1 className="ml-4 lg:ml-0 text-2xl font-semibold text-gray-900">{title}</h1>
+                <h1 className="ml-4 lg:ml-0 text-2xl font-semibold text-gray-900">
+                  {title}
+                </h1>
               )}
             </div>
 
@@ -148,7 +162,11 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
               </div>
 
               {/* Notifications */}
-              <Button variant="ghost" size="sm" icon={<Bell className="w-5 h-5" />} />
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Bell className="w-5 h-5" />}
+              />
 
               {/* Profile */}
               <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
@@ -158,7 +176,11 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
             {children}
           </motion.div>
         </main>

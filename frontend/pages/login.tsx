@@ -33,7 +33,7 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-      
+
       <div className="w-full max-w-md relative z-10">
         {/* Logo and Brand */}
         <motion.div
@@ -42,10 +42,7 @@ export default function Login() {
           transition={{ duration: 0.6 }}
           className="text-center mb-8"
         >
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl mb-4 shadow-lg">
-            <TrendingUp className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">FinaFlow</h1>
+          <img src="/logo-finaflow.svg" alt="finaFlow" className="h-12 mx-auto mb-3" />
           <p className="text-gray-600">Gestão financeira inteligente</p>
         </motion.div>
 
@@ -186,4 +183,3 @@ export default function Login() {
     </div>
   );
 }
-
