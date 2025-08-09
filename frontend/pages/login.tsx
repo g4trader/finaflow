@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useContext } from 'react';
 import { motion } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
@@ -64,33 +65,44 @@ export default function Login() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                <Input
-                  type="email"
-                  label="Email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  icon={<Mail className="w-5 h-5" />}
-                  fullWidth
-                  required
-                />
-
+                {/* Email */}
                 <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                    <Mail className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <Input
+                    type="email"
+                    label="Email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    fullWidth
+                    required
+                    className="pl-10" /* garante padding quando ícone estiver presente */
+                  />
+                </div>
+
+                {/* Senha */}
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                    <Lock className="w-5 h-5 text-gray-400" />
+                  </div>
                   <Input
                     type={showPassword ? 'text' : 'password'}
                     label="Senha"
                     placeholder="Digite sua senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    icon={<Lock className="w-5 h-5" />}
                     fullWidth
                     required
                     error={error}
+                    className="pl-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-9 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   >
                     {showPassword ? (
                       <EyeOff className="w-5 h-5" />
