@@ -6,8 +6,8 @@ export default function Landing() {
   return (
     <>
       <Head>
-        <title>finaFlow — Gestão financeira clara e em tempo real</title>
-        <meta name="description" content="finaFlow é o sistema SaaS para previsão, realizado e fluxo de caixa com visual moderno e multi-empresa." />
+        <title>FinaFlow — Gestão financeira clara e em tempo real</title>
+        <meta name="description" content="FinaFlow é o sistema SaaS para previsão, realizado e fluxo de caixa com visual moderno e multi-empresa." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
@@ -15,7 +15,7 @@ export default function Landing() {
       <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo-finaflow.svg" alt="finaFlow" className="h-8 w-auto" />
+            <img src="/logo-finaflow.svg" alt="FinaFlow" className="h-8 w-auto" />
           </div>
           <nav className="hidden md:flex items-center gap-6 text-sm text-gray-600">
             <a href="#features" className="hover:text-gray-900">Recursos</a>
@@ -24,7 +24,7 @@ export default function Landing() {
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900">Entrar</Link>
-            <Link href="/signup" className="hidden sm:inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-md">Começar agora</Link>
+            <Link href="/login" className="hidden sm:inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-md">Começar agora</Link>
           </div>
         </div>
       </header>
@@ -39,11 +39,11 @@ export default function Landing() {
             Controle financeiro sem planilhas complicadas
           </h1>
           <p className="mt-5 text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
-            O finaFlow reúne <strong>Previsto</strong>, <strong>Realizado</strong> e <strong>Fluxo de Caixa</strong> em um só lugar.
+            O FinaFlow reúne <strong>Previsto</strong>, <strong>Realizado</strong> e <strong>Fluxo de Caixa</strong> em um só lugar.
             Multi-empresa, multi-usuário e pronto para crescer com você.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
-            <Link href="/signup" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium">
+            <Link href="/login" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium">
               Criar minha conta
             </Link>
             <a href="#features" className="px-6 py-3 rounded-lg font-medium border border-gray-300 text-gray-700 hover:bg-gray-50">
@@ -99,7 +99,7 @@ export default function Landing() {
                 <li>1 empresa</li>
                 <li>Suporte por email</li>
               </ul>
-              <Link href={{ pathname: '/signup', query: { plan: 'solo' } }} className="mt-auto bg-blue-600 hover:bg-blue-700 text-white w-full text-center py-3 rounded-lg font-medium">
+              <Link href="/login" className="mt-auto bg-blue-600 hover:bg-blue-700 text-white w-full text-center py-3 rounded-lg font-medium">
                 Assinar Solo
               </Link>
             </div>
@@ -117,7 +117,7 @@ export default function Landing() {
                 <li>Empresas ilimitadas</li>
                 <li>Perfis e permissões</li>
               </ul>
-              <Link href={{ pathname: '/signup', query: { plan: 'team' } }} className="mt-auto bg-blue-600 hover:bg-blue-700 text-white w-full text-center py-3 rounded-lg font-medium">
+              <Link href="/login" className="mt-auto bg-blue-600 hover:bg-blue-700 text-white w-full text-center py-3 rounded-lg font-medium">
                 Assinar Team
               </Link>
             </div>
@@ -135,7 +135,7 @@ export default function Landing() {
                 <li>Relatórios avançados</li>
                 <li>Suporte prioritário</li>
               </ul>
-              <Link href={{ pathname: '/signup', query: { plan: 'business' } }} className="mt-auto bg-blue-600 hover:bg-blue-700 text-white w-full text-center py-3 rounded-lg font-medium">
+              <Link href="/login" className="mt-auto bg-blue-600 hover:bg-blue-700 text-white w-full text-center py-3 rounded-lg font-medium">
                 Assinar Business
               </Link>
             </div>
@@ -188,8 +188,8 @@ export default function Landing() {
       <footer className="border-t border-gray-100 py-10">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-500">
           <div className="flex items-center gap-2">
-            <img src="/logo-finaflow.svg" alt="finaFlow" className="h-6" />
-            <span>© {new Date().getFullYear()} finaFlow. Todos os direitos reservados.</span>
+            <img src="/logo-finaflow.svg" alt="FinaFlow" className="h-6" />
+            <span>© {new Date().getFullYear()} FinaFlow. Todos os direitos reservados.</span>
           </div>
           <div className="flex items-center gap-4">
             <a href="#pricing" className="hover:text-gray-700">Planos</a>
