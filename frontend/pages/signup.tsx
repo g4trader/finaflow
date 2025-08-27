@@ -1,11 +1,13 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useContext } from 'react';
 import Head from 'next/head';
 import Script from 'next/script';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import axios from 'axios';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import { AuthContext } from '../context/AuthContext';
 
 declare global {
   interface Window { google?: any }
@@ -14,6 +16,8 @@ declare global {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function Signup() {
+  const { token, role, signup } = useContext(AuthContext);
+  const router = useRouter();
   const googleBtn = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     name: '',
@@ -38,13 +42,13 @@ export default function Signup() {
     }
     try {
       setLoading(true);
-      await axios.post(`${API_URL}/auth/signup`, {
-        name: form.name,
+      await signup({
+        username: form.name,
         email: form.email,
         password: form.password,
-        company: form.company,
+        role: 'tenant_user',
+        tenant_id: form.company,
       });
-      // sucesso → direciona para login
       window.location.href = '/login';
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Não foi possível criar sua conta.');
@@ -52,6 +56,16 @@ export default function Signup() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!token || role !== 'super_admin') {
+      router.replace('/login');
+    }
+  }, [token, role, router]);
+
+  if (!token || role !== 'super_admin') {
+    return null;
+  }
 
   const initGoogle = () => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
