@@ -30,6 +30,7 @@ from app.main import app  # noqa: E402
 from app.models.user import Role, UserInDB  # noqa: E402
 from app.services.dependencies import get_current_user  # noqa: E402
 from app.db import bq_client  # noqa: E402
+from app.models.finance import AccountImportSummary  # noqa: E402
 
 
 def override_tenant_user():
@@ -92,8 +93,8 @@ def test_import_accounts_success(monkeypatch):
     response = client.post("/accounts/import?tenant_id=t1", json=payload)
     assert response.status_code == 201
     assert calls["count"] == 1
-    data = response.json()
-    assert data["skipped"] == [{"row": 1, "reason": "invalid balance"}]
-    assert len(data["inserted"]) == 1
+    summary = AccountImportSummary(**response.json())
+    assert summary.skipped == [{"row": 1, "reason": "invalid balance"}]
+    assert len(summary.inserted) == 1
 
     app.dependency_overrides.clear()
