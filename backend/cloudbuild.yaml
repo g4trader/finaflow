@@ -2,35 +2,18 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
-  - id: 'Upgrade pip'
-    name: 'python:3.11'
-    dir: 'backend'
-    entrypoint: 'python3'
-    args:
-      - '-m'
-      - 'pip'
-      - 'install'
-      - '--upgrade'
-      - 'pip'
-
-  - id: 'Instalar requirements'
-    name: 'python:3.11'
-    dir: 'backend'
-    entrypoint: 'python3'
-    args:
-      - '-m'
-      - 'pip'
-      - 'install'
-      - '-r'
-      - 'requirements.txt'
-
-  - id: 'Rodar testes (não-fatal)'
+  - id: 'Instalar requirements e rodar testes (não-fatal)'
     name: 'python:3.11'
     dir: 'backend'
     entrypoint: 'bash'
+    volumes:
+      - name: pip-cache
+        path: /root/.cache/pip
     args:
       - '-c'
       - |
+        pip install --upgrade pip
+        pip install -r requirements.txt
         pytest --maxfail=1 --disable-warnings || true
 
   - id: 'Build Docker'
