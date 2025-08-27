@@ -49,7 +49,10 @@ client = TestClient(app, raise_server_exceptions=False)
 def test_import_accounts_failure(monkeypatch):
     app.dependency_overrides[get_current_user] = override_tenant_user
 
+    calls = {"count": 0}
+
     def failing_insert_rows_json(table, rows):
+        calls["count"] += 1
         return [{"error": "bad"}]
 
     monkeypatch.setattr(bq_client.client, "insert_rows_json", failing_insert_rows_json)
@@ -60,12 +63,21 @@ def test_import_accounts_failure(monkeypatch):
 
     response = client.post("/accounts/import?tenant_id=t1", json=payload)
     assert response.status_code == 500
+    assert calls["count"] == 1
 
     app.dependency_overrides.clear()
 
 
-def test_import_accounts_success():
+def test_import_accounts_success(monkeypatch):
     app.dependency_overrides[get_current_user] = override_tenant_user
+
+    calls = {"count": 0}
+
+    def tracking_insert_rows_json(table, rows):
+        calls["count"] += 1
+        return []
+
+    monkeypatch.setattr(bq_client.client, "insert_rows_json", tracking_insert_rows_json)
 
     payload = [
         {"subgroup_id": "sg1", "name": "acc1", "balance": 0, "tenant_id": "t1"}
@@ -73,5 +85,6 @@ def test_import_accounts_success():
 
     response = client.post("/accounts/import?tenant_id=t1", json=payload)
     assert response.status_code == 201
+    assert calls["count"] == 1
 
     app.dependency_overrides.clear()
