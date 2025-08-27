@@ -4,3 +4,4 @@ python-jose
 pydantic
 pytest
 google-cloud-bigquery
+email-validator
