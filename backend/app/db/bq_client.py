@@ -21,8 +21,9 @@ class _DummyBigQueryClient:
 
 client = bigquery.Client(project=PROJECT_ID) or _DummyBigQueryClient()
 
-async def query(table: str, filters: Dict[str, Any]) -> List[Dict]:
-    # Executa SELECT * FROM `PROJECT_ID.DATASET.table` com filtros opcionais.
+
+def query(table: str, filters: Dict[str, Any]) -> List[Dict]:
+    """Executa ``SELECT *`` com filtros opcionais."""
     table_ref = f"`{PROJECT_ID}.{DATASET}.{table}`"
     sql = f"SELECT * FROM {table_ref}"
     params = []
@@ -37,14 +38,16 @@ async def query(table: str, filters: Dict[str, Any]) -> List[Dict]:
     rows = job.result()
     return [dict(row) for row in rows]
 
-async def insert(table: str, row: Dict[str, Any]):
-    # Insere uma linha JSON na tabela especificada.
+
+def insert(table: str, row: Dict[str, Any]):
+    """Insere uma linha JSON na tabela especificada."""
     table_ref = f"{PROJECT_ID}.{DATASET}.{table}"
     errors = client.insert_rows_json(table_ref, [row])
     if errors:
         raise RuntimeError(f"Error inserting into {table}: {errors}")
 
-async def insert_many(table: str, rows: List[Dict[str, Any]]):
+
+def insert_many(table: str, rows: List[Dict[str, Any]]):
     """Insert multiple JSON rows into the specified table.
 
     Raises:
@@ -55,11 +58,12 @@ async def insert_many(table: str, rows: List[Dict[str, Any]]):
     if errors:
         raise RuntimeError(f"Error inserting into {table}: {errors}")
 
-async def update(table: str, id: str, data: Dict[str, Any]):
-    # Atualiza uma linha por id na tabela especificada.
+
+def update(table: str, id: str, data: Dict[str, Any]):
+    """Atualiza uma linha por ``id`` na tabela especificada."""
     set_clause = ", ".join([f"{k}=@{k}" for k in data.keys()])
     table_ref = f"`{PROJECT_ID}.{DATASET}.{table}`"
-    sql = f""" 
+    sql = f"""
 UPDATE {table_ref}
 SET {set_clause}
 WHERE id=@id
@@ -69,13 +73,17 @@ WHERE id=@id
         params.append(bigquery.ScalarQueryParameter(k, "STRING", v))
     client.query(sql, job_config=QueryJobConfig(query_parameters=params)).result()
 
-async def delete(table: str, id: str):
-    # Deleta uma linha por id na tabela especificada.
+
+def delete(table: str, id: str):
+    """Deleta uma linha por ``id`` na tabela especificada."""
     table_ref = f"`{PROJECT_ID}.{DATASET}.{table}`"
     sql = f"DELETE FROM {table_ref} WHERE id=@id"
-    job_config = QueryJobConfig(query_parameters=[bigquery.ScalarQueryParameter("id", "STRING", id)])
+    job_config = QueryJobConfig(
+        query_parameters=[bigquery.ScalarQueryParameter("id", "STRING", id)]
+    )
     client.query(sql, job_config=job_config).result()
 
-async def query_user(username: str):
-    # Busca usuário por username na tabela Users.
-    return await query("Users", {"username": username})
+
+def query_user(username: str):
+    """Busca usuário por ``username`` na tabela ``Users``."""
+    return query("Users", {"username": username})

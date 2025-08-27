@@ -3,6 +3,7 @@
 from datetime import datetime
 from uuid import uuid4
 
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.db.bq_client import delete, insert, query, update
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/forecast", tags=["forecast"])
 async def list_forecasts(
     current=Depends(get_current_user), tenant_id: str = Depends(tenant)
 ):
-    return await query("Forecasts", {"tenant_id": tenant_id})
+    return await asyncio.to_thread(query, "Forecasts", {"tenant_id": tenant_id})
 
 
 @router.post("/", response_model=ForecastInDB, status_code=201)
@@ -32,7 +33,7 @@ async def create_forecast(
     record = forecast.dict()
     record["id"] = new_id
     record["created_at"] = datetime.utcnow()
-    await insert("Forecasts", record)
+    await asyncio.to_thread(insert, "Forecasts", record)
     return record
 
 
@@ -46,13 +47,13 @@ async def update_forecast(
     if forecast.tenant_id != tenant_id:
         raise HTTPException(status_code=403, detail="Access denied to this tenant")
 
-    existing = await query(
-        "Forecasts", {"id": forecast_id, "tenant_id": tenant_id}
+    existing = await asyncio.to_thread(
+        query, "Forecasts", {"id": forecast_id, "tenant_id": tenant_id}
     )
     if not existing:
         raise HTTPException(status_code=404, detail="Forecast not found")
 
-    await update("Forecasts", forecast_id, forecast.dict())
+    await asyncio.to_thread(update, "Forecasts", forecast_id, forecast.dict())
     return {**existing[0], **forecast.dict(), "id": forecast_id}
 
 
@@ -60,10 +61,10 @@ async def update_forecast(
 async def delete_forecast(
     forecast_id: str, current=Depends(get_current_user), tenant_id: str = Depends(tenant)
 ):
-    existing = await query(
-        "Forecasts", {"id": forecast_id, "tenant_id": tenant_id}
+    existing = await asyncio.to_thread(
+        query, "Forecasts", {"id": forecast_id, "tenant_id": tenant_id}
     )
     if not existing:
         raise HTTPException(status_code=404, detail="Forecast not found")
 
-    await delete("Forecasts", forecast_id)
+    await asyncio.to_thread(delete, "Forecasts", forecast_id)
