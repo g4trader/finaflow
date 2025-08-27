@@ -9,7 +9,7 @@ from app.db.bq_client import query
 CASH_FLOW_TABLE = "CashFlow"
 
 
-async def cash_flow_summary(group_by: str) -> Any:
+async def cash_flow_summary(group_by: str, tenant_id: str) -> Any:
     """Return cash-flow aggregates grouped by the provided period.
 
     The function fetches cash-flow records from the database and groups them
@@ -18,13 +18,14 @@ async def cash_flow_summary(group_by: str) -> Any:
 
     Args:
         group_by: ``"month"`` or ``"day"`` defining aggregation granularity.
+        tenant_id: Identifier used to filter results by tenant.
 
     Returns:
         A list of dictionaries with ``period``, ``predicted`` and ``realized``
         totals ordered by the period.
     """
 
-    rows = await query(CASH_FLOW_TABLE, {})
+    rows = await query(CASH_FLOW_TABLE, {"tenant_id": tenant_id})
 
     totals: Dict[str, Dict[str, float]] = defaultdict(lambda: {"predicted": 0.0, "realized": 0.0})
 
