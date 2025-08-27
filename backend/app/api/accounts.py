@@ -3,6 +3,7 @@
 from uuid import uuid4
 from datetime import datetime
 
+import asyncio
 import decimal
 from decimal import Decimal
 
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/accounts", tags=["accounts"])
 async def list_accounts(
     current=Depends(get_current_user), tenant_id: str = Depends(tenant)
 ):
-    return await query("Accounts", {"tenant_id": tenant_id})
+    return await asyncio.to_thread(query, "Accounts", {"tenant_id": tenant_id})
 
 
 @router.post("/", response_model=AccountInDB, status_code=201)
@@ -34,7 +35,7 @@ async def create_account(
     record = account.dict()
     record["id"] = new_id
     record["created_at"] = datetime.utcnow()
-    await insert("Accounts", record)
+    await asyncio.to_thread(insert, "Accounts", record)
     return record
 
 
@@ -42,7 +43,9 @@ async def create_account(
 async def get_account(
     account_id: str, current=Depends(get_current_user), tenant_id: str = Depends(tenant)
 ):
-    res = await query("Accounts", {"id": account_id, "tenant_id": tenant_id})
+    res = await asyncio.to_thread(
+        query, "Accounts", {"id": account_id, "tenant_id": tenant_id}
+    )
     if not res:
         raise HTTPException(status_code=404, detail="Account not found")
     return res[0]
@@ -58,11 +61,13 @@ async def update_account(
     if account.tenant_id != tenant_id:
         raise HTTPException(status_code=403, detail="Access denied to this tenant")
 
-    existing = await query("Accounts", {"id": account_id, "tenant_id": tenant_id})
+    existing = await asyncio.to_thread(
+        query, "Accounts", {"id": account_id, "tenant_id": tenant_id}
+    )
     if not existing:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    await update("Accounts", account_id, account.dict())
+    await asyncio.to_thread(update, "Accounts", account_id, account.dict())
     return {**existing[0], **account.dict(), "id": account_id}
 
 
@@ -70,11 +75,13 @@ async def update_account(
 async def delete_account(
     account_id: str, current=Depends(get_current_user), tenant_id: str = Depends(tenant)
 ):
-    existing = await query("Accounts", {"id": account_id, "tenant_id": tenant_id})
+    existing = await asyncio.to_thread(
+        query, "Accounts", {"id": account_id, "tenant_id": tenant_id}
+    )
     if not existing:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    await delete("Accounts", account_id)
+    await asyncio.to_thread(delete, "Accounts", account_id)
 
 
 @router.post("/load_initial_data", response_model=list[AccountInDB], status_code=201)
@@ -92,7 +99,7 @@ async def load_initial_data(
         record = account.dict()
         record["id"] = new_id
         record["created_at"] = datetime.utcnow()
-        await insert("Accounts", record)
+        await asyncio.to_thread(insert, "Accounts", record)
         records.append(record)
     return records
 
@@ -129,7 +136,7 @@ async def import_accounts(
         collected_records.append(record)
 
     if collected_records:
-        await insert_many("Accounts", collected_records)
+        await asyncio.to_thread(insert_many, "Accounts", collected_records)
 
     return AccountImportSummary(inserted=collected_records, skipped=skipped_details)
 

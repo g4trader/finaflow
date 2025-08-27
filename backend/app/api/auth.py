@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from uuid import uuid4
+
+import asyncio
+
 from app.models.user import UserCreate, UserInDB, Role
 from app.services.security import hash_password, verify_password, create_access_token
 from app.services.dependencies import get_current_active_user, require_super_admin
@@ -16,13 +19,20 @@ async def signup(user: UserCreate, current=Depends(require_super_admin)):
         user.tenant_id = None
     hashed = hash_password(user.password)
     user_id = str(uuid4())
-    record = {"id": user_id, "username": user.username, "email": user.email, "hashed_password": hashed, "role": user.role.value, "tenant_id": user.tenant_id}
-    await insert("Users", record)
+    record = {
+        "id": user_id,
+        "username": user.username,
+        "email": user.email,
+        "hashed_password": hashed,
+        "role": user.role.value,
+        "tenant_id": user.tenant_id,
+    }
+    await asyncio.to_thread(insert, "Users", record)
     return {"id": user_id}
 
 @router.post("/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    results = await query_user(form_data.username)
+    results = await asyncio.to_thread(query_user, form_data.username)
     if not results:
         raise HTTPException(status_code=400, detail="Invalid credentials")
     user = UserInDB(**results[0])
