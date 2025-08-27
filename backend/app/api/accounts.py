@@ -33,7 +33,7 @@ async def create_account(
     new_id = str(uuid4())
     record = account.dict()
     record["id"] = new_id
-    record["balance"] = Decimal("0")
+    record["created_at"] = datetime.utcnow()
     await insert("Accounts", record)
     return record
 
