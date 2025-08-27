@@ -80,11 +80,20 @@ def test_import_accounts_success(monkeypatch):
     monkeypatch.setattr(bq_client.client, "insert_rows_json", tracking_insert_rows_json)
 
     payload = [
-        {"subgroup_id": "sg1", "name": "acc1", "balance": 0, "tenant_id": "t1"}
+        {"subgroup_id": "sg1", "name": "acc1", "balance": 0, "tenant_id": "t1"},
+        {
+            "subgroup_id": "sg1",
+            "name": "acc2",
+            "balance": "not-a-number",
+            "tenant_id": "t1",
+        },
     ]
 
     response = client.post("/accounts/import?tenant_id=t1", json=payload)
     assert response.status_code == 201
     assert calls["count"] == 1
+    data = response.json()
+    assert data["skipped"] == [{"row": 1, "reason": "invalid balance"}]
+    assert len(data["inserted"]) == 1
 
     app.dependency_overrides.clear()
