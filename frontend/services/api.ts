@@ -15,4 +15,13 @@ export const signup = async (data: any, token?: string) => {
   return response.data;
 };
 
+export const getCashFlowReport = async (groupBy: string = 'month', token?: string) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.get('/reports/cash-flow', {
+    params: { group_by: groupBy },
+    headers,
+  });
+  return response.data;
+};
+
 export default api;
