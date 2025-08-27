@@ -3,6 +3,7 @@
 from uuid import uuid4
 from datetime import datetime
 
+import decimal
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -96,9 +97,9 @@ async def load_initial_data(
     return records
 
 
-@router.post("/import", response_model=list[AccountInDB], status_code=201)
+@router.post("/import", status_code=201)
 async def import_accounts(
-    accounts: list[AccountCreate],
+    accounts: list[dict],
     current=Depends(get_current_user),
     tenant_id: str = Depends(tenant),
 ):
@@ -106,20 +107,29 @@ async def import_accounts(
 
     Records are validated and collected first, then persisted with one
     `insert_many` call to avoid multiple round trips to the database.
+    Invalid balances are reported in the ``skipped`` list instead of
+    aborting the entire import.
     """
     collected_records: list[AccountInDB] = []
-    for account in accounts:
-        if account.tenant_id != tenant_id:
+    skipped_details: list[dict] = []
+    for idx, raw in enumerate(accounts):
+        if raw.get("tenant_id") != tenant_id:
             raise HTTPException(status_code=403, detail="Access denied to this tenant")
 
+        try:
+            raw["balance"] = Decimal(str(raw["balance"]))
+        except decimal.InvalidOperation:
+            skipped_details.append({"row": idx, "reason": "invalid balance"})
+            continue
+
+        account = AccountCreate(**raw)
         record = account.dict()
         record["id"] = str(uuid4())
-        record["balance"] = Decimal("0")
         record["created_at"] = datetime.utcnow()
         collected_records.append(record)
 
     if collected_records:
         await insert_many("Accounts", collected_records)
 
-    return collected_records
+    return {"inserted": collected_records, "skipped": skipped_details}
 
