@@ -1,5 +1,8 @@
-from pydantic import BaseModel
+from datetime import datetime
+from decimal import Decimal
 from typing import Optional
+
+from pydantic import BaseModel
 
 class GroupCreate(BaseModel):
     name: str
@@ -8,7 +11,7 @@ class GroupCreate(BaseModel):
 
 class GroupInDB(GroupCreate):
     id: str
-    created_at: str
+    created_at: datetime
 
 class SubgroupCreate(BaseModel):
     group_id: str
@@ -18,14 +21,14 @@ class SubgroupCreate(BaseModel):
 
 class SubgroupInDB(SubgroupCreate):
     id: str
-    created_at: str
+    created_at: datetime
 
 class AccountCreate(BaseModel):
     subgroup_id: str
     name: str
-    balance: float
+    balance: Decimal
     tenant_id: str
 
 class AccountInDB(AccountCreate):
     id: str
-    created_at: str
+    created_at: datetime
