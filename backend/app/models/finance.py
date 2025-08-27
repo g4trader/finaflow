@@ -37,3 +37,27 @@ class AccountInDB(AccountCreate):
 class AccountImportSummary(BaseModel):
     inserted: list[AccountInDB]
     skipped: list[dict]
+
+
+class TransactionCreate(BaseModel):
+    account_id: str
+    amount: Decimal
+    description: Optional[str] = None
+    tenant_id: str
+
+
+class TransactionInDB(TransactionCreate):
+    id: str
+    created_at: datetime
+
+
+class ForecastCreate(BaseModel):
+    account_id: str
+    amount: Decimal
+    description: Optional[str] = None
+    tenant_id: str
+
+
+class ForecastInDB(ForecastCreate):
+    id: str
+    created_at: datetime
