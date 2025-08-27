@@ -30,6 +30,17 @@ async def insert(table: str, row: Dict[str, Any]):
     if errors:
         raise RuntimeError(f"Error inserting into {table}: {errors}")
 
+async def insert_many(table: str, rows: List[Dict[str, Any]]):
+    """Insert multiple JSON rows into the specified table.
+
+    Raises:
+        RuntimeError: If BigQuery reports any insertion errors.
+    """
+    table_ref = f"{PROJECT_ID}.{DATASET}.{table}"
+    errors = client.insert_rows_json(table_ref, rows)
+    if errors:
+        raise RuntimeError(f"Error inserting into {table}: {errors}")
+
 async def update(table: str, id: str, data: Dict[str, Any]):
     # Atualiza uma linha por id na tabela especificada.
     set_clause = ", ".join([f"{k}=@{k}" for k in data.keys()])
