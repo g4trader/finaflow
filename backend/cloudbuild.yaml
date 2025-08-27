@@ -74,6 +74,7 @@ steps:
       - '1'
       - '--max-instances'
       - '10'
+      - '--quiet'
 
 images:
   - 'gcr.io/$PROJECT_ID/finaflow-backend:$SHORT_SHA'
