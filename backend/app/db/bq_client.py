@@ -19,7 +19,12 @@ class _DummyBigQueryClient:
         return _Job()
 
 
-client = bigquery.Client(project=PROJECT_ID) or _DummyBigQueryClient()
+try:
+    client = bigquery.Client(project=PROJECT_ID)
+    if client is None:
+        client = _DummyBigQueryClient()
+except Exception:
+    client = _DummyBigQueryClient()
 
 
 def query(table: str, filters: Dict[str, Any]) -> List[Dict]:
