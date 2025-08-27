@@ -5,7 +5,21 @@ from typing import Any, Dict, List
 # Configurar projeto e dataset
 PROJECT_ID = "automatizar-452311"
 DATASET = "finaflow"
-client = bigquery.Client(project=PROJECT_ID)
+
+
+class _DummyBigQueryClient:
+    def insert_rows_json(self, table, rows):
+        return []
+
+    def query(self, sql, job_config=None):
+        class _Job:
+            def result(self_inner):
+                return []
+
+        return _Job()
+
+
+client = bigquery.Client(project=PROJECT_ID) or _DummyBigQueryClient()
 
 async def query(table: str, filters: Dict[str, Any]) -> List[Dict]:
     # Executa SELECT * FROM `PROJECT_ID.DATASET.table` com filtros opcionais.

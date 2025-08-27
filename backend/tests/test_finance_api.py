@@ -67,3 +67,43 @@ def test_account_creation_validation_error():
     assert response.status_code == 422
     app.dependency_overrides.clear()
 
+
+def test_transaction_creation_forbidden_for_other_tenant():
+    app.dependency_overrides[get_current_user] = override_tenant_user
+    response = client.post(
+        "/transactions/?tenant_id=t2",
+        json={"account_id": "a1", "amount": 10.0, "tenant_id": "t2"},
+    )
+    assert response.status_code == 403
+    app.dependency_overrides.clear()
+
+
+def test_transaction_creation_validation_error():
+    app.dependency_overrides[get_current_user] = override_tenant_user
+    response = client.post(
+        "/transactions/?tenant_id=t1",
+        json={"amount": 10.0, "tenant_id": "t1"},
+    )
+    assert response.status_code == 422
+    app.dependency_overrides.clear()
+
+
+def test_forecast_creation_forbidden_for_other_tenant():
+    app.dependency_overrides[get_current_user] = override_tenant_user
+    response = client.post(
+        "/forecast/?tenant_id=t2",
+        json={"account_id": "a1", "amount": 5.0, "tenant_id": "t2"},
+    )
+    assert response.status_code == 403
+    app.dependency_overrides.clear()
+
+
+def test_forecast_creation_validation_error():
+    app.dependency_overrides[get_current_user] = override_tenant_user
+    response = client.post(
+        "/forecast/?tenant_id=t1",
+        json={"account_id": "a1", "tenant_id": "t1"},
+    )
+    assert response.status_code == 422
+    app.dependency_overrides.clear()
+
