@@ -2,6 +2,7 @@ import os
 import sys
 import types
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -10,26 +11,14 @@ class DummyClient:
         return []
 
 
-fake_bigquery = types.SimpleNamespace(
-    Client=lambda *a, **k: DummyClient(),
-    ScalarQueryParameter=lambda *a, **k: None,
-    QueryJobConfig=lambda *a, **k: None,
-)
-google_cloud = types.SimpleNamespace(bigquery=fake_bigquery)
-sys.modules.setdefault("google", types.ModuleType("google"))
-sys.modules["google.cloud"] = google_cloud
-sys.modules["google.cloud.bigquery"] = fake_bigquery
-
 # Ensure the "backend" directory is on the Python path so ``app`` can be imported
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 # Provide required configuration variables for Settings
 os.environ.setdefault("JWT_SECRET", "testing-secret")
 
-from app.main import app  # noqa: E402
 from app.models.user import Role, UserInDB  # noqa: E402
 from app.services.dependencies import get_current_user  # noqa: E402
-from app.db import bq_client  # noqa: E402
 from app.models.finance import AccountImportSummary  # noqa: E402
 
 
@@ -44,10 +33,27 @@ def override_tenant_user():
     )
 
 
-client = TestClient(app, raise_server_exceptions=False)
+@pytest.fixture
+def client_with_bq(monkeypatch):
+    fake_bigquery = types.SimpleNamespace(
+        Client=lambda *a, **k: DummyClient(),
+        ScalarQueryParameter=lambda *a, **k: None,
+        QueryJobConfig=lambda *a, **k: None,
+    )
+    google_cloud = types.SimpleNamespace(bigquery=fake_bigquery)
+    monkeypatch.setitem(sys.modules, "google", types.ModuleType("google"))
+    monkeypatch.setitem(sys.modules, "google.cloud", google_cloud)
+    monkeypatch.setitem(sys.modules, "google.cloud.bigquery", fake_bigquery)
+
+    from app.main import app  # noqa: E402
+    from app.db import bq_client  # noqa: E402
+
+    client = TestClient(app, raise_server_exceptions=False)
+    yield app, client, bq_client
 
 
-def test_import_accounts_failure(monkeypatch):
+def test_import_accounts_failure(client_with_bq, monkeypatch):
+    app, client, bq_client = client_with_bq
     app.dependency_overrides[get_current_user] = override_tenant_user
 
     calls = {"count": 0}
@@ -69,7 +75,8 @@ def test_import_accounts_failure(monkeypatch):
     app.dependency_overrides.clear()
 
 
-def test_import_accounts_success(monkeypatch):
+def test_import_accounts_success(client_with_bq, monkeypatch):
+    app, client, bq_client = client_with_bq
     app.dependency_overrides[get_current_user] = override_tenant_user
 
     calls = {"count": 0}
