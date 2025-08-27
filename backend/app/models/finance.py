@@ -32,3 +32,8 @@ class AccountCreate(BaseModel):
 class AccountInDB(AccountCreate):
     id: str
     created_at: datetime
+
+
+class AccountImportSummary(BaseModel):
+    inserted: list[AccountInDB]
+    skipped: list[dict]
