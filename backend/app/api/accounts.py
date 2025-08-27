@@ -93,3 +93,51 @@ async def load_initial_data(
         records.append(record)
     return records
 
+
+@router.post("/import", response_model=dict)
+async def import_accounts(
+    accounts: list[dict],
+    current=Depends(get_current_user),
+    tenant_id: str = Depends(tenant),
+):
+    """Import multiple accounts, skipping rows with blank required fields.
+
+    Returns a summary with counts of inserted and skipped rows. Skipped rows
+    include the 1-based row number and reason.
+    """
+
+    inserted = 0
+    skipped_details: list[dict] = []
+    required_fields = ["subgroup_id", "name", "balance", "tenant_id"]
+
+    for idx, raw in enumerate(accounts, start=1):
+        missing = []
+        for field in required_fields:
+            value = raw.get(field)
+            if value is None or (isinstance(value, str) and not value.strip()):
+                missing.append(field)
+
+        if missing:
+            skipped_details.append(
+                {"row": idx, "reason": f"blank fields: {', '.join(missing)}"}
+            )
+            continue
+
+        if raw["tenant_id"] != tenant_id:
+            raise HTTPException(status_code=403, detail="Access denied to this tenant")
+
+        record = {
+            "id": str(uuid4()),
+            "subgroup_id": raw["subgroup_id"],
+            "name": raw["name"],
+            "balance": Decimal(str(raw["balance"])),
+            "tenant_id": raw["tenant_id"],
+        }
+        await insert("Accounts", record)
+        inserted += 1
+
+    result: dict = {"inserted": inserted, "skipped": len(skipped_details)}
+    if skipped_details:
+        result["skipped_details"] = skipped_details
+    return result
+
