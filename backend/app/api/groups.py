@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from uuid import uuid4
-from app.models.finance import GroupCreate, GroupInDB
+from app.models.group import GroupCreate, GroupInDB
 from app.services.dependencies import get_current_active_user, require_super_admin, require_tenant_access
 from app.db.bq_client import insert, query
 
