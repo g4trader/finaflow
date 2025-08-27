@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.db.bq_client import delete, insert, query, update
@@ -27,6 +29,7 @@ async def create_account(
     new_id = str(uuid4())
     record = account.dict()
     record["id"] = new_id
+    record["balance"] = Decimal("0")
     await insert("Accounts", record)
     return record
 
