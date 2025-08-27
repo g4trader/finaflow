@@ -1,3 +1,5 @@
+"""API routes for account operations."""
+
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -68,4 +70,23 @@ async def delete_account(
         raise HTTPException(status_code=404, detail="Account not found")
 
     await delete("Accounts", account_id)
+
+
+@router.post("/load_initial_data", response_model=list[AccountInDB], status_code=201)
+async def load_initial_data(
+    accounts: list[AccountCreate],
+    current=Depends(get_current_user),
+    tenant_id: str = Depends(tenant),
+):
+    """Bulk insert a list of accounts for the given tenant."""
+    records: list[AccountInDB] = []
+    for account in accounts:
+        if account.tenant_id != tenant_id:
+            raise HTTPException(status_code=403, detail="Access denied to this tenant")
+        new_id = str(uuid4())
+        record = account.dict()
+        record["id"] = new_id
+        await insert("Accounts", record)
+        records.append(record)
+    return records
 
