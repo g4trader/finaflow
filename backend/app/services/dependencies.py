@@ -26,3 +26,22 @@ def require_tenant_access(tenant_id: str, current: UserInDB = Depends(get_curren
     if current.role == Role.tenant_user and current.tenant_id != tenant_id:
         raise HTTPException(status_code=403, detail="Access denied to this tenant")
     return current
+
+
+def tenant(tenant_id: str | None = None, current: UserInDB = Depends(get_current_user)) -> str:
+    """Validate and return the tenant identifier for the request.
+
+    If ``tenant_id`` is not provided, the current user's tenant is used. Tenant
+    users are restricted to their own tenant and will receive a 403 error when
+    trying to access others.
+    """
+
+    if tenant_id is None:
+        if current.tenant_id is None:
+            raise HTTPException(status_code=400, detail="tenant_id required")
+        tenant_id = current.tenant_id
+
+    if current.role == Role.tenant_user and current.tenant_id != tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied to this tenant")
+
+    return tenant_id
