@@ -4,6 +4,7 @@ from app.api.subgroups import router as subgroups_router
 from app.api.accounts import router as accounts_router
 from app.api.tenants import router as tenants_router
 from app.api.users import router as users_router
+from app.api.reports import router as reports_router
 
 def include_routers(app):
     app.include_router(auth_router)
@@ -12,3 +13,4 @@ def include_routers(app):
     app.include_router(groups_router)
     app.include_router(subgroups_router)
     app.include_router(accounts_router)
+    app.include_router(reports_router)
