@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List
 
+import asyncio
 from app.db.bq_client import query
 
 CASH_FLOW_TABLE = "CashFlow"
@@ -25,7 +26,7 @@ async def cash_flow_summary(group_by: str, tenant_id: str) -> Any:
         totals ordered by the period.
     """
 
-    rows = await query(CASH_FLOW_TABLE, {"tenant_id": tenant_id})
+    rows = await asyncio.to_thread(query, CASH_FLOW_TABLE, {"tenant_id": tenant_id})
 
     totals: Dict[str, Dict[str, float]] = defaultdict(lambda: {"predicted": 0.0, "realized": 0.0})
 

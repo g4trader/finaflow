@@ -12,7 +12,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 def _load_service_with_query(sample):
     recorded = {}
 
-    async def fake_query(table, filters):
+    def fake_query(table, filters):
         recorded["filters"] = filters
         tenant_id = filters.get("tenant_id")
         return [row for row in sample if row.get("tenant_id") == tenant_id]

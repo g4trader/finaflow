@@ -3,6 +3,7 @@
 from datetime import datetime
 from uuid import uuid4
 
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.db.bq_client import delete, insert, query, update
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 async def list_transactions(
     current=Depends(get_current_user), tenant_id: str = Depends(tenant)
 ):
-    return await query("Transactions", {"tenant_id": tenant_id})
+    return await asyncio.to_thread(query, "Transactions", {"tenant_id": tenant_id})
 
 
 @router.post("/", response_model=TransactionInDB, status_code=201)
@@ -32,7 +33,7 @@ async def create_transaction(
     record = transaction.dict()
     record["id"] = new_id
     record["created_at"] = datetime.utcnow()
-    await insert("Transactions", record)
+    await asyncio.to_thread(insert, "Transactions", record)
     return record
 
 
@@ -46,13 +47,13 @@ async def update_transaction(
     if transaction.tenant_id != tenant_id:
         raise HTTPException(status_code=403, detail="Access denied to this tenant")
 
-    existing = await query(
-        "Transactions", {"id": transaction_id, "tenant_id": tenant_id}
+    existing = await asyncio.to_thread(
+        query, "Transactions", {"id": transaction_id, "tenant_id": tenant_id}
     )
     if not existing:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    await update("Transactions", transaction_id, transaction.dict())
+    await asyncio.to_thread(update, "Transactions", transaction_id, transaction.dict())
     return {**existing[0], **transaction.dict(), "id": transaction_id}
 
 
@@ -60,10 +61,10 @@ async def update_transaction(
 async def delete_transaction(
     transaction_id: str, current=Depends(get_current_user), tenant_id: str = Depends(tenant)
 ):
-    existing = await query(
-        "Transactions", {"id": transaction_id, "tenant_id": tenant_id}
+    existing = await asyncio.to_thread(
+        query, "Transactions", {"id": transaction_id, "tenant_id": tenant_id}
     )
     if not existing:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    await delete("Transactions", transaction_id)
+    await asyncio.to_thread(delete, "Transactions", transaction_id)
