@@ -68,6 +68,18 @@ def test_account_creation_validation_error():
     app.dependency_overrides.clear()
 
 
+def test_account_creation_respects_balance():
+    app.dependency_overrides[get_current_user] = override_tenant_user
+    response = client.post(
+        "/accounts/?tenant_id=t1",
+        json={"subgroup_id": "s1", "name": "acc1", "balance": 123.45, "tenant_id": "t1"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert float(data["balance"]) == 123.45
+    app.dependency_overrides.clear()
+
+
 def test_transaction_creation_forbidden_for_other_tenant():
     app.dependency_overrides[get_current_user] = override_tenant_user
     response = client.post(
