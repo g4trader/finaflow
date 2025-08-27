@@ -1,12 +1,13 @@
 """API routes for account operations."""
 
 from uuid import uuid4
+from datetime import datetime
 
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.db.bq_client import delete, insert, query, update
+from app.db.bq_client import delete, insert, insert_many, query, update
 from app.models.finance import AccountCreate, AccountInDB
 from app.services.dependencies import get_current_user, tenant
 
@@ -89,7 +90,28 @@ async def load_initial_data(
         new_id = str(uuid4())
         record = account.dict()
         record["id"] = new_id
+        record["created_at"] = datetime.utcnow()
         await insert("Accounts", record)
         records.append(record)
+    return records
+
+
+@router.post("/import", response_model=list[AccountInDB], status_code=201)
+async def import_accounts(
+    accounts: list[AccountCreate],
+    current=Depends(get_current_user),
+    tenant_id: str = Depends(tenant),
+):
+    """Bulk insert accounts using a single BigQuery request."""
+    records: list[AccountInDB] = []
+    for account in accounts:
+        if account.tenant_id != tenant_id:
+            raise HTTPException(status_code=403, detail="Access denied to this tenant")
+        record = account.dict()
+        record["id"] = str(uuid4())
+        record["balance"] = Decimal("0")
+        record["created_at"] = datetime.utcnow()
+        records.append(record)
+    await insert_many("Accounts", records)
     return records
 
