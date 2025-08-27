@@ -2,6 +2,7 @@ import os
 import sys
 import types
 
+import pytest
 from fastapi.testclient import TestClient
 
 # Stub Google BigQuery client before importing application modules to avoid
@@ -25,6 +26,9 @@ os.environ.setdefault("JWT_SECRET", "testing-secret")
 from app.main import app  # noqa: E402
 from app.models.user import Role, UserInDB  # noqa: E402
 from app.services.dependencies import get_current_user  # noqa: E402
+import app.api.reports as reports_api  # noqa: E402
+import app.api.transactions as transactions_api  # noqa: E402
+import app.api.forecast as forecast_api  # noqa: E402
 
 
 def override_tenant_user():
@@ -117,5 +121,110 @@ def test_forecast_creation_validation_error():
         json={"account_id": "a1", "tenant_id": "t1"},
     )
     assert response.status_code == 422
+    app.dependency_overrides.clear()
+
+
+def test_cash_flow_endpoint_isolates_tenant(monkeypatch):
+    app.dependency_overrides[get_current_user] = override_tenant_user
+
+    recorded = {}
+
+    async def fake_cash_flow_summary(group_by, tenant_id):
+        recorded["group_by"] = group_by
+        recorded["tenant_id"] = tenant_id
+        return [{"period": "2025-01", "predicted": 100.0, "realized": 90.0}]
+
+    monkeypatch.setattr(reports_api, "cash_flow_summary", fake_cash_flow_summary)
+
+    response = client.get("/reports/cash-flow")
+    assert response.status_code == 200
+    assert recorded == {"group_by": "month", "tenant_id": "t1"}
+    assert response.json() == [
+        {"period": "2025-01", "predicted": 100.0, "realized": 90.0}
+    ]
+    app.dependency_overrides.clear()
+
+
+def test_transactions_list_isolates_tenant(monkeypatch):
+    app.dependency_overrides[get_current_user] = override_tenant_user
+    sample = [
+        {
+            "id": "tx1",
+            "account_id": "a1",
+            "amount": 10.0,
+            "tenant_id": "t1",
+            "created_at": "2025-01-01T00:00:00",
+        },
+        {
+            "id": "tx2",
+            "account_id": "a2",
+            "amount": 20.0,
+            "tenant_id": "t2",
+            "created_at": "2025-01-02T00:00:00",
+        },
+    ]
+    recorded = {}
+
+    def fake_query(table, filters):
+        recorded["filters"] = filters
+        return [row for row in sample if row["tenant_id"] == filters["tenant_id"]]
+
+    monkeypatch.setattr(transactions_api, "query", fake_query)
+
+    response = client.get("/transactions?tenant_id=t1")
+    assert response.status_code == 200
+    assert recorded["filters"] == {"tenant_id": "t1"}
+    assert response.json() == [
+        {
+            "id": "tx1",
+            "account_id": "a1",
+            "amount": "10.0",
+            "description": None,
+            "tenant_id": "t1",
+            "created_at": "2025-01-01T00:00:00",
+        }
+    ]
+    app.dependency_overrides.clear()
+
+
+def test_forecast_list_isolates_tenant(monkeypatch):
+    app.dependency_overrides[get_current_user] = override_tenant_user
+    sample = [
+        {
+            "id": "f1",
+            "account_id": "a1",
+            "amount": 5.0,
+            "tenant_id": "t1",
+            "created_at": "2025-01-01T00:00:00",
+        },
+        {
+            "id": "f2",
+            "account_id": "a2",
+            "amount": 7.0,
+            "tenant_id": "t2",
+            "created_at": "2025-01-02T00:00:00",
+        },
+    ]
+    recorded = {}
+
+    def fake_query(table, filters):
+        recorded["filters"] = filters
+        return [row for row in sample if row["tenant_id"] == filters["tenant_id"]]
+
+    monkeypatch.setattr(forecast_api, "query", fake_query)
+
+    response = client.get("/forecast?tenant_id=t1")
+    assert response.status_code == 200
+    assert recorded["filters"] == {"tenant_id": "t1"}
+    assert response.json() == [
+        {
+            "id": "f1",
+            "account_id": "a1",
+            "amount": "5.0",
+            "description": None,
+            "tenant_id": "t1",
+            "created_at": "2025-01-01T00:00:00",
+        }
+    ]
     app.dependency_overrides.clear()
 
