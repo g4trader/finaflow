@@ -18,6 +18,9 @@ steps:
 
   - id: 'Build Docker'
     name: 'gcr.io/cloud-builders/docker'
+    volumes:
+      - name: pip-cache
+        path: /root/.cache/pip
     args:
       - 'build'
       - '-t'
