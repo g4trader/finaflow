@@ -15,6 +15,7 @@ async def list_groups(current=Depends(get_current_active_user)):
 @router.post("/", response_model=GroupInDB, status_code=201)
 async def create_group(group: GroupCreate, current=Depends(require_super_admin)):
     gid = str(uuid4())
-    rec = group.dict(); rec["id"] = gid
+    rec = group.dict()
+    rec["id"] = gid
     await insert("Groups", rec)
     return rec
