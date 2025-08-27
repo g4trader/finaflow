@@ -9,7 +9,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.db.bq_client import delete, insert, insert_many, query, update
-from app.models.finance import AccountCreate, AccountInDB
+from app.models.finance import AccountCreate, AccountInDB, AccountImportSummary
 from app.services.dependencies import get_current_user, tenant
 
 
@@ -97,7 +97,7 @@ async def load_initial_data(
     return records
 
 
-@router.post("/import", status_code=201)
+@router.post("/import", response_model=AccountImportSummary, status_code=201)
 async def import_accounts(
     accounts: list[dict],
     current=Depends(get_current_user),
@@ -110,7 +110,7 @@ async def import_accounts(
     Invalid balances are reported in the ``skipped`` list instead of
     aborting the entire import.
     """
-    collected_records: list[AccountInDB] = []
+    collected_records: list[dict] = []
     skipped_details: list[dict] = []
     for idx, raw in enumerate(accounts):
         if raw.get("tenant_id") != tenant_id:
@@ -131,5 +131,5 @@ async def import_accounts(
     if collected_records:
         await insert_many("Accounts", collected_records)
 
-    return {"inserted": collected_records, "skipped": skipped_details}
+    return AccountImportSummary(inserted=collected_records, skipped=skipped_details)
 
