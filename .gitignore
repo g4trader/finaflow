@@ -1,2 +1,4 @@
 .DS_Store
 frontend/package_bkp.json
+node_modules/
+frontend/node_modules/
