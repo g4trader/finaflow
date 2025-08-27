@@ -102,16 +102,24 @@ async def import_accounts(
     current=Depends(get_current_user),
     tenant_id: str = Depends(tenant),
 ):
-    """Bulk insert accounts using a single BigQuery request."""
-    records: list[AccountInDB] = []
+    """Bulk insert accounts using a single BigQuery request.
+
+    Records are validated and collected first, then persisted with one
+    `insert_many` call to avoid multiple round trips to the database.
+    """
+    collected_records: list[AccountInDB] = []
     for account in accounts:
         if account.tenant_id != tenant_id:
             raise HTTPException(status_code=403, detail="Access denied to this tenant")
+
         record = account.dict()
         record["id"] = str(uuid4())
         record["balance"] = Decimal("0")
         record["created_at"] = datetime.utcnow()
-        records.append(record)
-    await insert_many("Accounts", records)
-    return records
+        collected_records.append(record)
+
+    if collected_records:
+        await insert_many("Accounts", collected_records)
+
+    return collected_records
 
