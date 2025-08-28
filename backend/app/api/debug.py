@@ -49,3 +49,14 @@ async def debug_auth_test(current=Depends(get_current_user)):
         "role": current.role,
         "tenant_id": current.tenant_id
     }
+
+@router.get("/jwt-config")
+async def debug_jwt_config():
+    """Endpoint de debug para verificar configuração JWT"""
+    from app.config import Settings
+    settings = Settings()
+    return {
+        "jwt_secret": settings.JWT_SECRET[:10] + "..." if settings.JWT_SECRET else "None",
+        "jwt_algorithm": settings.JWT_ALGORITHM,
+        "access_token_expire_minutes": settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    }
