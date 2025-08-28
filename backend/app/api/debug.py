@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 import asyncio
-from app.db.bq_client import query_user
+from app.db.bq_client import query_user, get_settings
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 
@@ -20,4 +20,20 @@ async def debug_user(username: str):
             "username": username,
             "error": str(e),
             "found": False
+        }
+
+@router.get("/config")
+async def debug_config():
+    """Endpoint de debug para verificar configurações do banco"""
+    try:
+        settings = get_settings()
+        return {
+            "project_id": settings.PROJECT_ID,
+            "dataset": settings.DATASET,
+            "table": "Users",
+            "full_table": f"{settings.PROJECT_ID}.{settings.DATASET}.Users"
+        }
+    except Exception as e:
+        return {
+            "error": str(e)
         }
