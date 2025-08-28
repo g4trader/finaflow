@@ -5,7 +5,7 @@ import asyncio
 
 from app.models.finance import GroupCreate, GroupInDB
 from app.services.dependencies import (
-    get_current_active_user,
+    get_current_user,
     require_super_admin,
     require_tenant_access,
 )
@@ -14,8 +14,8 @@ from app.db.bq_client import delete, insert, query, update
 router = APIRouter(prefix="/groups", tags=["groups"])
 
 @router.get("/", response_model=list[GroupInDB])
-async def list_groups(current=Depends(get_current_active_user)):
-    if current.role.value == "tenant_user":
+async def list_groups(current=Depends(get_current_user)):
+    if current.role == "tenant_user":
         return await asyncio.to_thread(query, "Groups", {"tenant_id": current.tenant_id})
     return await asyncio.to_thread(query, "Groups", {})
 
@@ -29,7 +29,7 @@ async def create_group(group: GroupCreate, current=Depends(require_super_admin))
 
 
 @router.put("/{group_id}", response_model=GroupInDB)
-async def update_group(group_id: str, group: GroupCreate, current=Depends(get_current_active_user)):
+async def update_group(group_id: str, group: GroupCreate, current=Depends(get_current_user)):
     existing = await asyncio.to_thread(query, "Groups", {"id": group_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -45,7 +45,7 @@ async def update_group(group_id: str, group: GroupCreate, current=Depends(get_cu
 
 
 @router.delete("/{group_id}", status_code=204)
-async def delete_group(group_id: str, current=Depends(get_current_active_user)):
+async def delete_group(group_id: str, current=Depends(get_current_user)):
     existing = await asyncio.to_thread(query, "Groups", {"id": group_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Group not found")
