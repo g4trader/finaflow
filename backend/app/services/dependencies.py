@@ -10,7 +10,19 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
-        return UserInDB(**payload)
+        
+        # Mapear campos do JWT para UserInDB
+        user_data = {
+            "id": payload.get("sub"),
+            "username": payload.get("sub"),  # Usar sub como username temporariamente
+            "email": f"{payload.get('sub')}@finaflow.com",  # Email temporário
+            "hashed_password": "",  # Não precisamos da senha aqui
+            "role": payload.get("role"),
+            "tenant_id": payload.get("tenant_id"),
+            "created_at": None  # Não temos essa informação no JWT
+        }
+        
+        return UserInDB(**user_data)
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
