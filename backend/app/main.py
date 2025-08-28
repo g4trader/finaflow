@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from datetime import datetime
 from app.api import auth, include_routers
+from app.db.bq_client import get_client
 
 app = FastAPI(title="FinaFlow Backend")
 
@@ -8,4 +10,15 @@ include_routers(app)
 
 @app.get("/healthz", tags=["health"])
 async def health_check():
-    return {"status": "ok"}
+    try:
+        # Verificar conexão com BigQuery
+        client = get_client()
+        if hasattr(client, 'project'):
+            project_id = client.project
+        return {
+            "status": "healthy",
+            "database": "connected" if hasattr(client, 'project') else "disconnected",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail="Service unhealthy")
