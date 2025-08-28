@@ -2,9 +2,9 @@ from google.cloud import bigquery
 from google.cloud.bigquery import QueryJobConfig
 from typing import Any, Dict, List
 
-# Configurar projeto e dataset
-PROJECT_ID = "automatizar-452311"
-DATASET = "finaflow"
+from app.config import Settings
+
+settings = Settings()
 
 
 class _DummyBigQueryClient:
@@ -20,7 +20,7 @@ class _DummyBigQueryClient:
 
 
 try:
-    client = bigquery.Client(project=PROJECT_ID)
+    client = bigquery.Client(project=settings.PROJECT_ID)
     if client is None:
         client = _DummyBigQueryClient()
 except Exception:
@@ -29,7 +29,7 @@ except Exception:
 
 def query(table: str, filters: Dict[str, Any]) -> List[Dict]:
     """Executa ``SELECT *`` com filtros opcionais."""
-    table_ref = f"`{PROJECT_ID}.{DATASET}.{table}`"
+    table_ref = f"`{settings.PROJECT_ID}.{settings.DATASET}.{table}`"
     sql = f"SELECT * FROM {table_ref}"
     params = []
     if filters:
@@ -46,7 +46,7 @@ def query(table: str, filters: Dict[str, Any]) -> List[Dict]:
 
 def insert(table: str, row: Dict[str, Any]):
     """Insere uma linha JSON na tabela especificada."""
-    table_ref = f"{PROJECT_ID}.{DATASET}.{table}"
+    table_ref = f"{settings.PROJECT_ID}.{settings.DATASET}.{table}"
     errors = client.insert_rows_json(table_ref, [row])
     if errors:
         raise RuntimeError(f"Error inserting into {table}: {errors}")
@@ -58,7 +58,7 @@ def insert_many(table: str, rows: List[Dict[str, Any]]):
     Raises:
         RuntimeError: If BigQuery reports any insertion errors.
     """
-    table_ref = f"{PROJECT_ID}.{DATASET}.{table}"
+    table_ref = f"{settings.PROJECT_ID}.{settings.DATASET}.{table}"
     errors = client.insert_rows_json(table_ref, rows)
     if errors:
         raise RuntimeError(f"Error inserting into {table}: {errors}")
@@ -67,7 +67,7 @@ def insert_many(table: str, rows: List[Dict[str, Any]]):
 def update(table: str, id: str, data: Dict[str, Any]):
     """Atualiza uma linha por ``id`` na tabela especificada."""
     set_clause = ", ".join([f"{k}=@{k}" for k in data.keys()])
-    table_ref = f"`{PROJECT_ID}.{DATASET}.{table}`"
+    table_ref = f"`{settings.PROJECT_ID}.{settings.DATASET}.{table}`"
     sql = f"""
 UPDATE {table_ref}
 SET {set_clause}
@@ -81,7 +81,7 @@ WHERE id=@id
 
 def delete(table: str, id: str):
     """Deleta uma linha por ``id`` na tabela especificada."""
-    table_ref = f"`{PROJECT_ID}.{DATASET}.{table}`"
+    table_ref = f"`{settings.PROJECT_ID}.{settings.DATASET}.{table}`"
     sql = f"DELETE FROM {table_ref} WHERE id=@id"
     job_config = QueryJobConfig(
         query_parameters=[bigquery.ScalarQueryParameter("id", "STRING", id)]
