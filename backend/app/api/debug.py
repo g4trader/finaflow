@@ -60,3 +60,30 @@ async def debug_jwt_config():
         "jwt_algorithm": settings.JWT_ALGORITHM,
         "access_token_expire_minutes": settings.ACCESS_TOKEN_EXPIRE_MINUTES
     }
+
+@router.get("/test-accounts")
+async def test_accounts():
+    """Endpoint de teste para verificar dados sem autenticação"""
+    try:
+        from app.db.bq_client import get_client
+        client = get_client()
+        
+        query = """
+        SELECT COUNT(*) as count
+        FROM `automatizar-452311.finaflow.Accounts`
+        WHERE tenant_id = 'default'
+        """
+        
+        results = client.query(query).result()
+        count = list(results)[0].count
+        
+        return {
+            "success": True,
+            "accounts_count": count,
+            "message": f"Encontradas {count} contas no banco"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
