@@ -14,8 +14,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
         # Mapear campos do JWT para UserInDB
         user_data = {
             "id": payload.get("sub"),
-            "username": payload.get("sub"),  # Usar sub como username temporariamente
-            "email": f"{payload.get('sub')}@finaflow.com",  # Email temporário
+            "username": "admin",  # Usar username fixo
+            "email": "admin@finaflow.com",  # Email fixo
             "hashed_password": "",  # Não precisamos da senha aqui
             "role": payload.get("role"),
             "tenant_id": payload.get("tenant_id")
