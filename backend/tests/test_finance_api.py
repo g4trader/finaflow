@@ -22,6 +22,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 # Provide required configuration variables for Settings
 os.environ.setdefault("JWT_SECRET", "testing-secret")
+os.environ.setdefault("PROJECT_ID", "test-project")
+os.environ.setdefault("DATASET", "test-dataset")
 
 from app.main import app  # noqa: E402
 from app.models.user import Role, UserInDB  # noqa: E402
