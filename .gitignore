@@ -2,3 +2,8 @@
 frontend/package_bkp.json
 node_modules/
 frontend/node_modules/
+__pycache__/
+*.pyc
+.env
+coverage/
+dist/
