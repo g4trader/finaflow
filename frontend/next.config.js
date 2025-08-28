@@ -2,12 +2,13 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  experimental: {
-    appDir: false,
-  },
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
-  },
+  // Removendo configurações experimentais problemáticas
+  // experimental: {
+  //   appDir: false,
+  // },
+  // env: {
+  //   CUSTOM_KEY: process.env.CUSTOM_KEY,
+  // },
 }
 
 module.exports = nextConfig

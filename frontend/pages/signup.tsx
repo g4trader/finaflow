@@ -28,6 +28,11 @@ export default function Signup() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -57,14 +62,23 @@ export default function Signup() {
     }
   };
 
+  // Verificar autenticação apenas no lado do cliente
   useEffect(() => {
-    if (!token || role !== 'super_admin') {
+    if (isClient && (!token || role !== 'super_admin')) {
       router.replace('/login');
     }
-  }, [token, role, router]);
+  }, [isClient, token, role, router]);
 
-  if (!token || role !== 'super_admin') {
-    return null;
+  // Renderizar loading enquanto verifica autenticação
+  if (!isClient || !token || role !== 'super_admin') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
   }
 
   const initGoogle = () => {
