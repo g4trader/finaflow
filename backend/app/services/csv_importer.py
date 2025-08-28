@@ -33,12 +33,16 @@ def load_csv_to_table(
 
     try:
         with open(csv_path, "rb") as csv_file:
-            job = client.load_table_from_file(
-                csv_file, table_ref, job_config=job_config
-            )
-            job.result()
-    except (GoogleCloudError, FileNotFoundError) as exc:
-        logging.error("Failed to load CSV to table %s: %s", table, exc)
-        return f"Failed to load CSV to table {table}: {exc}"
+            try:
+                job = client.load_table_from_file(
+                    csv_file, table_ref, job_config=job_config
+                )
+                job.result()
+            except GoogleCloudError as exc:
+                logging.error("Failed to load CSV to table %s: %s", table, exc)
+                return f"Failed to load CSV to table {table}: {exc}"
+    except FileNotFoundError as exc:
+        logging.error("CSV file %s not found: %s", csv_path, exc)
+        return f"CSV file {csv_path} not found: {exc}"
 
     return None
