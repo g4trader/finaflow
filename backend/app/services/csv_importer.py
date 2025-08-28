@@ -10,7 +10,9 @@ from google.cloud.exceptions import GoogleCloudError
 from app.db.bq_client import get_client, get_settings, _format_table
 
 
-def load_csv_to_table(csv_path: str, table: str, *, skip_leading_rows: int = 1) -> None:
+def load_csv_to_table(
+    csv_path: str, table: str, *, skip_leading_rows: int = 1
+) -> str | None:
     """Load a CSV file into a BigQuery table truncating existing data.
 
     Args:
@@ -37,4 +39,6 @@ def load_csv_to_table(csv_path: str, table: str, *, skip_leading_rows: int = 1) 
             job.result()
     except (GoogleCloudError, FileNotFoundError) as exc:
         logging.error("Failed to load CSV to table %s: %s", table, exc)
-        raise
+        return f"Failed to load CSV to table {table}: {exc}"
+
+    return None
