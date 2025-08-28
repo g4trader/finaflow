@@ -1,9 +1,24 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from app.api import auth, include_routers
 from app.db.bq_client import get_client
 
 app = FastAPI(title="FinaFlow Backend")
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://finaflow.vercel.app",  # Frontend em produção
+        "https://finaflow-qu0b1xjlo-south-medias-projects.vercel.app",  # URL alternativa do Vercel
+        "http://localhost:3000",  # Frontend local
+        "http://localhost:3001",  # Frontend local alternativo
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth.router)
 include_routers(app)
