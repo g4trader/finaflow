@@ -48,7 +48,7 @@ const CSVImport = () => {
     formData.append('file', selectedFile);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/csv/import/${importType}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}/csv/import/${importType}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -76,7 +76,7 @@ const CSVImport = () => {
 
   const downloadTemplate = async (type: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/csv/template/${type}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}/csv/template/${type}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
