@@ -49,6 +49,60 @@ export const deleteUser = async (userId: string, token?: string) => {
   return response.data;
 };
 
+// Group endpoints
+export const getGroups = async (token?: string) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.get('/groups', { headers });
+  return response.data;
+};
+
+export const createGroup = async (data: any, token?: string) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.post('/groups', data, { headers });
+  return response.data;
+};
+
+export const updateGroup = async (groupId: string, data: any, token?: string) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.put(`/groups/${groupId}`, data, { headers });
+  return response.data;
+};
+
+export const deleteGroup = async (groupId: string, token?: string) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.delete(`/groups/${groupId}`, { headers });
+  return response.data;
+};
+
+// Subgroup endpoints
+export const getSubgroups = async (token?: string) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.get('/subgroups', { headers });
+  return response.data;
+};
+
+export const createSubgroup = async (data: any, token?: string) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.post('/subgroups', data, { headers });
+  return response.data;
+};
+
+export const updateSubgroup = async (
+  subgroupId: string,
+  data: any,
+  token?: string,
+) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.put(`/subgroups/${subgroupId}`, data, { headers });
+  return response.data;
+};
+
+export const deleteSubgroup = async (subgroupId: string, token?: string) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.delete(`/subgroups/${subgroupId}`, { headers });
+  return response.data;
+};
+
 // Account endpoints
 export const getAccounts = async (token?: string) => {
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
