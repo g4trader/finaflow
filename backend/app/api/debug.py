@@ -242,22 +242,18 @@ async def temp_summary():
 @router.get("/routes-info")
 async def routes_info():
     """Endpoint para verificar informações das rotas"""
-    from fastapi import FastAPI
-    from app.main import app
-    
-    routes = []
-    for route in app.routes:
-        if hasattr(route, 'path'):
-            routes.append({
-                "path": route.path,
-                "name": route.name,
-                "methods": list(route.methods) if hasattr(route, 'methods') else []
-            })
-    
     return {
         "success": True,
-        "routes": routes,
-        "total_routes": len(routes)
+        "message": "Routes info endpoint working",
+        "available_endpoints": [
+            "/debug/routes-info",
+            "/debug/temp/summary",
+            "/debug/temp/accounts",
+            "/debug/temp/transactions",
+            "/debug-auth/test-get-current-user",
+            "/debug-auth/test-tenant",
+            "/debug-auth/test-both"
+        ]
     }
 
 @router.get("/test-auth-simple")
