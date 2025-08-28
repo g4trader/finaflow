@@ -5,6 +5,10 @@ import {
   Users,
   CreditCard,
   BarChart3,
+  Layers,
+  Layers3,
+  Wallet,
+  TrendingUp,
   Settings,
   LogOut,
   Menu,
@@ -34,6 +38,10 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     { icon: <Users className="w-5 h-5" />, label: 'Usuários', href: '/users', active: title === 'Usuários' },
     { icon: <CreditCard className="w-5 h-5" />, label: 'Transações', href: '/transactions', active: title === 'Transações' },
     { icon: <BarChart3 className="w-5 h-5" />, label: 'Relatórios', href: '/reports', active: title === 'Relatórios' },
+    { icon: <Layers className="w-5 h-5" />, label: 'Grupos', href: '/groups', active: title === 'Grupos' },
+    { icon: <Layers3 className="w-5 h-5" />, label: 'Subgrupos', href: '/subgroups', active: title === 'Subgrupos' },
+    { icon: <Wallet className="w-5 h-5" />, label: 'Contas', href: '/accounts', active: title === 'Contas' },
+    { icon: <TrendingUp className="w-5 h-5" />, label: 'Previsões', href: '/forecasts', active: title === 'Previsões' },
     { icon: <Settings className="w-5 h-5" />, label: 'Configurações', href: '/settings', active: title === 'Configurações' },
   ];
 
