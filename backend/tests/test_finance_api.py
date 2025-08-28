@@ -147,6 +147,15 @@ def test_cash_flow_endpoint_isolates_tenant(monkeypatch):
     app.dependency_overrides.clear()
 
 
+def test_cash_flow_endpoint_rejects_invalid_group_by():
+    app.dependency_overrides[get_current_user] = override_tenant_user
+
+    response = client.get("/reports/cash-flow?group_by=year")
+    assert response.status_code == 422
+
+    app.dependency_overrides.clear()
+
+
 def test_transactions_list_isolates_tenant(monkeypatch):
     app.dependency_overrides[get_current_user] = override_tenant_user
     sample = [
