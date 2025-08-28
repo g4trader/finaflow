@@ -41,7 +41,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     { icon: <Layers className="w-5 h-5" />, label: 'Groups', href: '/groups', active: title === 'Groups' },
     { icon: <Layers3 className="w-5 h-5" />, label: 'Subgroups', href: '/subgroups', active: title === 'Subgroups' },
     { icon: <Wallet className="w-5 h-5" />, label: 'Accounts', href: '/accounts', active: title === 'Accounts' },
-    { icon: <TrendingUp className="w-5 h-5" />, label: 'Forecasts', href: '/forecasts', active: title === 'Forecasts' },
+    { icon: <TrendingUp className="w-5 h-5" />, label: 'Forecast', href: '/forecast', active: title === 'Forecast' },
     { icon: <Settings className="w-5 h-5" />, label: 'Configurações', href: '/settings', active: title === 'Configurações' },
   ];
 
