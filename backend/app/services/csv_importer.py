@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+
 from google.cloud import bigquery
+from google.cloud.exceptions import GoogleCloudError
 
 from app.db.bq_client import get_client, get_settings, _format_table
 
@@ -26,6 +29,12 @@ def load_csv_to_table(csv_path: str, table: str, *, skip_leading_rows: int = 1) 
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
     )
 
-    with open(csv_path, "rb") as csv_file:
-        job = client.load_table_from_file(csv_file, table_ref, job_config=job_config)
-        job.result()
+    try:
+        with open(csv_path, "rb") as csv_file:
+            job = client.load_table_from_file(
+                csv_file, table_ref, job_config=job_config
+            )
+            job.result()
+    except (GoogleCloudError, FileNotFoundError) as exc:
+        logging.error("Failed to load CSV to table %s: %s", table, exc)
+        raise
