@@ -7,51 +7,52 @@ import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import {
+  getForecasts,
+  createForecast,
+  updateForecast,
+  deleteForecast,
   getAccounts,
-  createAccount,
-  updateAccount,
-  deleteAccount,
-  getSubgroups,
 } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
+interface Forecast {
+  id: string;
+  account_id: string;
+  amount: number;
+  description?: string;
+  tenant_id: string;
+  created_at: string;
+}
+
 interface Account {
   id: string;
-  subgroup_id: string;
-  name: string;
-  balance: number;
-  tenant_id: string;
-}
-
-interface Subgroup {
-  id: string;
   name: string;
 }
 
-export default function Accounts() {
+export default function Forecast() {
   const { token, tenantId } = useContext(AuthContext);
+  const [forecasts, setForecasts] = useState<Forecast[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
   const [search, setSearch] = useState('');
-  const [selectedSubgroup, setSelectedSubgroup] = useState('all');
+  const [selectedAccount, setSelectedAccount] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Account | null>(null);
+  const [editing, setEditing] = useState<Forecast | null>(null);
   const [formData, setFormData] = useState({
-    subgroup_id: '',
-    name: '',
-    balance: '',
+    account_id: '',
+    amount: '',
+    description: '',
   });
 
   const fetchData = async () => {
     try {
-      const [acs, sgs] = await Promise.all([
+      const [fcs, acs] = await Promise.all([
+        getForecasts(token ?? undefined),
         getAccounts(token ?? undefined),
-        getSubgroups(token ?? undefined),
       ]);
+      setForecasts(fcs);
       setAccounts(acs);
-      setSubgroups(sgs);
     } catch (err) {
-      console.error('Erro ao buscar contas', err);
+      console.error('Erro ao buscar previsões', err);
     }
   };
 
@@ -62,16 +63,16 @@ export default function Accounts() {
 
   const openNew = () => {
     setEditing(null);
-    setFormData({ subgroup_id: '', name: '', balance: '' });
+    setFormData({ account_id: '', amount: '', description: '' });
     setIsModalOpen(true);
   };
 
-  const openEdit = (a: Account) => {
-    setEditing(a);
+  const openEdit = (f: Forecast) => {
+    setEditing(f);
     setFormData({
-      subgroup_id: a.subgroup_id,
-      name: a.name,
-      balance: String(a.balance),
+      account_id: f.account_id,
+      amount: String(f.amount),
+      description: f.description || '',
     });
     setIsModalOpen(true);
   };
@@ -79,49 +80,49 @@ export default function Accounts() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
-      subgroup_id: formData.subgroup_id,
-      name: formData.name,
-      balance: parseFloat(formData.balance),
+      account_id: formData.account_id,
+      amount: parseFloat(formData.amount),
+      description: formData.description,
       tenant_id: tenantId,
     };
     try {
       if (editing) {
-        await updateAccount(editing.id, payload, token ?? undefined);
+        await updateForecast(editing.id, payload, token ?? undefined);
       } else {
-        await createAccount(payload, token ?? undefined);
+        await createForecast(payload, token ?? undefined);
       }
       await fetchData();
       setIsModalOpen(false);
     } catch (err) {
-      console.error('Erro ao salvar conta', err);
+      console.error('Erro ao salvar previsão', err);
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteAccount(id, token ?? undefined);
+      await deleteForecast(id, token ?? undefined);
       await fetchData();
     } catch (err) {
-      console.error('Erro ao excluir conta', err);
+      console.error('Erro ao excluir previsão', err);
     }
   };
 
-  const filtered = accounts.filter((a) => {
-    const matchesSearch = a.name
+  const filtered = forecasts.filter((f) => {
+    const matchesSearch = (f.description || '')
       .toLowerCase()
       .includes(search.toLowerCase());
-    const matchesSubgroup =
-      selectedSubgroup === 'all' || a.subgroup_id === selectedSubgroup;
-    return matchesSearch && matchesSubgroup;
+    const matchesAccount =
+      selectedAccount === 'all' || f.account_id === selectedAccount;
+    return matchesSearch && matchesAccount;
   });
 
   return (
-    <Layout title="Accounts">
+    <Layout title="Forecast">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex-1 max-w-xs">
             <Input
-              placeholder="Buscar contas..."
+              placeholder="Buscar previsões..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               icon={<Search className="w-4 h-4" />}
@@ -130,19 +131,19 @@ export default function Accounts() {
           </div>
           <div className="flex items-center space-x-3">
             <select
-              value={selectedSubgroup}
-              onChange={(e) => setSelectedSubgroup(e.target.value)}
+              value={selectedAccount}
+              onChange={(e) => setSelectedAccount(e.target.value)}
               className="input"
             >
-              <option value="all">Todos os subgrupos</option>
-              {subgroups.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
+              <option value="all">Todas as contas</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
                 </option>
               ))}
             </select>
             <Button icon={<Plus className="w-4 h-4" />} onClick={openNew}>
-              Nova Conta
+              Nova Previsão
             </Button>
           </div>
         </div>
@@ -152,32 +153,36 @@ export default function Accounts() {
             <Table>
               <Table.Header>
                 <Table.Row>
-                  <Table.Cell header>Nome</Table.Cell>
-                  <Table.Cell header>Subgrupo</Table.Cell>
-                  <Table.Cell header>Saldo</Table.Cell>
+                  <Table.Cell header>Conta</Table.Cell>
+                  <Table.Cell header>Valor</Table.Cell>
+                  <Table.Cell header>Descrição</Table.Cell>
+                  <Table.Cell header>Data</Table.Cell>
                   <Table.Cell header>Ações</Table.Cell>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {filtered.map((a) => (
-                  <Table.Row key={a.id}>
-                    <Table.Cell>{a.name}</Table.Cell>
-                    <Table.Cell>{subgroups.find((s) => s.id === a.subgroup_id)?.name}</Table.Cell>
-                    <Table.Cell>R$ {Number(a.balance).toFixed(2)}</Table.Cell>
+                {filtered.map((f) => (
+                  <Table.Row key={f.id}>
+                    <Table.Cell>{accounts.find((a) => a.id === f.account_id)?.name}</Table.Cell>
+                    <Table.Cell>R$ {Number(f.amount).toFixed(2)}</Table.Cell>
+                    <Table.Cell>{f.description}</Table.Cell>
+                    <Table.Cell>
+                      {new Date(f.created_at).toLocaleDateString('pt-BR')}
+                    </Table.Cell>
                     <Table.Cell>
                       <div className="flex space-x-2">
                         <Button
                           variant="ghost"
                           size="sm"
                           icon={<Edit className="w-4 h-4" />}
-                          onClick={() => openEdit(a)}
+                          onClick={() => openEdit(f)}
                         />
                         <Button
                           variant="ghost"
                           size="sm"
                           className="text-red-600 hover:text-red-700"
                           icon={<Trash2 className="w-4 h-4" />}
-                          onClick={() => handleDelete(a.id)}
+                          onClick={() => handleDelete(f.id)}
                         />
                       </div>
                     </Table.Cell>
@@ -192,40 +197,42 @@ export default function Accounts() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editing ? 'Editar Conta' : 'Nova Conta'}
+        title={editing ? 'Editar Previsão' : 'Nova Previsão'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Subgrupo
+              Conta
             </label>
             <select
               className="input w-full"
-              value={formData.subgroup_id}
+              value={formData.account_id}
               onChange={(e) =>
-                setFormData({ ...formData, subgroup_id: e.target.value })
+                setFormData({ ...formData, account_id: e.target.value })
               }
             >
-              <option value="">Selecione um subgrupo</option>
-              {subgroups.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
+              <option value="">Selecione uma conta</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
                 </option>
               ))}
             </select>
           </div>
           <Input
-            label="Nome"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            label="Valor"
+            type="number"
+            step="0.01"
+            value={formData.amount}
+            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
             fullWidth
           />
           <Input
-            label="Saldo"
-            type="number"
-            step="0.01"
-            value={formData.balance}
-            onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
+            label="Descrição"
+            value={formData.description}
+            onChange={(e) =>
+              setFormData({ ...formData, description: e.target.value })
+            }
             fullWidth
           />
           <div className="flex justify-end space-x-2">
