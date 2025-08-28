@@ -65,15 +65,15 @@ export default function Login() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Email */}
+                {/* Username ou Email */}
                 <div className="relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
                     <Mail className="w-5 h-5 text-gray-400" />
                   </div>
                   <Input
-                    type="email"
-                    label="Email"
-                    placeholder="seu@email.com"
+                    type="text"
+                    label="Username ou Email"
+                    placeholder="admin ou seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     fullWidth
