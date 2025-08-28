@@ -80,8 +80,8 @@ def test_load_csv_to_table_googleclouderror(monkeypatch, tmp_path, caplog):
     with caplog.at_level(logging.ERROR):
         msg = load_csv_to_table(str(csv_file), "Transactions")
 
-    assert "Failed to load CSV to table" in caplog.text
-    assert "Failed to load CSV to table" in msg
+    assert "Failed to load CSV to table Transactions" in caplog.text
+    assert "Failed to load CSV to table Transactions" in msg
 
 
 def test_load_csv_to_table_file_not_found(monkeypatch, caplog):
@@ -105,5 +105,5 @@ def test_load_csv_to_table_file_not_found(monkeypatch, caplog):
     with caplog.at_level(logging.ERROR):
         msg = load_csv_to_table("missing.csv", "Transactions")
 
-    assert "Failed to load CSV to table" in caplog.text
-    assert "Failed to load CSV to table" in msg
+    assert "CSV file missing.csv not found" in caplog.text
+    assert "CSV file missing.csv not found" in msg
