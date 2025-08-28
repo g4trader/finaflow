@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from enum import Enum
 from typing import Optional
 
@@ -8,7 +8,7 @@ class Role(str, Enum):
 
 class UserCreate(BaseModel):
     username: str
-    email: EmailStr
+    email: str
     password: str
     role: Role
     tenant_id: Optional[str] = None
@@ -16,7 +16,7 @@ class UserCreate(BaseModel):
 class UserInDB(BaseModel):
     id: str
     username: str
-    email: EmailStr
+    email: str
     hashed_password: str
     role: Role
     tenant_id: Optional[str] = None
