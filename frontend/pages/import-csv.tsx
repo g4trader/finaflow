@@ -1,4 +1,5 @@
 'use client';
+// Page for uploading CSV files into backend tables
 import React, { useState, useContext } from 'react';
 import Layout from '../components/layout/Layout';
 import Card from '../components/ui/Card';
