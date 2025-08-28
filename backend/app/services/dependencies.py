@@ -58,10 +58,13 @@ def tenant(tenant_id: str | None = None, current: UserInDB = Depends(get_current
 
     if tenant_id is None:
         if current.tenant_id is None:
+            # Para super_admin, usar tenant_id padrão
+            if current.role == "super_admin":
+                return "default"
             raise HTTPException(status_code=400, detail="tenant_id required")
         tenant_id = current.tenant_id
 
-    if current.role == Role.tenant_user and current.tenant_id != tenant_id:
+    if current.role == "tenant_user" and current.tenant_id != tenant_id:
         raise HTTPException(status_code=403, detail="Access denied to this tenant")
 
     return tenant_id
