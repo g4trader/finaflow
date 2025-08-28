@@ -4,7 +4,6 @@ import types
 import logging
 from pathlib import Path
 
-import pytest
 from google.cloud import bigquery
 from google.cloud.exceptions import GoogleCloudError
 
@@ -79,10 +78,10 @@ def test_load_csv_to_table_googleclouderror(monkeypatch, tmp_path, caplog):
     monkeypatch.setattr("app.services.csv_importer._format_table", fake_format_table)
 
     with caplog.at_level(logging.ERROR):
-        with pytest.raises(GoogleCloudError):
-            load_csv_to_table(str(csv_file), "Transactions")
+        msg = load_csv_to_table(str(csv_file), "Transactions")
 
     assert "Failed to load CSV to table" in caplog.text
+    assert "Failed to load CSV to table" in msg
 
 
 def test_load_csv_to_table_file_not_found(monkeypatch, caplog):
@@ -104,7 +103,7 @@ def test_load_csv_to_table_file_not_found(monkeypatch, caplog):
     monkeypatch.setattr("app.services.csv_importer._format_table", fake_format_table)
 
     with caplog.at_level(logging.ERROR):
-        with pytest.raises(FileNotFoundError):
-            load_csv_to_table("missing.csv", "Transactions")
+        msg = load_csv_to_table("missing.csv", "Transactions")
 
     assert "Failed to load CSV to table" in caplog.text
+    assert "Failed to load CSV to table" in msg
