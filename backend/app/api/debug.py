@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import asyncio
 from app.db.bq_client import query_user, get_settings
+from app.services.dependencies import get_current_user
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 
