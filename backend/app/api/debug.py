@@ -87,3 +87,108 @@ async def test_accounts():
             "success": False,
             "error": str(e)
         }
+
+@router.get("/temp/accounts")
+async def temp_accounts():
+    """Endpoint temporário para listar contas sem autenticação"""
+    try:
+        from app.db.bq_client import get_client
+        client = get_client()
+        
+        query = """
+        SELECT id, name, balance, created_at
+        FROM `automatizar-452311.finaflow.Accounts`
+        WHERE tenant_id = 'default'
+        LIMIT 20
+        """
+        
+        results = client.query(query).result()
+        accounts = [dict(row) for row in results]
+        
+        return {
+            "success": True,
+            "accounts": accounts,
+            "count": len(accounts)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.get("/temp/transactions")
+async def temp_transactions():
+    """Endpoint temporário para listar transações sem autenticação"""
+    try:
+        from app.db.bq_client import get_client
+        client = get_client()
+        
+        query = """
+        SELECT id, account_id, amount, description, created_at
+        FROM `automatizar-452311.finaflow.Transactions`
+        WHERE tenant_id = 'default'
+        ORDER BY created_at DESC
+        LIMIT 20
+        """
+        
+        results = client.query(query).result()
+        transactions = [dict(row) for row in results]
+        
+        return {
+            "success": True,
+            "transactions": transactions,
+            "count": len(transactions)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.get("/temp/summary")
+async def temp_summary():
+    """Endpoint temporário para resumo dos dados sem autenticação"""
+    try:
+        from app.db.bq_client import get_client
+        client = get_client()
+        
+        # Contar contas
+        accounts_query = """
+        SELECT COUNT(*) as count
+        FROM `automatizar-452311.finaflow.Accounts`
+        WHERE tenant_id = 'default'
+        """
+        accounts_result = client.query(accounts_query).result()
+        accounts_count = list(accounts_result)[0].count
+        
+        # Contar transações
+        transactions_query = """
+        SELECT COUNT(*) as count
+        FROM `automatizar-452311.finaflow.Transactions`
+        WHERE tenant_id = 'default'
+        """
+        transactions_result = client.query(transactions_query).result()
+        transactions_count = list(transactions_result)[0].count
+        
+        # Soma total das transações
+        total_query = """
+        SELECT SUM(CAST(amount AS FLOAT64)) as total
+        FROM `automatizar-452311.finaflow.Transactions`
+        WHERE tenant_id = 'default'
+        """
+        total_result = client.query(total_query).result()
+        total_amount = list(total_result)[0].total or 0
+        
+        return {
+            "success": True,
+            "summary": {
+                "accounts": accounts_count,
+                "transactions": transactions_count,
+                "total_amount": float(total_amount)
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
