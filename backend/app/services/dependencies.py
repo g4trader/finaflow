@@ -11,19 +11,23 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         
-        # Mapear campos do JWT para UserInDB
-        user_data = {
-            "id": payload.get("sub"),
-            "username": "admin",  # Usar username fixo
-            "email": "admin@finaflow.com",  # Email fixo
-            "hashed_password": "",  # Não precisamos da senha aqui
-            "role": payload.get("role"),
-            "tenant_id": payload.get("tenant_id")
-        }
+        # Criar UserInDB diretamente sem validação Pydantic
+        user = UserInDB(
+            id=payload.get("sub"),
+            username="admin",
+            email="admin@finaflow.com",
+            hashed_password="",
+            role=payload.get("role"),
+            tenant_id=payload.get("tenant_id")
+        )
         
-        return UserInDB(**user_data)
+        return user
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        # Log do erro para debug
+        print(f"Erro na criação do UserInDB: {e}")
+        raise HTTPException(status_code=401, detail="Invalid user data")
 
 async def get_current_active_user(current: UserInDB = Depends(get_current_user)) -> UserInDB:
     return current
