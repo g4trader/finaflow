@@ -61,6 +61,52 @@ async def debug_jwt_config():
         "access_token_expire_minutes": settings.ACCESS_TOKEN_EXPIRE_MINUTES
     }
 
+@router.post("/test-token")
+async def test_token_decode(request: dict):
+    """Endpoint de debug para testar decodificação de token"""
+    try:
+        from app.config import Settings
+        import jwt
+        from app.models.user import UserInDB
+        
+        settings = Settings()
+        token = request.get("token")
+        
+        if not token:
+            return {"error": "Token não fornecido"}
+        
+        # Decodificar token
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        
+        # Tentar criar UserInDB
+        user_data = {
+            "id": payload.get("sub"),
+            "username": "admin",
+            "email": "admin@finaflow.com",
+            "hashed_password": "",
+            "role": payload.get("role"),
+            "tenant_id": payload.get("tenant_id")
+        }
+        
+        user = UserInDB(**user_data)
+        
+        return {
+            "success": True,
+            "payload": payload,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "role": user.role,
+                "tenant_id": user.tenant_id
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
+
 @router.get("/test-accounts")
 async def test_accounts():
     """Endpoint de teste para verificar dados sem autenticação"""
