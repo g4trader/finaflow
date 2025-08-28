@@ -18,8 +18,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
             "email": f"{payload.get('sub')}@finaflow.com",  # Email temporário
             "hashed_password": "",  # Não precisamos da senha aqui
             "role": payload.get("role"),
-            "tenant_id": payload.get("tenant_id"),
-            "created_at": None  # Não temos essa informação no JWT
+            "tenant_id": payload.get("tenant_id")
         }
         
         return UserInDB(**user_data)
