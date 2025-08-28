@@ -132,4 +132,15 @@ export const deleteForecast = async (forecastId: string, token?: string) => {
   return response.data;
 };
 
+// Tenant endpoints
+export const updateTenant = async (
+  tenantId: string,
+  data: any,
+  token?: string,
+) => {
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await api.put(`/tenants/${tenantId}`, data, { headers });
+  return response.data;
+};
+
 export default api;
