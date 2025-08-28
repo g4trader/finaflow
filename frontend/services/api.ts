@@ -5,7 +5,16 @@ const api = axios.create({
 });
 
 export const login = async (username: string, password: string) => {
-  const response = await api.post('/auth/login', { username, password });
+  // OAuth2PasswordRequestForm espera dados no formato application/x-www-form-urlencoded
+  const formData = new URLSearchParams();
+  formData.append('username', username);
+  formData.append('password', password);
+  
+  const response = await api.post('/auth/login', formData, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  });
   return response.data;
 };
 
