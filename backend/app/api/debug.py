@@ -37,3 +37,14 @@ async def debug_config():
         return {
             "error": str(e)
         }
+
+@router.get("/auth-test")
+async def debug_auth_test(current=Depends(get_current_user)):
+    """Endpoint de debug para testar autenticação"""
+    return {
+        "authenticated": True,
+        "user_id": current.id,
+        "username": current.username,
+        "role": current.role,
+        "tenant_id": current.tenant_id
+    }
