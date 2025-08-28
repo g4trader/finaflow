@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signup = async (data: any) => {
-    const response = await apiSignup(data, token!);
+    const response = await apiSignup(data, token ?? undefined);
     return response;
   };
 
