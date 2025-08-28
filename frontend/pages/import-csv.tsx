@@ -23,8 +23,8 @@ export default function ImportCsvPage() {
     try {
       await importCsv(file, table, token ?? undefined);
       setSuccess('Importação realizada com sucesso.');
-    } catch (err) {
-      setError('Erro ao importar CSV.');
+    } catch (err: any) {
+      setError(err?.response?.data?.detail ?? 'Erro ao importar CSV.');
     } finally {
       setLoading(false);
     }

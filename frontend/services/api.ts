@@ -192,7 +192,9 @@ export const importCsv = async (file: File, table: string, token?: string) => {
   formData.append('file', file);
   formData.append('table', table);
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.post('/import-csv', formData, { headers });
+  const response = await api.post('/import-csv', formData, {
+    headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+  });
   return response.data;
 };
 
