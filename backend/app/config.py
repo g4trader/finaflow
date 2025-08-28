@@ -1,7 +1,12 @@
 try:
     from pydantic_settings import BaseSettings
 except ImportError:  # pragma: no cover - fallback for pydantic v1
-    from pydantic import BaseSettings
+    try:
+        from pydantic import BaseSettings  # type: ignore
+    except Exception as e:  # pragma: no cover - pydantic v2 without settings
+        raise ImportError(
+            "Install pydantic-settings for pydantic v2 support"
+        ) from e
 
 class Settings(BaseSettings):
     JWT_SECRET: str

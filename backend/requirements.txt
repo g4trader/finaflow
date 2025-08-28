@@ -2,6 +2,11 @@ fastapi
 uvicorn[standard]
 python-jose
 pydantic
+pydantic-settings
+pyjwt
+bcrypt
+httpx
+python-multipart
 pytest
 google-cloud-bigquery
 email-validator
