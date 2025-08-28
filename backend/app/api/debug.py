@@ -238,3 +238,51 @@ async def temp_summary():
             "success": False,
             "error": str(e)
         }
+
+@router.get("/routes-info")
+async def routes_info():
+    """Endpoint para verificar informações das rotas"""
+    from fastapi import FastAPI
+    from app.main import app
+    
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'path'):
+            routes.append({
+                "path": route.path,
+                "name": route.name,
+                "methods": list(route.methods) if hasattr(route, 'methods') else []
+            })
+    
+    return {
+        "success": True,
+        "routes": routes,
+        "total_routes": len(routes)
+    }
+
+@router.get("/test-auth-simple")
+async def test_auth_simple(authorization: str = Header(None)):
+    """Endpoint de teste simples para autenticação"""
+    if not authorization or not authorization.startswith("Bearer "):
+        return {"error": "No Bearer token provided"}
+    
+    token = authorization.replace("Bearer ", "")
+    
+    try:
+        from app.config import Settings
+        import jwt
+        settings = Settings()
+        
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        
+        return {
+            "success": True,
+            "payload": payload,
+            "message": "Token decodificado com sucesso"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
