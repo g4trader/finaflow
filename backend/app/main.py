@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
-from app.api import auth, include_routers, debug
+from app.api import auth, include_routers, debug, debug_auth
 from app.db.bq_client import get_client
 
 app = FastAPI(title="FinaFlow Backend")
@@ -22,6 +22,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(debug.router)
+app.include_router(debug_auth.router)
 include_routers(app)
 
 @app.get("/healthz", tags=["health"])
