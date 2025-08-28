@@ -3,16 +3,17 @@ import subprocess
 from pathlib import Path
 
 
-def test_cli_calls_load_csv_for_each_path(tmp_path):
+def test_cli_invokes_loader_for_each_csv(tmp_path):
+    """Run the CLI and ensure each CSV file is passed to load_csv_to_table."""
     calls_file = tmp_path / "calls.txt"
     sitecustomize = tmp_path / "sitecustomize.py"
     sitecustomize.write_text(
         "import os\n"
         "from app.services import csv_importer\n"
-        "def fake_load_csv_to_table(path, table, skip_leading_rows=1):\n"
+        "def fake(path, table, skip_leading_rows=1):\n"
         "    with open(os.environ['CALLS_FILE'], 'a', encoding='utf-8') as f:\n"
         "        f.write(f'{path}|{table}|{skip_leading_rows}\\n')\n"
-        "csv_importer.load_csv_to_table = fake_load_csv_to_table\n",
+        "csv_importer.load_csv_to_table = fake\n",
         encoding="utf-8",
     )
 
@@ -25,7 +26,6 @@ def test_cli_calls_load_csv_for_each_path(tmp_path):
     env["PYTHONPATH"] = f"{tmp_path}{os.pathsep}{env.get('PYTHONPATH', '')}"
     env["CALLS_FILE"] = str(calls_file)
 
-    backend_dir = Path(__file__).resolve().parents[1]
     subprocess.run(
         [
             "python",
@@ -35,14 +35,13 @@ def test_cli_calls_load_csv_for_each_path(tmp_path):
             "-t",
             "PlanOfAccounts",
         ],
-        cwd=backend_dir,
+        cwd=Path(__file__).resolve().parents[1],
         check=True,
         env=env,
     )
 
-    recorded = calls_file.read_text(encoding="utf-8").strip().splitlines()
-    assert recorded == [
+    calls = calls_file.read_text(encoding="utf-8").strip().splitlines()
+    assert calls == [
         f"{csv1}|PlanOfAccounts|1",
         f"{csv2}|PlanOfAccounts|1",
     ]
-
