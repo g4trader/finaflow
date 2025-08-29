@@ -7,7 +7,20 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { Mail } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// Garantir HTTPS
+const getApiUrl = () => {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (!url) {
+    return 'https://finaflow-backend-609095880025.us-central1.run.app';
+  }
+  // Forçar HTTPS se for HTTP
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
+const API_URL = getApiUrl();
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');

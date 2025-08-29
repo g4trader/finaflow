@@ -48,7 +48,10 @@ const CSVImport = () => {
     formData.append('file', selectedFile);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}/csv/import/${importType}`, {
+      // Garantir HTTPS
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-609095880025.us-central1.run.app';
+      const secureUrl = apiUrl.startsWith('http://') ? apiUrl.replace('http://', 'https://') : apiUrl;
+      const response = await fetch(`${secureUrl.replace(/\/$/, '')}/csv/import/${importType}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -76,7 +79,10 @@ const CSVImport = () => {
 
   const downloadTemplate = async (type: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}/csv/template/${type}`, {
+      // Garantir HTTPS
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-609095880025.us-central1.run.app';
+      const secureUrl = apiUrl.startsWith('http://') ? apiUrl.replace('http://', 'https://') : apiUrl;
+      const response = await fetch(`${secureUrl.replace(/\/$/, '')}/csv/template/${type}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

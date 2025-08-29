@@ -1,7 +1,21 @@
 import axios from 'axios';
 
+// Garantir que sempre use HTTPS
+const getApiUrl = () => {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (!url) {
+    console.error('NEXT_PUBLIC_API_URL não está definida');
+    return 'https://finaflow-backend-609095880025.us-central1.run.app';
+  }
+  // Forçar HTTPS se for HTTP
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+};
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: getApiUrl(),
 });
 
 export const login = async (username: string, password: string) => {
