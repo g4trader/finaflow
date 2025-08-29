@@ -19,6 +19,7 @@ import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 interface User {
   id: string;
