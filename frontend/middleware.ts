@@ -18,12 +18,18 @@ const protectedRoutes = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
+  console.log(`🔍 Middleware executando para: ${pathname}`);
+  
   // Verificar se é uma rota protegida
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+  
+  console.log(`🔒 Rota protegida: ${isProtectedRoute}`);
   
   // Verificar token no cookie ou header
   const token = request.cookies.get('auth-token')?.value || 
                 request.headers.get('authorization')?.replace('Bearer ', '');
+  
+  console.log(`🔑 Token encontrado: ${!!token}`);
   
   // Se é rota protegida e não tem token, redirecionar para login
   if (isProtectedRoute && !token) {
@@ -37,6 +43,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
+  console.log(`✅ Middleware: Permitindo acesso a ${pathname}`);
   return NextResponse.next();
 }
 
