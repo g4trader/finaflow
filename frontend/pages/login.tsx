@@ -85,7 +85,7 @@ export default function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     fullWidth
                     required
-                    className="pl-10" /* garante padding quando ícone estiver presente */
+                    className="pl-10"
                   />
                 </div>
 
