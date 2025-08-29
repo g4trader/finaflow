@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Build timestamp: 2025-08-29 12:45:00 - Forcing Vercel deploy with forecast functions
+// Build timestamp: 2025-08-29 20:00:00 - Forcing Vercel deploy with correct backend URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-6f3ckz7c7q-uc.a.run.app';
 
 // Configuração do axios
