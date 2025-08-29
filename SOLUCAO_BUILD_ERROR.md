@@ -12,9 +12,7 @@ Type error: Expected 1 arguments, but got 2.
 > 118 |         await createAccount(payload, token ?? undefined);
       |                                      ^
 ```
-
 ## Análise
-
 Após análise do código, identificamos que:
 
 1. ✅ A função `createAccount` no arquivo `api.ts` está correta e aceita apenas 1 parâmetro
