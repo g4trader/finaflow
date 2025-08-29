@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Plus,
@@ -55,6 +55,107 @@ const applyPhoneMask = (value: string): string => {
 const removePhoneMask = (value: string): string => {
   return value.replace(/\D/g, '');
 };
+
+// Componente UserForm movido para fora para evitar re-renderizações
+const UserForm = React.memo(({ 
+  formData, 
+  handleNameChange, 
+  handleEmailChange, 
+  handlePhoneChange, 
+  handleRoleChange, 
+  handleStatusChange, 
+  handleSubmit, 
+  editingUser, 
+  setIsModalOpen 
+}: {
+  formData: any;
+  handleNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleEmailChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handlePhoneChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleRoleChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  handleStatusChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  handleSubmit: (e: React.FormEvent) => void;
+  editingUser: User | null;
+  setIsModalOpen: (open: boolean) => void;
+}) => (
+  <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Input
+        label="Nome completo"
+        placeholder="Digite o nome"
+        value={formData.name}
+        onChange={handleNameChange}
+        fullWidth
+        required
+      />
+      <Input
+        label="Email"
+        type="email"
+        placeholder="email@exemplo.com"
+        value={formData.email}
+        onChange={handleEmailChange}
+        icon={<Mail className="w-4 h-4" />}
+        fullWidth
+        required
+      />
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Input
+        label="Telefone"
+        placeholder="(11) 99999-9999"
+        value={formData.phone}
+        onChange={handlePhoneChange}
+        icon={<Phone className="w-4 h-4" />}
+        fullWidth
+        required
+      />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Função
+        </label>
+        <select
+          className="input w-full"
+          value={formData.role}
+          onChange={handleRoleChange}
+        >
+          <option value="user">Usuário</option>
+          <option value="manager">Gerente</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Status
+      </label>
+      <select
+        className="input w-full"
+        value={formData.status}
+        onChange={handleStatusChange}
+      >
+        <option value="active">Ativo</option>
+        <option value="inactive">Inativo</option>
+      </select>
+    </div>
+
+    <div className="flex justify-end space-x-3 pt-4">
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={() => setIsModalOpen(false)}
+      >
+        Cancelar
+      </Button>
+      <Button type="submit" variant="primary">
+        {editingUser ? 'Atualizar' : 'Criar'} Usuário
+      </Button>
+    </div>
+  </form>
+));
+
+UserForm.displayName = 'UserForm';
 
 function UsersContent() {
   const { token } = useAuth();
@@ -213,84 +314,6 @@ function UsersContent() {
   const handleStatusChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     handleInputChange('status', e.target.value);
   }, [handleInputChange]);
-
-  const UserForm = () => (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Nome completo"
-          placeholder="Digite o nome"
-          value={formData.name}
-          onChange={handleNameChange}
-          fullWidth
-          required
-        />
-        <Input
-          label="Email"
-          type="email"
-          placeholder="email@exemplo.com"
-          value={formData.email}
-          onChange={handleEmailChange}
-          icon={<Mail className="w-4 h-4" />}
-          fullWidth
-          required
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Telefone"
-          placeholder="(11) 99999-9999"
-          value={formData.phone}
-          onChange={handlePhoneChange}
-          icon={<Phone className="w-4 h-4" />}
-          fullWidth
-          required
-        />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Função
-          </label>
-          <select
-            className="input w-full"
-            value={formData.role}
-            onChange={handleRoleChange}
-          >
-            <option value="user">Usuário</option>
-            <option value="manager">Gerente</option>
-            <option value="admin">Administrador</option>
-          </select>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Status
-        </label>
-        <select
-          className="input w-full"
-          value={formData.status}
-          onChange={handleStatusChange}
-        >
-          <option value="active">Ativo</option>
-          <option value="inactive">Inativo</option>
-        </select>
-      </div>
-
-      <div className="flex justify-end space-x-3 pt-4">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => setIsModalOpen(false)}
-        >
-          Cancelar
-        </Button>
-        <Button type="submit" variant="primary">
-          {editingUser ? 'Atualizar' : 'Criar'} Usuário
-        </Button>
-      </div>
-    </form>
-  );
 
   return (
     <Layout title="Usuários">
@@ -502,7 +525,17 @@ function UsersContent() {
         title={editingUser ? 'Editar Usuário' : 'Novo Usuário'}
         size="lg"
       >
-        <UserForm />
+        <UserForm 
+          formData={formData}
+          handleNameChange={handleNameChange}
+          handleEmailChange={handleEmailChange}
+          handlePhoneChange={handlePhoneChange}
+          handleRoleChange={handleRoleChange}
+          handleStatusChange={handleStatusChange}
+          handleSubmit={handleSubmit}
+          editingUser={editingUser}
+          setIsModalOpen={setIsModalOpen}
+        />
       </Modal>
     </Layout>
   );
