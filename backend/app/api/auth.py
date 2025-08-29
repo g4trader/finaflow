@@ -137,8 +137,8 @@ async def refresh_token(
         access_token = SecurityService.create_access_token(
             data={
                 "sub": str(user.id),
-                "username": user.username,
-                "email": user.email,
+        "username": user.username,
+        "email": user.email,
                 "role": user.role,
                 "tenant_id": str(user.tenant_id),
                 "business_unit_id": str(user.business_unit_id) if user.business_unit_id else None,
