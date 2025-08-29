@@ -111,9 +111,13 @@ export const createAccountGroup = async (data: any) => {
 };
 
 // Subgrupos de Contas
-export const getAccountSubgroups = async (groupId?: string) => {
+export const getAccountSubgroups = async (groupId?: string, token?: string) => {
   const params = groupId ? { group_id: groupId } : {};
-  const response = await api.get('/api/v1/financial/account-subgroups', { params });
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/financial/account-subgroups', { params, headers });
   return response.data;
 };
 
@@ -123,12 +127,17 @@ export const createAccountSubgroup = async (data: any) => {
 };
 
 // Contas
-export const getAccounts = async (subgroupId?: string, accountType?: string) => {
+export const getAccounts = async (subgroupId?: string, accountType?: string, token?: string) => {
   const params: any = {};
   if (subgroupId) params.subgroup_id = subgroupId;
   if (accountType) params.account_type = accountType;
   
-  const response = await api.get('/api/v1/financial/accounts', { params });
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  
+  const response = await api.get('/api/v1/financial/accounts', { params, headers });
   return response.data;
 };
 
@@ -148,8 +157,8 @@ export const deleteAccount = async (id: string) => {
 };
 
 // Subgrupos (alias para getAccountSubgroups)
-export const getSubgroups = async (groupId?: string) => {
-  return getAccountSubgroups(groupId);
+export const getSubgroups = async (groupId?: string, token?: string) => {
+  return getAccountSubgroups(groupId, token);
 };
 
 // Transações
@@ -159,8 +168,12 @@ export const getTransactions = async (params?: {
   account_id?: string;
   transaction_type?: string;
   is_forecast?: boolean;
-}) => {
-  const response = await api.get('/api/v1/financial/transactions', { params });
+}, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/financial/transactions', { params, headers });
   return response.data;
 };
 
@@ -175,8 +188,12 @@ export const getCashFlow = async (params: {
   end_date: string;
   period_type?: string;
   business_unit_id?: string;
-}) => {
-  const response = await api.get('/api/v1/financial/cash-flow', { params });
+}, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/financial/cash-flow', { params, headers });
   return response.data;
 };
 
