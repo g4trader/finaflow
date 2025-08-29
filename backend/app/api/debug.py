@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 import asyncio
 from app.db.bq_client import query_user, get_settings
 from app.services.dependencies import get_current_user
