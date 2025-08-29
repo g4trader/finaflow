@@ -31,7 +31,7 @@ interface User {
   lastLogin: string;
 }
 
-export default function Users() {
+function UsersContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
@@ -417,3 +417,10 @@ export default function Users() {
   );
 }
 
+export default function Users() {
+  return (
+    <ProtectedRoute>
+      <UsersContent />
+    </ProtectedRoute>
+  );
+}

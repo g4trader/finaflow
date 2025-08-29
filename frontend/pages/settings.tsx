@@ -7,9 +7,10 @@ import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { AuthContext } from '../context/AuthContext';
-import { updateUser, updateTenant } from '../services/api';
+import { updateUser, updateTenant } from '../services/api'
+import ProtectedRoute from '../components/ProtectedRoute';;
 
-export default function Settings() {
+function SettingsContent() {
   const { token, tenantId } = useContext(AuthContext);
   const userId = token ? (jwtDecode<{ sub: string }>(token).sub) : null;
 
@@ -119,3 +120,10 @@ export default function Settings() {
   );
 }
 
+export default function Settings() {
+  return (
+    <ProtectedRoute>
+      <SettingsContent />
+    </ProtectedRoute>
+  );
+}

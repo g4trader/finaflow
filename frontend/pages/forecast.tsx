@@ -29,7 +29,7 @@ interface Account {
   name: string;
 }
 
-export default function Forecast() {
+function ForecastContent() {
   const { token, tenantId } = useContext(AuthContext);
   const [forecasts, setForecasts] = useState<Forecast[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -250,5 +250,13 @@ export default function Forecast() {
         </form>
       </Modal>
     </Layout>
+  );
+}
+
+export default function Forecast() {
+  return (
+    <ProtectedRoute>
+      <ForecastContent />
+    </ProtectedRoute>
   );
 }

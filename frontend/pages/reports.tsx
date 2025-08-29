@@ -3,7 +3,8 @@ import Layout from '../components/layout/Layout';
 import Card from '../components/ui/Card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AuthContext } from '../context/AuthContext';
-import { getCashFlowReport } from '../services/api';
+import { getCashFlowReport } from '../services/api'
+import ProtectedRoute from '../components/ProtectedRoute';;
 
 interface ReportItem {
   period: string;
@@ -11,7 +12,7 @@ interface ReportItem {
   realized: number;
 }
 
-export default function Reports() {
+function ReportsContent() {
   const { token } = useContext(AuthContext);
   const [data, setData] = useState<ReportItem[]>([]);
 
@@ -53,5 +54,13 @@ export default function Reports() {
         </Card>
       </div>
     </Layout>
+  );
+}
+
+export default function Reports() {
+  return (
+    <ProtectedRoute>
+      <ReportsContent />
+    </ProtectedRoute>
   );
 }
