@@ -136,6 +136,21 @@ export const createAccount = async (data: any) => {
   return response.data;
 };
 
+export const updateAccount = async (id: string, data: any) => {
+  const response = await api.put(`/api/v1/financial/accounts/${id}`, data);
+  return response.data;
+};
+
+export const deleteAccount = async (id: string) => {
+  const response = await api.delete(`/api/v1/financial/accounts/${id}`);
+  return response.data;
+};
+
+// Subgrupos (alias para getAccountSubgroups)
+export const getSubgroups = async (groupId?: string) => {
+  return getAccountSubgroups(groupId);
+};
+
 // Transações
 export const getTransactions = async (params?: {
   start_date?: string;
