@@ -20,6 +20,8 @@ import Card from '../components/ui/Card';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import ProtectedRoute from '../components/ProtectedRoute';
+import { getUsers, createUser, updateUser, deleteUser } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 interface User {
   id: string;
@@ -28,58 +30,42 @@ interface User {
   phone: string;
   role: 'admin' | 'user' | 'manager';
   status: 'active' | 'inactive';
-  createdAt: string;
-  lastLogin: string;
+  created_at: string;
+  last_login: string;
 }
 
 function UsersContent() {
+  const { token } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'user',
+    status: 'active'
+  });
 
-  // Mock data
-  useEffect(() => {
-    const mockUsers: User[] = [
-      {
-        id: '1',
-        name: 'João Silva',
-        email: 'joao@empresa.com',
-        phone: '(11) 99999-9999',
-        role: 'admin',
-        status: 'active',
-        createdAt: '2024-01-15',
-        lastLogin: '2024-08-07',
-      },
-      {
-        id: '2',
-        name: 'Maria Santos',
-        email: 'maria@empresa.com',
-        phone: '(11) 88888-8888',
-        role: 'manager',
-        status: 'active',
-        createdAt: '2024-02-20',
-        lastLogin: '2024-08-06',
-      },
-      {
-        id: '3',
-        name: 'Pedro Costa',
-        email: 'pedro@empresa.com',
-        phone: '(11) 77777-7777',
-        role: 'user',
-        status: 'inactive',
-        createdAt: '2024-03-10',
-        lastLogin: '2024-07-30',
-      },
-    ];
-
-    setTimeout(() => {
-      setUsers(mockUsers);
+  // Carregar dados da API
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await getUsers(token ?? undefined);
+      setUsers(data);
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error);
+    } finally {
       setLoading(false);
-    }, 1000);
-  }, []);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [token]);
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -128,22 +114,72 @@ function UsersContent() {
     );
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        await updateUser(editingUser.id, formData, token ?? undefined);
+      } else {
+        await createUser(formData, token ?? undefined);
+      }
+      setIsModalOpen(false);
+      setFormData({ name: '', email: '', phone: '', role: 'user', status: 'active' });
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Erro ao salvar usuário:', error);
+    }
+  };
+
+  const handleDelete = async (userId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
+      try {
+        await deleteUser(userId, token ?? undefined);
+        fetchUsers();
+      } catch (error) {
+        console.error('Erro ao deletar usuário:', error);
+      }
+    }
+  };
+
+  const openEditModal = (user: User) => {
+    setEditingUser(user);
+    setFormData({
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      status: user.status
+    });
+    setIsModalOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setEditingUser(null);
+    setFormData({ name: '', email: '', phone: '', role: 'user', status: 'active' });
+    setIsModalOpen(true);
+  };
+
   const UserForm = () => (
-    <form className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           label="Nome completo"
           placeholder="Digite o nome"
-          defaultValue={editingUser?.name}
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           fullWidth
+          required
         />
         <Input
           label="Email"
           type="email"
           placeholder="email@exemplo.com"
-          defaultValue={editingUser?.email}
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           icon={<Mail className="w-4 h-4" />}
           fullWidth
+          required
         />
       </div>
 
@@ -151,9 +187,11 @@ function UsersContent() {
         <Input
           label="Telefone"
           placeholder="(11) 99999-9999"
-          defaultValue={editingUser?.phone}
+          value={formData.phone}
+          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           icon={<Phone className="w-4 h-4" />}
           fullWidth
+          required
         />
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -161,7 +199,8 @@ function UsersContent() {
           </label>
           <select
             className="input w-full"
-            defaultValue={editingUser?.role || 'user'}
+            value={formData.role}
+            onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
           >
             <option value="user">Usuário</option>
             <option value="manager">Gerente</option>
@@ -176,7 +215,8 @@ function UsersContent() {
         </label>
         <select
           className="input w-full"
-          defaultValue={editingUser?.status || 'active'}
+          value={formData.status}
+          onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
         >
           <option value="active">Ativo</option>
           <option value="inactive">Inativo</option>
@@ -185,12 +225,13 @@ function UsersContent() {
 
       <div className="flex justify-end space-x-3 pt-4">
         <Button
+          type="button"
           variant="secondary"
           onClick={() => setIsModalOpen(false)}
         >
           Cancelar
         </Button>
-        <Button variant="primary">
+        <Button type="submit" variant="primary">
           {editingUser ? 'Atualizar' : 'Criar'} Usuário
         </Button>
       </div>
@@ -234,10 +275,7 @@ function UsersContent() {
             <Button
               variant="primary"
               icon={<Plus className="w-4 h-4" />}
-              onClick={() => {
-                setEditingUser(null);
-                setIsModalOpen(true);
-              }}
+              onClick={openCreateModal}
             >
               Novo Usuário
             </Button>
@@ -369,7 +407,7 @@ function UsersContent() {
                       </Table.Cell>
                       <Table.Cell>
                         <div className="text-sm text-gray-900">
-                          {new Date(user.lastLogin).toLocaleDateString('pt-BR')}
+                          {user.last_login ? new Date(user.last_login).toLocaleDateString('pt-BR') : 'Nunca'}
                         </div>
                       </Table.Cell>
                       <Table.Cell>
@@ -378,16 +416,14 @@ function UsersContent() {
                             variant="ghost"
                             size="sm"
                             icon={<Edit className="w-4 h-4" />}
-                            onClick={() => {
-                              setEditingUser(user);
-                              setIsModalOpen(true);
-                            }}
+                            onClick={() => openEditModal(user)}
                           />
                           <Button
                             variant="ghost"
                             size="sm"
                             icon={<Trash2 className="w-4 h-4" />}
                             className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDelete(user.id)}
                           />
                           <Button
                             variant="ghost"

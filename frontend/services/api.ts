@@ -225,13 +225,30 @@ export const createBankAccount = async (data: any) => {
 };
 
 // Usuários
-export const getUsers = async () => {
-  const response = await api.get('/api/v1/auth/users');
+export const getUsers = async (token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/auth/users', { headers });
   return response.data;
 };
 
-export const createUser = async (data: any) => {
-  const response = await api.post('/api/v1/auth/users', data);
+export const createUser = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/auth/users', data, { headers });
+  return response.data;
+};
+
+export const deleteUser = async (id: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/auth/users/${id}`, { headers });
   return response.data;
 };
 
