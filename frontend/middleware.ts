@@ -15,33 +15,25 @@ const protectedRoutes = [
   '/csv-import'
 ];
 
-// Rotas públicas
-const publicRoutes = [
-  '/login',
-  '/signup',
-  '/forgot-password',
-  '/'
-];
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Verificar se é uma rota protegida
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
   
-  // Verificar token no cookie
-  const token = request.cookies.get('auth-token')?.value;
+  // Verificar token no cookie ou header
+  const token = request.cookies.get('auth-token')?.value || 
+                request.headers.get('authorization')?.replace('Bearer ', '');
   
   // Se é rota protegida e não tem token, redirecionar para login
   if (isProtectedRoute && !token) {
-    console.log(`🔒 Acesso negado a ${pathname} - redirecionando para login`);
+    console.log(`🔒 Middleware: Acesso negado a ${pathname} - redirecionando para login`);
     return NextResponse.redirect(new URL('/login', request.url));
   }
   
   // Se tem token e está tentando acessar login/signup, redirecionar para dashboard
   if (token && (pathname === '/login' || pathname === '/signup')) {
-    console.log(`🔄 Usuário autenticado tentando acessar ${pathname} - redirecionando para dashboard`);
+    console.log(`🔄 Middleware: Usuário autenticado tentando acessar ${pathname} - redirecionando para dashboard`);
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
