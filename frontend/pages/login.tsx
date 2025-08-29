@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useContext } from 'react';
+import Head from 'next/head';
 import { motion } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 import Button from '../components/ui/Button';
@@ -31,7 +32,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <>
+      <Head>
+        <title>FinaFlow - Login</title>
+        <meta name="description" content="Faça login no FinaFlow - Sistema de gestão financeira" />
+      </Head>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
 
@@ -194,6 +200,6 @@ export default function Login() {
           background-size: 20px 20px;
         }
       `}</style>
-    </div>
+    </>
   );
 }
