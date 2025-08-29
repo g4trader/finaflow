@@ -39,7 +39,10 @@ export default function Login() {
       </Head>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
       {/* Background Pattern */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+      <div className="absolute inset-0 opacity-5" style={{
+        backgroundImage: 'radial-gradient(circle, #e5e7eb 1px, transparent 1px)',
+        backgroundSize: '20px 20px'
+      }}></div>
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo and Brand */}
@@ -194,12 +197,6 @@ export default function Login() {
         </motion.div>
       </div>
 
-      <style jsx>{`
-        .bg-grid-pattern {
-          background-image: radial-gradient(circle, #e5e7eb 1px, transparent 1px);
-          background-size: 20px 20px;
-        }
-      `}</style>
     </>
   );
 }
