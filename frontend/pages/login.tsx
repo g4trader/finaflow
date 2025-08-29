@@ -72,6 +72,7 @@ export default function Login() {
                   </div>
                   <Input
                     type="text"
+                    name="username"
                     label="Username ou Email"
                     placeholder="admin ou seu@email.com"
                     value={email}
@@ -89,6 +90,7 @@ export default function Login() {
                   </div>
                   <Input
                     type={showPassword ? 'text' : 'password'}
+                    name="password"
                     label="Senha"
                     placeholder="Digite sua senha"
                     value={password}

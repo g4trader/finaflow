@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Plus,
@@ -160,6 +160,31 @@ function UsersContent() {
     setIsModalOpen(true);
   };
 
+  // Otimizar handlers para evitar re-renderizações
+  const handleInputChange = useCallback((field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('name', e.target.value);
+  }, [handleInputChange]);
+
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('email', e.target.value);
+  }, [handleInputChange]);
+
+  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('phone', e.target.value);
+  }, [handleInputChange]);
+
+  const handleRoleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    handleInputChange('role', e.target.value);
+  }, [handleInputChange]);
+
+  const handleStatusChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    handleInputChange('status', e.target.value);
+  }, [handleInputChange]);
+
   const UserForm = () => (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -167,7 +192,7 @@ function UsersContent() {
           label="Nome completo"
           placeholder="Digite o nome"
           value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          onChange={handleNameChange}
           fullWidth
           required
         />
@@ -176,7 +201,7 @@ function UsersContent() {
           type="email"
           placeholder="email@exemplo.com"
           value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          onChange={handleEmailChange}
           icon={<Mail className="w-4 h-4" />}
           fullWidth
           required
@@ -188,7 +213,7 @@ function UsersContent() {
           label="Telefone"
           placeholder="(11) 99999-9999"
           value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+          onChange={handlePhoneChange}
           icon={<Phone className="w-4 h-4" />}
           fullWidth
           required
@@ -200,7 +225,7 @@ function UsersContent() {
           <select
             className="input w-full"
             value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+            onChange={handleRoleChange}
           >
             <option value="user">Usuário</option>
             <option value="manager">Gerente</option>
@@ -216,7 +241,7 @@ function UsersContent() {
         <select
           className="input w-full"
           value={formData.status}
-          onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+          onChange={handleStatusChange}
         >
           <option value="active">Ativo</option>
           <option value="inactive">Inativo</option>
