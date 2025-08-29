@@ -28,7 +28,7 @@ interface Group {
   name: string;
 }
 
-export default function Subgroups() {
+function SubgroupsContent() {
   const { token, tenantId } = useContext(AuthContext);
   const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -236,5 +236,13 @@ export default function Subgroups() {
         </form>
       </Modal>
     </Layout>
+  );
+}
+
+export default function Subgroups() {
+  return (
+    <ProtectedRoute>
+      <SubgroupsContent />
+    </ProtectedRoute>
   );
 }

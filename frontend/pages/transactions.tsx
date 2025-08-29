@@ -6,6 +6,7 @@ import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import ProtectedRoute from '../components/ProtectedRoute';
 import {
   getTransactions,
   createTransaction,
@@ -22,7 +23,7 @@ interface Transaction {
   created_at: string;
 }
 
-export default function Transactions() {
+function TransactionsContent() {
   const { token } = useContext(AuthContext);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -133,7 +134,6 @@ export default function Transactions() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-600 hover:text-red-700"
                           icon={<Trash2 className="w-4 h-4" />}
                           onClick={() => handleDelete(t.id)}
                         />
@@ -145,55 +145,57 @@ export default function Transactions() {
             </Table>
           </Card.Body>
         </Card>
-      </div>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editing ? 'Editar Transação' : 'Nova Transação'}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="ID da Conta"
-            value={formData.account_id}
-            onChange={(e) =>
-              setFormData({ ...formData, account_id: e.target.value })
-            }
-            fullWidth
-          />
-          <Input
-            label="Valor"
-            type="number"
-            step="0.01"
-            value={formData.amount}
-            onChange={(e) =>
-              setFormData({ ...formData, amount: e.target.value })
-            }
-            fullWidth
-          />
-          <Input
-            label="Descrição"
-            value={formData.description}
-            onChange={(e) =>
-              setFormData({ ...formData, description: e.target.value })
-            }
-            fullWidth
-          />
-          <div className="flex justify-end space-x-2">
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" variant="primary">
-              {editing ? 'Atualizar' : 'Criar'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title={editing ? 'Editar Transação' : 'Nova Transação'}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="ID da Conta"
+              value={formData.account_id}
+              onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
+              fullWidth
+            />
+            <Input
+              label="Valor"
+              type="number"
+              step="0.01"
+              value={formData.amount}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              fullWidth
+            />
+            <Input
+              label="Descrição"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              fullWidth
+            />
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" variant="primary">
+                {editing ? 'Atualizar' : 'Criar'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      </div>
     </Layout>
+  );
+}
+
+export default function Transactions() {
+  return (
+    <ProtectedRoute>
+      <TransactionsContent />
+    </ProtectedRoute>
   );
 }
 

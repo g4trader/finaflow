@@ -21,7 +21,7 @@ interface Group {
   tenant_id: string;
 }
 
-export default function Groups() {
+function GroupsContent() {
   const { token, tenantId } = useContext(AuthContext);
   const [groups, setGroups] = useState<Group[]>([]);
   const [search, setSearch] = useState('');
@@ -177,5 +177,13 @@ export default function Groups() {
         </form>
       </Modal>
     </Layout>
+  );
+}
+
+export default function Groups() {
+  return (
+    <ProtectedRoute>
+      <GroupsContent />
+    </ProtectedRoute>
   );
 }
