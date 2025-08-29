@@ -1,232 +1,194 @@
 import axios from 'axios';
 
-// Garantir que sempre use HTTPS
-const getApiUrl = () => {
-  const url = process.env.NEXT_PUBLIC_API_URL;
-  if (!url) {
-    console.error('NEXT_PUBLIC_API_URL não está definida');
-    return 'https://finaflow-backend-609095880025.us-central1.run.app';
-  }
-  // Forçar HTTPS se for HTTP
-  if (url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
-  }
-  return url;
-};
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// Configuração do axios
 const api = axios.create({
-  baseURL: getApiUrl(),
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
+// Interceptor para adicionar token de autenticação
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
+// Interceptor para tratamento de erros
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Token expirado, tentar renovar
+      try {
+        const refreshToken = localStorage.getItem('refresh-token');
+        if (refreshToken) {
+          const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
+            refresh_token: refreshToken,
+          });
+          
+          const newToken = response.data.access_token;
+          localStorage.setItem('token', newToken);
+          
+          // Reenviar requisição original com novo token
+          error.config.headers.Authorization = `Bearer ${newToken}`;
+          return axios(error.config);
+        }
+      } catch (refreshError) {
+        // Falha ao renovar token, redirecionar para login
+        localStorage.removeItem('token');
+        localStorage.removeItem('refresh-token');
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Autenticação
 export const login = async (username: string, password: string) => {
-  // OAuth2PasswordRequestForm espera dados no formato application/x-www-form-urlencoded
-  const formData = new URLSearchParams();
+  const formData = new FormData();
   formData.append('username', username);
   formData.append('password', password);
   
-  const response = await api.post('/auth/login', formData, {
+  const response = await api.post('/api/v1/auth/login', formData, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
   });
+  
+  // Salvar refresh token
+  if (response.data.refresh_token) {
+    localStorage.setItem('refresh-token', response.data.refresh_token);
+  }
+  
   return response.data;
 };
 
 export const signup = async (data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.post('/auth/signup', data, { headers });
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  
+  const response = await api.post('/api/v1/auth/users', data, { headers });
   return response.data;
 };
 
-export const getCashFlowReport = async (groupBy: string = 'month', token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.get('/reports/cash-flow', {
-    params: { group_by: groupBy },
-    headers,
-  });
+export const logout = async () => {
+  try {
+    await api.post('/api/v1/auth/logout');
+  } catch (error) {
+    console.error('Erro no logout:', error);
+  } finally {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refresh-token');
+  }
+};
+
+export const getCurrentUser = async () => {
+  const response = await api.get('/api/v1/auth/me');
   return response.data;
 };
 
-// User endpoints
-export const getUsers = async (token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.get('/users', { headers });
+// Grupos de Contas
+export const getAccountGroups = async () => {
+  const response = await api.get('/api/v1/financial/account-groups');
   return response.data;
 };
 
-export const createUser = async (data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.post('/users', data, { headers });
+export const createAccountGroup = async (data: any) => {
+  const response = await api.post('/api/v1/financial/account-groups', data);
   return response.data;
 };
 
-export const updateUser = async (userId: string, data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.put(`/users/${userId}`, data, { headers });
+// Subgrupos de Contas
+export const getAccountSubgroups = async (groupId?: string) => {
+  const params = groupId ? { group_id: groupId } : {};
+  const response = await api.get('/api/v1/financial/account-subgroups', { params });
   return response.data;
 };
 
-export const deleteUser = async (userId: string, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.delete(`/users/${userId}`, { headers });
+export const createAccountSubgroup = async (data: any) => {
+  const response = await api.post('/api/v1/financial/account-subgroups', data);
   return response.data;
 };
 
-// Group endpoints
-export const getGroups = async (token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.get('/groups', { headers });
+// Contas
+export const getAccounts = async (subgroupId?: string, accountType?: string) => {
+  const params: any = {};
+  if (subgroupId) params.subgroup_id = subgroupId;
+  if (accountType) params.account_type = accountType;
+  
+  const response = await api.get('/api/v1/financial/accounts', { params });
   return response.data;
 };
 
-export const createGroup = async (data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.post('/groups', data, { headers });
+export const createAccount = async (data: any) => {
+  const response = await api.post('/api/v1/financial/accounts', data);
   return response.data;
 };
 
-export const updateGroup = async (groupId: string, data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.put(`/groups/${groupId}`, data, { headers });
+// Transações
+export const getTransactions = async (params?: {
+  start_date?: string;
+  end_date?: string;
+  account_id?: string;
+  transaction_type?: string;
+  is_forecast?: boolean;
+}) => {
+  const response = await api.get('/api/v1/financial/transactions', { params });
   return response.data;
 };
 
-export const deleteGroup = async (groupId: string, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.delete(`/groups/${groupId}`, { headers });
+export const createTransaction = async (data: any) => {
+  const response = await api.post('/api/v1/financial/transactions', data);
   return response.data;
 };
 
-// Subgroup endpoints
-export const getSubgroups = async (token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.get('/subgroups', { headers });
+// Fluxo de Caixa
+export const getCashFlow = async (params: {
+  start_date: string;
+  end_date: string;
+  period_type?: string;
+  business_unit_id?: string;
+}) => {
+  const response = await api.get('/api/v1/financial/cash-flow', { params });
   return response.data;
 };
 
-export const createSubgroup = async (data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.post('/subgroups', data, { headers });
+// Contas Bancárias
+export const getBankAccounts = async () => {
+  const response = await api.get('/api/v1/financial/bank-accounts');
   return response.data;
 };
 
-export const updateSubgroup = async (
-  subgroupId: string,
-  data: any,
-  token?: string,
-) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.put(`/subgroups/${subgroupId}`, data, { headers });
+export const createBankAccount = async (data: any) => {
+  const response = await api.post('/api/v1/financial/bank-accounts', data);
   return response.data;
 };
 
-export const deleteSubgroup = async (subgroupId: string, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.delete(`/subgroups/${subgroupId}`, { headers });
+// Usuários
+export const getUsers = async () => {
+  const response = await api.get('/api/v1/auth/users');
   return response.data;
 };
 
-// Account endpoints
-export const getAccounts = async (token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.get('/accounts', { headers });
+export const createUser = async (data: any) => {
+  const response = await api.post('/api/v1/auth/users', data);
   return response.data;
 };
 
-export const createAccount = async (data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.post('/accounts', data, { headers });
-  return response.data;
-};
-
-export const updateAccount = async (accountId: string, data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.put(`/accounts/${accountId}`, data, { headers });
-  return response.data;
-};
-
-export const deleteAccount = async (accountId: string, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.delete(`/accounts/${accountId}`, { headers });
-  return response.data;
-};
-
-// Transaction endpoints
-export const getTransactions = async (token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.get('/transactions', { headers });
-  return response.data;
-};
-
-export const createTransaction = async (data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.post('/transactions', data, { headers });
-  return response.data;
-};
-
-export const updateTransaction = async (
-  transactionId: string,
-  data: any,
-  token?: string,
-) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.put(`/transactions/${transactionId}`, data, { headers });
-  return response.data;
-};
-
-export const deleteTransaction = async (transactionId: string, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.delete(`/transactions/${transactionId}`, { headers });
-  return response.data;
-};
-
-// Forecast endpoints
-export const getForecasts = async (token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.get('/forecast', { headers });
-  return response.data;
-};
-
-export const createForecast = async (data: any, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.post('/forecast', data, { headers });
-  return response.data;
-};
-
-export const updateForecast = async (
-  forecastId: string,
-  data: any,
-  token?: string,
-) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.put(`/forecast/${forecastId}`, data, { headers });
-  return response.data;
-};
-
-export const deleteForecast = async (forecastId: string, token?: string) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.delete(`/forecast/${forecastId}`, { headers });
-  return response.data;
-};
-
-// CSV import
-export const importCsv = async (file: File, table: string, token?: string) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('table', table);
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-  const response = await api.post('/import-csv', formData, { headers });
-  return response.data;
-};
-
-// Tenant endpoints
-export const updateTenant = async (
-  tenantId: string,
-  data: any,
-  token?: string,
-) => {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await api.put(`/tenants/${tenantId}`, data, { headers });
+// Tenants
+export const createTenant = async (data: any) => {
+  const response = await api.post('/api/v1/auth/tenants', data);
   return response.data;
 };
 
