@@ -13,6 +13,7 @@ import {
   deleteGroup,
 } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 interface Group {
   id: string;

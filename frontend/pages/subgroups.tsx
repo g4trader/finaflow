@@ -14,6 +14,7 @@ import {
   getGroups,
 } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 interface Subgroup {
   id: string;
