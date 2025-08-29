@@ -198,8 +198,9 @@ def import_transactions():
             print("❌ Tenant ou admin não encontrado.")
             return
         
-        # Buscar todas as contas
+        # Buscar todas as contas e subgrupos
         accounts = {acc.name: acc for acc in db.query(Account).filter(Account.tenant_id == tenant.id).all()}
+        subgroups = {sg.name: sg for sg in db.query(AccountSubgroup).filter(AccountSubgroup.tenant_id == tenant.id).all()}
         
         csv_file = Path(__file__).parent.parent / "csv" / "Fluxo de Caixa 2025_Cliente teste - Lançamento Diário.csv"
         
@@ -213,72 +214,57 @@ def import_transactions():
             reader = csv.DictReader(file)
             
             for row in reader:
-                ano_mes = row.get('Ano/Mês', '').strip()
-                data_mov = row.get('Data Movimentação', '').strip()
-                subgrupo = row.get('Subgrupo', '').strip()
-                grupo = row.get('Grupo', '').strip()
+                data = row.get('Data Movimentação', '').strip()
+                conta = row.get('Subgrupo', '').strip()  # O nome da conta está na coluna Subgrupo
                 valor = row.get('Valor', '').strip()
+                grupo = row.get('Grupo', '').strip()
                 
-                if not data_mov or not valor:
+                if not data or not conta or not valor:
                     continue
                 
-                # Parse da data
-                transaction_date = parse_date(data_mov)
-                if not transaction_date:
+                # Buscar conta ou subgrupo
+                account = accounts.get(conta)
+                if not account:
+                    # Se não encontrar a conta específica, buscar pelo subgrupo
+                    subgroup = subgroups.get(conta)
+                    if subgroup:
+                        # Buscar uma conta do subgrupo
+                        account = db.query(Account).filter(
+                            Account.tenant_id == tenant.id,
+                            Account.subgroup_id == subgroup.id
+                        ).first()
+                
+                if not account:
+                    print(f"⚠️ Conta não encontrada: {conta}")
                     continue
                 
-                # Parse do valor
+                # Parsear valores
                 amount = parse_currency(valor)
-                if amount == 0:
-                    continue
+                transaction_date = parse_date(data)
                 
                 # Determinar tipo de transação baseado no grupo
-                if grupo in ['Receita', 'Receita Financeira']:
-                    transaction_type = 'credit'
+                if grupo in ['Receita', 'Receita Financeira', 'Entradas não Operacionais']:
+                    transaction_type = "credit"
                 else:
-                    transaction_type = 'debit'
-                
-                # Buscar conta pelo subgrupo (nome da conta)
-                account = accounts.get(subgrupo)
-                if not account:
-                    print(f"⚠️ Conta não encontrada: {subgrupo}")
-                    continue
-                
-                # Verificar se transação já existe
-                existing_transaction = db.query(Transaction).filter(
-                    Transaction.tenant_id == tenant.id,
-                    Transaction.account_id == account.id,
-                    Transaction.transaction_date == transaction_date,
-                    Transaction.amount == amount,
-                    Transaction.description == subgrupo
-                ).first()
-                
-                if existing_transaction:
-                    continue
+                    transaction_type = "debit"
                 
                 # Criar transação
                 transaction = Transaction(
+                    id=str(uuid4()),
                     tenant_id=tenant.id,
                     account_id=account.id,
-                    business_unit_id=admin.business_unit_id,
-                    department_id=admin.department_id,
-                    transaction_date=transaction_date,
-                    description=subgrupo,
+                    description=f"Transação {conta}",
                     amount=amount,
+                    transaction_date=transaction_date,
                     transaction_type=transaction_type,
-                    category=grupo,
-                    is_recurring=False,
-                    is_forecast=False,
                     created_by=admin.id
                 )
                 
                 db.add(transaction)
                 transactions_imported += 1
                 
-                # Commit a cada 100 transações
                 if transactions_imported % 100 == 0:
-                    db.commit()
-                    print(f"✅ {transactions_imported} transações importadas...")
+                    print(f"📊 {transactions_imported} transações processadas...")
         
         db.commit()
         print(f"✅ Total de {transactions_imported} transações importadas")

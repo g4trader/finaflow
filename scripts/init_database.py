@@ -14,6 +14,7 @@ sys.path.append(str(backend_path))
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, create_tables
 from app.models.auth import User, Tenant, UserRole, UserStatus
+from app.models.financial import AccountGroup, AccountSubgroup, Account, Transaction, CashFlow, BankAccount
 from app.services.security import SecurityService
 from uuid import uuid4
 
@@ -32,7 +33,7 @@ def init_database():
         # Criar tenant padrão
         print("🏢 Criando tenant padrão...")
         default_tenant = Tenant(
-            id=uuid4(),
+            id=str(uuid4()),
             name="FinaFlow Default",
             domain="finaflow.com",
             status="active"
@@ -48,7 +49,7 @@ def init_database():
         hashed_password = SecurityService.hash_password(super_admin_password)
         
         super_admin = User(
-            id=uuid4(),
+            id=str(uuid4()),
             tenant_id=default_tenant.id,
             username="admin",
             email="admin@finaflow.com",
@@ -74,7 +75,7 @@ def init_database():
         hashed_password = SecurityService.hash_password(tenant_admin_password)
         
         tenant_admin = User(
-            id=uuid4(),
+            id=str(uuid4()),
             tenant_id=default_tenant.id,
             username="tenant_admin",
             email="tenant@finaflow.com",
@@ -100,7 +101,7 @@ def init_database():
         hashed_password = SecurityService.hash_password(user_password)
         
         example_user = User(
-            id=uuid4(),
+            id=str(uuid4()),
             tenant_id=default_tenant.id,
             username="user",
             email="user@finaflow.com",
@@ -143,8 +144,9 @@ def init_database():
         
     except Exception as e:
         print(f"❌ Erro ao inicializar banco: {e}")
-        db.rollback()
-        db.close()
+        if 'db' in locals():
+            db.rollback()
+            db.close()
         sys.exit(1)
 
 if __name__ == "__main__":

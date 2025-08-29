@@ -12,8 +12,8 @@ class AccountGroup(Base):
     """Grupo de contas (ex: Receita, Custos, Despesas Operacionais)"""
     __tablename__ = "account_groups"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
@@ -28,9 +28,9 @@ class AccountSubgroup(Base):
     """Subgrupo de contas (ex: Receita Financeira, Custos com Mão de Obra)"""
     __tablename__ = "account_subgroups"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    group_id = Column(PGUUID(as_uuid=True), ForeignKey("account_groups.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
+    group_id = Column(String(36), ForeignKey("account_groups.id"), nullable=False)
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
@@ -46,9 +46,9 @@ class Account(Base):
     """Conta específica (ex: Vendas Cursos pelo comercial, Salário)"""
     __tablename__ = "accounts"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    subgroup_id = Column(PGUUID(as_uuid=True), ForeignKey("account_subgroups.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
+    subgroup_id = Column(String(36), ForeignKey("account_subgroups.id"), nullable=False)
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
@@ -65,11 +65,11 @@ class Transaction(Base):
     """Transação financeira"""
     __tablename__ = "transactions"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    account_id = Column(PGUUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False)
-    business_unit_id = Column(PGUUID(as_uuid=True), ForeignKey("business_units.id"), nullable=True)
-    department_id = Column(PGUUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
+    account_id = Column(String(36), ForeignKey("accounts.id"), nullable=False)
+    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=True)
+    department_id = Column(String(36), ForeignKey("departments.id"), nullable=True)
     
     transaction_date = Column(DateTime, nullable=False)
     description = Column(Text, nullable=False)
@@ -83,7 +83,7 @@ class Transaction(Base):
     is_approved = Column(Boolean, default=True)
     
     # Campos de auditoria
-    created_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -97,9 +97,9 @@ class CashFlow(Base):
     """Fluxo de caixa consolidado"""
     __tablename__ = "cash_flows"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    business_unit_id = Column(PGUUID(as_uuid=True), ForeignKey("business_units.id"), nullable=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
+    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=True)
     
     date = Column(DateTime, nullable=False)
     opening_balance = Column(Numeric(15, 2), nullable=False)
@@ -120,9 +120,9 @@ class BankAccount(Base):
     """Conta bancária"""
     __tablename__ = "bank_accounts"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    business_unit_id = Column(PGUUID(as_uuid=True), ForeignKey("business_units.id"), nullable=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
+    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=True)
     
     bank_name = Column(String(255), nullable=False)
     account_number = Column(String(50), nullable=False)
@@ -136,7 +136,7 @@ class BankAccount(Base):
 
 # Pydantic Models
 class AccountGroupCreate(BaseModel):
-    tenant_id: UUID
+    tenant_id: str
     name: str = Field(..., min_length=1, max_length=255)
     code: str = Field(..., min_length=1, max_length=50)
     description: Optional[str] = None
@@ -148,8 +148,8 @@ class AccountGroupUpdate(BaseModel):
     status: Optional[str] = None
 
 class AccountGroupResponse(BaseModel):
-    id: UUID
-    tenant_id: UUID
+    id: str
+    tenant_id: str
     name: str
     code: str
     description: Optional[str]
@@ -158,23 +158,23 @@ class AccountGroupResponse(BaseModel):
     updated_at: datetime
 
 class AccountSubgroupCreate(BaseModel):
-    tenant_id: UUID
-    group_id: UUID
+    tenant_id: str
+    group_id: str
     name: str = Field(..., min_length=1, max_length=255)
     code: str = Field(..., min_length=1, max_length=50)
     description: Optional[str] = None
 
 class AccountSubgroupUpdate(BaseModel):
-    group_id: Optional[UUID] = None
+    group_id: Optional[str] = None
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     code: Optional[str] = Field(None, min_length=1, max_length=50)
     description: Optional[str] = None
     status: Optional[str] = None
 
 class AccountSubgroupResponse(BaseModel):
-    id: UUID
-    tenant_id: UUID
-    group_id: UUID
+    id: str
+    tenant_id: str
+    group_id: str
     name: str
     code: str
     description: Optional[str]
@@ -183,25 +183,25 @@ class AccountSubgroupResponse(BaseModel):
     updated_at: datetime
 
 class AccountCreate(BaseModel):
-    tenant_id: UUID
-    subgroup_id: UUID
+    tenant_id: str
+    subgroup_id: str
     name: str = Field(..., min_length=1, max_length=255)
     code: str = Field(..., min_length=1, max_length=50)
     description: Optional[str] = None
-    account_type: str = Field(..., regex="^(revenue|expense|cost|asset|liability)$")
+    account_type: str = Field(..., pattern="^(revenue|expense|cost|asset|liability)$")
 
 class AccountUpdate(BaseModel):
-    subgroup_id: Optional[UUID] = None
+    subgroup_id: Optional[str] = None
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     code: Optional[str] = Field(None, min_length=1, max_length=50)
     description: Optional[str] = None
-    account_type: Optional[str] = Field(None, regex="^(revenue|expense|cost|asset|liability)$")
+    account_type: Optional[str] = Field(None, pattern="^(revenue|expense|cost|asset|liability)$")
     status: Optional[str] = None
 
 class AccountResponse(BaseModel):
-    id: UUID
-    tenant_id: UUID
-    subgroup_id: UUID
+    id: str
+    tenant_id: str
+    subgroup_id: str
     name: str
     code: str
     description: Optional[str]
@@ -211,37 +211,37 @@ class AccountResponse(BaseModel):
     updated_at: datetime
 
 class TransactionCreate(BaseModel):
-    tenant_id: UUID
-    account_id: UUID
-    business_unit_id: Optional[UUID] = None
-    department_id: Optional[UUID] = None
+    tenant_id: str
+    account_id: str
+    business_unit_id: Optional[str] = None
+    department_id: Optional[str] = None
     transaction_date: datetime
     description: str = Field(..., min_length=1)
     amount: float = Field(..., gt=0)
-    transaction_type: str = Field(..., regex="^(credit|debit)$")
+    transaction_type: str = Field(..., pattern="^(credit|debit)$")
     category: Optional[str] = None
     is_recurring: bool = False
     is_forecast: bool = False
 
 class TransactionUpdate(BaseModel):
-    account_id: Optional[UUID] = None
-    business_unit_id: Optional[UUID] = None
-    department_id: Optional[UUID] = None
+    account_id: Optional[str] = None
+    business_unit_id: Optional[str] = None
+    department_id: Optional[str] = None
     transaction_date: Optional[datetime] = None
     description: Optional[str] = Field(None, min_length=1)
     amount: Optional[float] = Field(None, gt=0)
-    transaction_type: Optional[str] = Field(None, regex="^(credit|debit)$")
+    transaction_type: Optional[str] = Field(None, pattern="^(credit|debit)$")
     category: Optional[str] = None
     is_recurring: Optional[bool] = None
     is_forecast: Optional[bool] = None
     is_approved: Optional[bool] = None
 
 class TransactionResponse(BaseModel):
-    id: UUID
-    tenant_id: UUID
-    account_id: UUID
-    business_unit_id: Optional[UUID]
-    department_id: Optional[UUID]
+    id: str
+    tenant_id: str
+    account_id: str
+    business_unit_id: Optional[str]
+    department_id: Optional[str]
     transaction_date: datetime
     description: str
     amount: float
@@ -250,14 +250,14 @@ class TransactionResponse(BaseModel):
     is_recurring: bool
     is_forecast: bool
     is_approved: bool
-    created_by: UUID
+    created_by: str
     created_at: datetime
     updated_at: datetime
 
 class CashFlowResponse(BaseModel):
-    id: UUID
-    tenant_id: UUID
-    business_unit_id: Optional[UUID]
+    id: str
+    tenant_id: str
+    business_unit_id: Optional[str]
     date: datetime
     opening_balance: float
     total_revenue: float
@@ -271,27 +271,27 @@ class CashFlowResponse(BaseModel):
     updated_at: datetime
 
 class BankAccountCreate(BaseModel):
-    tenant_id: UUID
-    business_unit_id: Optional[UUID] = None
+    tenant_id: str
+    business_unit_id: Optional[str] = None
     bank_name: str = Field(..., min_length=1, max_length=255)
     account_number: str = Field(..., min_length=1, max_length=50)
-    account_type: str = Field(..., regex="^(checking|savings|investment)$")
+    account_type: str = Field(..., pattern="^(checking|savings|investment)$")
     balance: float = Field(..., ge=0)
     currency: str = Field(..., min_length=3, max_length=10)
 
 class BankAccountUpdate(BaseModel):
-    business_unit_id: Optional[UUID] = None
+    business_unit_id: Optional[str] = None
     bank_name: Optional[str] = Field(None, min_length=1, max_length=255)
     account_number: Optional[str] = Field(None, min_length=1, max_length=50)
-    account_type: Optional[str] = Field(None, regex="^(checking|savings|investment)$")
+    account_type: Optional[str] = Field(None, pattern="^(checking|savings|investment)$")
     balance: Optional[float] = Field(None, ge=0)
     currency: Optional[str] = Field(None, min_length=3, max_length=10)
     status: Optional[str] = None
 
 class BankAccountResponse(BaseModel):
-    id: UUID
-    tenant_id: UUID
-    business_unit_id: Optional[UUID]
+    id: str
+    tenant_id: str
+    business_unit_id: Optional[str]
     bank_name: str
     account_number: str
     account_type: str

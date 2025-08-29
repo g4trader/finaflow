@@ -7,6 +7,10 @@ from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Inte
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 from app.database import Base
+import os
+
+# Verificar se estamos usando SQLite
+IS_SQLITE = os.getenv("DATABASE_URL", "").startswith("sqlite")
 
 class UserRole(str, Enum):
     SUPER_ADMIN = "super_admin"
@@ -25,7 +29,7 @@ class UserStatus(str, Enum):
 class Tenant(Base):
     __tablename__ = "tenants"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name = Column(String(255), nullable=False)
     domain = Column(String(255), unique=True, nullable=False)
     status = Column(String(50), default="active")
@@ -39,8 +43,8 @@ class Tenant(Base):
 class BusinessUnit(Base):
     __tablename__ = "business_units"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False)
     status = Column(String(50), default="active")
@@ -55,8 +59,8 @@ class BusinessUnit(Base):
 class Department(Base):
     __tablename__ = "departments"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    business_unit_id = Column(PGUUID(as_uuid=True), ForeignKey("business_units.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=False)
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False)
     status = Column(String(50), default="active")
@@ -70,10 +74,10 @@ class Department(Base):
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    business_unit_id = Column(PGUUID(as_uuid=True), ForeignKey("business_units.id"), nullable=True)
-    department_id = Column(PGUUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
+    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=True)
+    department_id = Column(String(36), ForeignKey("departments.id"), nullable=True)
     
     username = Column(String(100), unique=True, nullable=False)
     email = Column(String(255), unique=True, nullable=False)
@@ -100,8 +104,8 @@ class User(Base):
 class UserSession(Base):
     __tablename__ = "user_sessions"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     session_token = Column(String(255), unique=True, nullable=False)
     refresh_token = Column(String(255), unique=True, nullable=False)
     
@@ -117,9 +121,9 @@ class UserSession(Base):
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
     
     action = Column(String(100), nullable=False)
     resource_type = Column(String(100), nullable=False)
@@ -141,7 +145,7 @@ class TenantUpdate(BaseModel):
     status: Optional[str] = None
 
 class TenantResponse(BaseModel):
-    id: UUID
+    id: str
     name: str
     domain: str
     status: str
@@ -149,7 +153,7 @@ class TenantResponse(BaseModel):
     updated_at: datetime
 
 class BusinessUnitCreate(BaseModel):
-    tenant_id: UUID
+    tenant_id: str
     name: str = Field(..., min_length=1, max_length=255)
     code: str = Field(..., min_length=1, max_length=50)
 
@@ -159,8 +163,8 @@ class BusinessUnitUpdate(BaseModel):
     status: Optional[str] = None
 
 class BusinessUnitResponse(BaseModel):
-    id: UUID
-    tenant_id: UUID
+    id: str
+    tenant_id: str
     name: str
     code: str
     status: str
@@ -168,7 +172,7 @@ class BusinessUnitResponse(BaseModel):
     updated_at: datetime
 
 class DepartmentCreate(BaseModel):
-    business_unit_id: UUID
+    business_unit_id: str
     name: str = Field(..., min_length=1, max_length=255)
     code: str = Field(..., min_length=1, max_length=50)
 
@@ -178,8 +182,8 @@ class DepartmentUpdate(BaseModel):
     status: Optional[str] = None
 
 class DepartmentResponse(BaseModel):
-    id: UUID
-    business_unit_id: UUID
+    id: str
+    business_unit_id: str
     name: str
     code: str
     status: str
@@ -187,9 +191,9 @@ class DepartmentResponse(BaseModel):
     updated_at: datetime
 
 class UserCreate(BaseModel):
-    tenant_id: UUID
-    business_unit_id: Optional[UUID] = None
-    department_id: Optional[UUID] = None
+    tenant_id: str
+    business_unit_id: Optional[str] = None
+    department_id: Optional[str] = None
     username: str = Field(..., min_length=3, max_length=100)
     email: EmailStr
     password: str = Field(..., min_length=8)
@@ -198,8 +202,8 @@ class UserCreate(BaseModel):
     role: UserRole = UserRole.USER
 
 class UserUpdate(BaseModel):
-    business_unit_id: Optional[UUID] = None
-    department_id: Optional[UUID] = None
+    business_unit_id: Optional[str] = None
+    department_id: Optional[str] = None
     email: Optional[EmailStr] = None
     first_name: Optional[str] = Field(None, min_length=1, max_length=100)
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
@@ -207,10 +211,10 @@ class UserUpdate(BaseModel):
     status: Optional[UserStatus] = None
 
 class UserResponse(BaseModel):
-    id: UUID
-    tenant_id: UUID
-    business_unit_id: Optional[UUID]
-    department_id: Optional[UUID]
+    id: str
+    tenant_id: str
+    business_unit_id: Optional[str]
+    department_id: Optional[str]
     username: str
     email: str
     first_name: str

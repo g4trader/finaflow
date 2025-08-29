@@ -11,17 +11,18 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Definir diretório de trabalho
 WORKDIR /app
 
-# Instalar dependências do sistema se necessário
+# Instalar dependências do sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar e instalar dependências Python
+# Copiar requirements e instalar dependências Python
 COPY requirements.txt .
-RUN python3 -m pip install --upgrade pip \
-    && python3 -m pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar código da aplicação
-COPY app/ ./app
+COPY . .
 
 # Alterar proprietário dos arquivos para o usuário não-root
 RUN chown -R appuser:appuser /app
@@ -29,7 +30,7 @@ RUN chown -R appuser:appuser /app
 # Mudar para usuário não-root
 USER appuser
 
-# Expor porta 8080 (padrão Cloud Run)
+# Expor porta 8080
 EXPOSE 8080
 
 # Comando para iniciar a aplicação

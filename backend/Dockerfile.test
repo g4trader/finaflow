@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Instalar dependências Python
+RUN pip install fastapi uvicorn
+
+# Copiar script de teste
+COPY test_app.py .
+
+# Expor porta 8080
+EXPOSE 8080
+
+# Comando para iniciar a aplicação
+CMD ["python", "test_app.py"]

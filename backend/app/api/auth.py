@@ -10,9 +10,9 @@ from app.models.auth import (
 )
 from app.services.security import SecurityService
 from app.services.dependencies import get_current_active_user, get_super_admin, log_audit_event
-from app.models.user import UserSession
+from app.models.auth import UserSession
 from datetime import datetime
-from app.models.tenant import Tenant
+from app.models.auth import Tenant
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
