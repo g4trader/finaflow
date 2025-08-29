@@ -141,18 +141,30 @@ export const getAccounts = async (subgroupId?: string, accountType?: string, tok
   return response.data;
 };
 
-export const createAccount = async (data: any) => {
-  const response = await api.post('/api/v1/financial/accounts', data);
+export const createAccount = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/financial/accounts', data, { headers });
   return response.data;
 };
 
-export const updateAccount = async (id: string, data: any) => {
-  const response = await api.put(`/api/v1/financial/accounts/${id}`, data);
+export const updateAccount = async (id: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/financial/accounts/${id}`, data, { headers });
   return response.data;
 };
 
-export const deleteAccount = async (id: string) => {
-  const response = await api.delete(`/api/v1/financial/accounts/${id}`);
+export const deleteAccount = async (id: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/financial/accounts/${id}`, { headers });
   return response.data;
 };
 
@@ -177,8 +189,12 @@ export const getTransactions = async (params?: {
   return response.data;
 };
 
-export const createTransaction = async (data: any) => {
-  const response = await api.post('/api/v1/financial/transactions', data);
+export const createTransaction = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/financial/transactions', data, { headers });
   return response.data;
 };
 
