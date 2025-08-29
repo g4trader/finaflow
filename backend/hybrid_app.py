@@ -26,7 +26,7 @@ async def health():
 async def test():
     return {"message": "API funcionando!"}
 
-@app.post("/auth/login")
+@app.post("/api/v1/auth/login")
 async def login():
     return {
         "access_token": "test-token",
@@ -35,12 +35,55 @@ async def login():
         "expires_in": 1800
     }
 
-@app.get("/api/v1/transactions")
+@app.get("/api/v1/financial/transactions")
 async def get_transactions():
     return {
         "transactions": [
             {"id": 1, "description": "Vendas Cursos", "amount": 1000.00, "type": "credit"},
             {"id": 2, "description": "Salário", "amount": 5000.00, "type": "debit"}
+        ]
+    }
+
+@app.get("/api/v1/financial/accounts")
+async def get_accounts():
+    return {
+        "accounts": [
+            {"id": 1, "name": "Conta Corrente", "balance": 5000.00},
+            {"id": 2, "name": "Poupança", "balance": 10000.00}
+        ]
+    }
+
+@app.get("/api/v1/financial/groups")
+async def get_groups():
+    return {
+        "groups": [
+            {"id": 1, "name": "Receitas", "description": "Grupo de receitas"},
+            {"id": 2, "name": "Despesas", "description": "Grupo de despesas"}
+        ]
+    }
+
+@app.get("/api/v1/financial/account-subgroups")
+async def get_subgroups():
+    return {
+        "subgroups": [
+            {"id": 1, "name": "Vendas", "group_id": 1},
+            {"id": 2, "name": "Salários", "group_id": 2}
+        ]
+    }
+
+@app.get("/api/v1/financial/forecasts")
+async def get_forecasts():
+    return {
+        "forecasts": [
+            {"id": 1, "account_id": 1, "amount": 5000.00, "description": "Previsão de vendas"}
+        ]
+    }
+
+@app.get("/api/v1/financial/cash-flow")
+async def get_cash_flow():
+    return {
+        "cash_flow": [
+            {"date": "2024-01-01", "opening_balance": 10000, "total_revenue": 5000, "total_expenses": 3000, "closing_balance": 12000}
         ]
     }
 
