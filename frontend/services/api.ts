@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Build timestamp: 2025-08-29 20:00:00 - Forcing Vercel deploy with correct backend URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-6f3ckz7c7q-uc.a.run.app';
+// Build timestamp: 2025-08-29 22:45:00 - Fixing backend URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-609095880025.us-central1.run.app';
 
 // Configuração do axios
 const api = axios.create({
