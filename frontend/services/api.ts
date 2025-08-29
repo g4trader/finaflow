@@ -79,7 +79,7 @@ export const signup = async (data: any, token?: string) => {
     headers.Authorization = `Bearer ${token}`;
   }
   
-  const response = await api.post('/api/v1/auth/users', data, { headers });
+  const response = await api.post('/api/v1/users', data, { headers });
   return response.data;
 };
 
@@ -230,7 +230,7 @@ export const getUsers = async (token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.get('/api/v1/auth/users', { headers });
+  const response = await api.get('/api/v1/users', { headers });
   return response.data;
 };
 
@@ -239,7 +239,7 @@ export const createUser = async (data: any, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.post('/api/v1/auth/users', data, { headers });
+  const response = await api.post('/api/v1/users', data, { headers });
   return response.data;
 };
 
@@ -248,7 +248,7 @@ export const deleteUser = async (id: string, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.delete(`/api/v1/auth/users/${id}`, { headers });
+  const response = await api.delete(`/api/v1/users/${id}`, { headers });
   return response.data;
 };
 
@@ -418,7 +418,7 @@ export const updateUser = async (id: string, data: any, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.put(`/api/v1/auth/users/${id}`, data, { headers });
+  const response = await api.put(`/api/v1/users/${id}`, data, { headers });
   return response.data;
 };
 
