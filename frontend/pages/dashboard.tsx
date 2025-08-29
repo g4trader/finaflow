@@ -170,7 +170,7 @@ const Dashboard = () => {
             transition={{ delay: 0.1 }}
             className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
           >
-            <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Receita Total</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -183,7 +183,7 @@ const Dashboard = () => {
               <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
               <span className="text-green-600 font-medium">+12.5%</span>
               <span className="text-gray-500 ml-1">vs mês anterior</span>
-            </div>
+                </div>
           </motion.div>
 
           <motion.div
@@ -192,7 +192,7 @@ const Dashboard = () => {
             transition={{ delay: 0.2 }}
             className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
           >
-            <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Despesas Totais</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -205,7 +205,7 @@ const Dashboard = () => {
               <ArrowDownRight className="w-4 h-4 text-red-600 mr-1" />
               <span className="text-red-600 font-medium">+8.2%</span>
               <span className="text-gray-500 ml-1">vs mês anterior</span>
-            </div>
+                </div>
           </motion.div>
 
           <motion.div
@@ -236,7 +236,7 @@ const Dashboard = () => {
             transition={{ delay: 0.4 }}
             className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
           >
-            <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Saldo Atual</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -322,14 +322,14 @@ const Dashboard = () => {
                       <ArrowUpRight className="w-5 h-5 text-green-600" />
                     ) : (
                       <ArrowDownRight className="w-5 h-5 text-red-600" />
-                    )}
-                  </div>
+                            )}
+                          </div>
                   <div>
                     <p className="font-medium text-gray-900">{transaction.description}</p>
                     <p className="text-sm text-gray-500">{transaction.category}</p>
-                  </div>
-                </div>
-                <div className="text-right">
+                          </div>
+                        </div>
+                        <div className="text-right">
                   <p className={`font-semibold ${
                     transaction.transaction_type === 'credit' ? 'text-green-600' : 'text-red-600'
                   }`}>
@@ -337,11 +337,11 @@ const Dashboard = () => {
                     {formatCurrency(transaction.amount)}
                   </p>
                   <p className="text-sm text-gray-500">{formatDate(transaction.transaction_date)}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+          </motion.div>
       </div>
     </Layout>
   );

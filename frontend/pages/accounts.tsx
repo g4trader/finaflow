@@ -113,7 +113,7 @@ function AccountsContent() {
       };
       
       if (editing) {
-        await updateAccount(editing.id, payload, token ?? undefined);
+        await updateAccount(editing.id, payload);
       } else {
         await createAccount(payload, token ?? undefined);
       }
@@ -134,7 +134,7 @@ function AccountsContent() {
     }
 
     try {
-      await deleteAccount(id, token ?? undefined);
+      await deleteAccount(id);
       await fetchData();
     } catch (err) {
       console.error('Erro ao excluir conta', err);
