@@ -13,7 +13,7 @@ import {
   deleteGroup,
 } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import ProtectedRoute from '../components/ProtectedRoute';
+import ProtectedRoute from '../components/ProtectedRoute'; // Build timestamp: 2024-08-07 15:30 - Forcing Vercel deploy
 
 interface Group {
   id: string;
