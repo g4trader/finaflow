@@ -1,70 +1,182 @@
-from fastapi import Depends, HTTPException, Header
-from fastapi.security import OAuth2PasswordBearer
-import jwt
-from app.config import Settings
-from app.models.user import UserInDB, Role
+from typing import Optional
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models.auth import User, UserRole, UserStatus
+from app.services.security import SecurityService
 
-settings = Settings()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+# Configuração do bearer token
+security = HTTPBearer()
 
-async def get_current_user(authorization: str = Header(None)) -> UserInDB:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    token = authorization.replace("Bearer ", "")
-    
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    Dependência para obter usuário atual autenticado.
+    """
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        # Verificar token
+        payload = SecurityService.verify_token(credentials.credentials, "access")
+        user_id = payload.get("sub")
         
-        # Criar UserInDB diretamente sem validação Pydantic
-        user = UserInDB(
-            id=payload.get("sub"),
-            username="admin",
-            email="admin@finaflow.com",
-            hashed_password="",
-            role=payload.get("role"),
-            tenant_id=payload.get("tenant_id")
-        )
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido"
+            )
+        
+        # Buscar usuário no banco
+        user = db.query(User).filter(User.id == user_id).first()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuário não encontrado"
+            )
+        
+        # Verificar se usuário está ativo
+        if user.status != UserStatus.ACTIVE:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuário inativo"
+            )
         
         return user
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        # Log do erro para debug
-        print(f"Erro na criação do UserInDB: {e}")
-        raise HTTPException(status_code=401, detail="Invalid user data")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Erro na autenticação"
+        )
 
-async def get_current_active_user(current: UserInDB = Depends(get_current_user)) -> UserInDB:
-    return current
-
-def require_super_admin(current: UserInDB = Depends(get_current_active_user)) -> UserInDB:
-    if current.role != Role.super_admin:
-        raise HTTPException(status_code=403, detail="Super admin privileges required")
-    return current
-
-def require_tenant_access(tenant_id: str, current: UserInDB = Depends(get_current_active_user)) -> UserInDB:
-    if current.role == Role.tenant_user and current.tenant_id != tenant_id:
-        raise HTTPException(status_code=403, detail="Access denied to this tenant")
-    return current
-
-
-def tenant(tenant_id: str | None = None, current: UserInDB = Depends(get_current_user)) -> str:
-    """Validate and return the tenant identifier for the request.
-
-    If ``tenant_id`` is not provided, the current user's tenant is used. Tenant
-    users are restricted to their own tenant and will receive a 403 error when
-    trying to access others.
+def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
+    Dependência para obter usuário ativo.
+    """
+    if current_user.status != UserStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Usuário inativo"
+        )
+    return current_user
 
-    if tenant_id is None:
-        if current.tenant_id is None:
-            # Para super_admin, usar tenant_id padrão
-            if current.role == "super_admin":
-                return "default"
-            raise HTTPException(status_code=400, detail="tenant_id required")
-        tenant_id = current.tenant_id
+def require_role(required_role: UserRole):
+    """
+    Decorator para verificar role específica.
+    """
+    def role_checker(current_user: User = Depends(get_current_active_user)) -> User:
+        if current_user.role != required_role and current_user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permissão negada. Role requerida: {required_role}"
+            )
+        return current_user
+    return role_checker
 
-    if current.role == "tenant_user" and current.tenant_id != tenant_id:
-        raise HTTPException(status_code=403, detail="Access denied to this tenant")
+def require_minimum_role(minimum_role: UserRole):
+    """
+    Decorator para verificar role mínima.
+    """
+    def role_checker(current_user: User = Depends(get_current_active_user)) -> User:
+        role_hierarchy = {
+            UserRole.USER: 1,
+            UserRole.DEPARTMENT_MANAGER: 2,
+            UserRole.BUSINESS_UNIT_MANAGER: 3,
+            UserRole.TENANT_ADMIN: 4,
+            UserRole.SUPER_ADMIN: 5
+        }
+        
+        user_level = role_hierarchy.get(current_user.role, 0)
+        required_level = role_hierarchy.get(minimum_role, 0)
+        
+        if user_level < required_level:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permissão negada. Role mínima requerida: {minimum_role}"
+            )
+        return current_user
+    return role_checker
 
-    return tenant_id
+def get_tenant_context(
+    current_user: User = Depends(get_current_active_user),
+    request: Request = None
+) -> dict:
+    """
+    Dependência para obter contexto do tenant.
+    """
+    return {
+        "user": current_user,
+        "tenant_id": current_user.tenant_id,
+        "business_unit_id": current_user.business_unit_id,
+        "department_id": current_user.department_id,
+        "role": current_user.role
+    }
+
+def require_same_tenant_or_super_admin(
+    current_user: User = Depends(get_current_active_user)
+) -> User:
+    """
+    Verifica se usuário tem acesso ao tenant ou é super admin.
+    """
+    if current_user.role == UserRole.SUPER_ADMIN:
+        return current_user
+    
+    # Para outros usuários, verificar se estão no mesmo tenant
+    # Esta verificação será feita nos endpoints específicos
+    return current_user
+
+def require_same_business_unit_or_higher(
+    current_user: User = Depends(get_current_active_user)
+) -> User:
+    """
+    Verifica se usuário tem acesso à business unit ou role superior.
+    """
+    if current_user.role in [UserRole.SUPER_ADMIN, UserRole.TENANT_ADMIN]:
+        return current_user
+    
+    # Para business unit managers, verificar se estão na mesma business unit
+    if current_user.role == UserRole.BUSINESS_UNIT_MANAGER:
+        return current_user
+    
+    # Para department managers e users, verificar se estão no mesmo departamento
+    return current_user
+
+def log_audit_event(
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    details: str = None
+):
+    """
+    Decorator para log automático de auditoria.
+    """
+    def audit_logger(
+        current_user: User = Depends(get_current_active_user),
+        request: Request = None,
+        db: Session = Depends(get_db)
+    ):
+        # Log do evento
+        SecurityService.log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=details,
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None
+        )
+        return current_user
+    return audit_logger
+
+# Dependências específicas por role
+get_super_admin = require_role(UserRole.SUPER_ADMIN)
+get_tenant_admin = require_minimum_role(UserRole.TENANT_ADMIN)
+get_business_unit_manager = require_minimum_role(UserRole.BUSINESS_UNIT_MANAGER)
+get_department_manager = require_minimum_role(UserRole.DEPARTMENT_MANAGER)
+get_any_user = get_current_active_user

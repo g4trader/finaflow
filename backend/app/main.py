@@ -1,42 +1,114 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
-from app.api import auth, include_routers, debug, debug_auth
-from app.db.bq_client import get_client
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
+import time
+import os
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="FinaFlow Backend")
+from app.database import create_tables
+from app.api import auth
+from app.models.auth import Base
 
-# Configurar CORS
+# Configurações de segurança
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,finaflow.vercel.app").split(",")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://finaflow.vercel.app,http://localhost:3000").split(",")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle da aplicação."""
+    # Startup
+    print("🚀 Iniciando FinaFlow Backend...")
+    create_tables()
+    print("✅ Tabelas criadas com sucesso")
+    
+    yield
+    
+    # Shutdown
+    print("🛑 Encerrando FinaFlow Backend...")
+
+# Criar aplicação FastAPI
+app = FastAPI(
+    title="FinaFlow API",
+    description="API de gestão financeira empresarial SaaS",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan
+)
+
+# Middleware de segurança
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=ALLOWED_HOSTS
+)
+
+# Middleware CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://finaflow.vercel.app",  # Frontend em produção
-        "https://finaflow-qu0b1xjlo-south-medias-projects.vercel.app",  # URL alternativa do Vercel
-        "http://localhost:3000",  # Frontend local
-        "http://localhost:3001",  # Frontend local alternativo
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-include_routers(app)
-# Debug routers devem vir por último para não interferir com as rotas principais
-app.include_router(debug.router)
-app.include_router(debug_auth.router)
+# Middleware de logging de requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Middleware para log de requests."""
+    start_time = time.time()
+    
+    # Processar request
+    response = await call_next(request)
+    
+    # Calcular tempo de resposta
+    process_time = time.time() - start_time
+    
+    # Log da requisição
+    print(f"{request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s")
+    
+    return response
 
-@app.get("/healthz", tags=["health"])
+# Middleware de tratamento de erros
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handler global de exceções."""
+    print(f"❌ Erro não tratado: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Erro interno do servidor"}
+    )
+
+# Health check
+@app.get("/health")
 async def health_check():
-    try:
-        # Verificar conexão com BigQuery
-        client = get_client()
-        if hasattr(client, 'project'):
-            project_id = client.project
-        return {
-            "status": "healthy",
-            "database": "connected" if hasattr(client, 'project') else "disconnected",
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=503, detail="Service unhealthy")
+    """Endpoint de health check."""
+    return {
+        "status": "healthy",
+        "service": "finaflow-backend",
+        "version": "1.0.0"
+    }
+
+# Incluir routers
+app.include_router(auth.router, prefix="/api/v1")
+
+# Rota raiz
+@app.get("/")
+async def root():
+    """Rota raiz da API."""
+    return {
+        "message": "FinaFlow API - Sistema de Gestão Financeira",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
