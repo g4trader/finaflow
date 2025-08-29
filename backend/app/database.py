@@ -8,19 +8,28 @@ from typing import Generator
 # Configuração do banco de dados
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "postgresql://finaflow:password@localhost:5432/finaflow"
+    "sqlite:///./finaflow.db"  # SQLite para desenvolvimento
 )
 
 # Configurações do engine para performance e conexões
-engine = create_engine(
-    DATABASE_URL,
-    poolclass=QueuePool,
-    pool_size=20,  # Número de conexões no pool
-    max_overflow=30,  # Conexões adicionais quando necessário
-    pool_pre_ping=True,  # Verificar conexões antes de usar
-    pool_recycle=3600,  # Reciclar conexões a cada hora
-    echo=False  # Log de SQL (False em produção)
-)
+if DATABASE_URL.startswith("sqlite"):
+    # Configuração para SQLite
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        echo=False
+    )
+else:
+    # Configuração para PostgreSQL
+    engine = create_engine(
+        DATABASE_URL,
+        poolclass=QueuePool,
+        pool_size=20,
+        max_overflow=30,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        echo=False
+    )
 
 # Configuração da sessão
 SessionLocal = sessionmaker(
