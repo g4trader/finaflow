@@ -245,4 +245,141 @@ export const deleteForecast = async (id: string, token?: string) => {
   return response.data;
 };
 
+// Grupos
+export const getGroups = async (token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/financial/groups', { headers });
+  return response.data;
+};
+
+export const createGroup = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/financial/groups', data, { headers });
+  return response.data;
+};
+
+export const updateGroup = async (id: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/financial/groups/${id}`, data, { headers });
+  return response.data;
+};
+
+export const deleteGroup = async (id: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/financial/groups/${id}`, { headers });
+  return response.data;
+};
+
+// Subgrupos (funções adicionais)
+export const createSubgroup = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/financial/account-subgroups', data, { headers });
+  return response.data;
+};
+
+export const updateSubgroup = async (id: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/financial/account-subgroups/${id}`, data, { headers });
+  return response.data;
+};
+
+export const deleteSubgroup = async (id: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/financial/account-subgroups/${id}`, { headers });
+  return response.data;
+};
+
+// Transações (funções adicionais)
+export const updateTransaction = async (id: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/financial/transactions/${id}`, data, { headers });
+  return response.data;
+};
+
+export const deleteTransaction = async (id: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/financial/transactions/${id}`, { headers });
+  return response.data;
+};
+
+// Importação CSV
+export const importCsv = async (file: File, table: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('table', table);
+  
+  const response = await api.post('/api/v1/csv/import-csv', formData, { 
+    headers: {
+      ...headers,
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response.data;
+};
+
+// Relatórios
+export const getCashFlowReport = async (params: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/financial/cash-flow-report', { 
+    params,
+    headers 
+  });
+  return response.data;
+};
+
+// Usuários
+export const updateUser = async (id: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/auth/users/${id}`, data, { headers });
+  return response.data;
+};
+
+// Tenants
+export const updateTenant = async (id: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/auth/tenants/${id}`, data, { headers });
+  return response.data;
+};
+
 export default api;
