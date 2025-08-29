@@ -208,4 +208,41 @@ export const createTenant = async (data: any) => {
   return response.data;
 };
 
+// Previsões
+export const getForecasts = async (token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/financial/forecasts', { headers });
+  return response.data;
+};
+
+export const createForecast = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/financial/forecasts', data, { headers });
+  return response.data;
+};
+
+export const updateForecast = async (id: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/financial/forecasts/${id}`, data, { headers });
+  return response.data;
+};
+
+export const deleteForecast = async (id: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/financial/forecasts/${id}`, { headers });
+  return response.data;
+};
+
 export default api;
