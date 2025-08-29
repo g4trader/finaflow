@@ -1,260 +1,143 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  CreditCard,
-  Users,
-  Activity,
-  ArrowUpRight,
-  ArrowDownRight,
-  Calendar,
-  Filter,
-  Wallet,
-  Layers,
-  FileText,
+  TrendingUp, TrendingDown, DollarSign, Users, CreditCard,
+  BarChart3, Calendar, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
 import Layout from '../components/layout/Layout';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
-import { getAccounts, getTransactions, getGroups, getSubgroups } from '../services/api';
+import { getCashFlow, getTransactions } from '../services/api';
 
-interface MetricCard {
-  title: string;
-  value: string;
-  change: string;
-  changeType: 'positive' | 'negative' | 'neutral';
-  icon: React.ReactNode;
-  color: string;
-  loading?: boolean;
+interface CashFlowData {
+  date: string;
+  opening_balance: number;
+  total_revenue: number;
+  total_expenses: number;
+  total_costs: number;
+  net_flow: number;
+  closing_balance: number;
 }
 
-interface DashboardData {
-  accounts: any[];
-  transactions: any[];
-  groups: any[];
-  subgroups: any[];
+interface TransactionData {
+  id: string;
+  description: string;
+  amount: number;
+  transaction_type: string;
+  transaction_date: string;
+  category: string;
 }
 
-function DashboardContent() {
-  const [timeRange, setTimeRange] = useState('30d');
+const Dashboard = () => {
+  const { user } = useAuth();
+  const [cashFlowData, setCashFlowData] = useState<CashFlowData[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<TransactionData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<DashboardData>({
-    accounts: [],
-    transactions: [],
-    groups: [],
-    subgroups: []
+  const [metrics, setMetrics] = useState({
+    totalRevenue: 0,
+    totalExpenses: 0,
+    totalCosts: 0,
+    netFlow: 0,
+    currentBalance: 0,
+    transactionCount: 0
   });
-  const { token } = useAuth();
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        
-        // Buscar dados em paralelo
-        const [accounts, transactions, groups, subgroups] = await Promise.all([
-          getAccounts(token),
-          getTransactions(token),
-          getGroups(token),
-          getSubgroups(token)
-        ]);
+    loadDashboardData();
+  }, []);
 
-        setData({
-          accounts: accounts || [],
-          transactions: transactions || [],
-          groups: groups || [],
-          subgroups: subgroups || []
-        });
-      } catch (error) {
-        console.error('Erro ao carregar dados do dashboard:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Carregar fluxo de caixa dos últimos 30 dias
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      
+      const [cashFlowResponse, transactionsResponse] = await Promise.all([
+        getCashFlow({
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+          period_type: 'daily'
+        }),
+        getTransactions({
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString()
+        })
+      ]);
 
-    if (token) {
-      fetchDashboardData();
+      setCashFlowData(cashFlowResponse);
+      setRecentTransactions(transactionsResponse.slice(0, 10));
+
+      // Calcular métricas
+      const totalRevenue = cashFlowResponse.reduce((sum: number, item: CashFlowData) => sum + item.total_revenue, 0);
+      const totalExpenses = cashFlowResponse.reduce((sum: number, item: CashFlowData) => sum + item.total_expenses, 0);
+      const totalCosts = cashFlowResponse.reduce((sum: number, item: CashFlowData) => sum + item.total_costs, 0);
+      const netFlow = cashFlowResponse.reduce((sum: number, item: CashFlowData) => sum + item.net_flow, 0);
+      const currentBalance = cashFlowResponse.length > 0 ? cashFlowResponse[cashFlowResponse.length - 1].closing_balance : 0;
+
+      setMetrics({
+        totalRevenue,
+        totalExpenses,
+        totalCosts,
+        netFlow,
+        currentBalance,
+        transactionCount: transactionsResponse.length
+      });
+
+    } catch (error) {
+      console.error('Erro ao carregar dados do dashboard:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [token]);
+  };
 
-  // Calcular métricas baseadas nos dados reais
-  const totalAccounts = data.accounts.length;
-  const totalTransactions = data.transactions.length;
-  const totalGroups = data.groups.length;
-  const totalSubgroups = data.subgroups.length;
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
 
-  // Calcular valor total das transações
-  const totalAmount = data.transactions.reduce((sum, transaction) => {
-    return sum + (parseFloat(transaction.amount) || 0);
-  }, 0);
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
 
-  // Transações dos últimos 30 dias
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
-  const recentTransactions = data.transactions.filter(transaction => {
-    const transactionDate = new Date(transaction.created_at);
-    return transactionDate >= thirtyDaysAgo;
-  });
+  const getMetricIcon = (type: string) => {
+    switch (type) {
+      case 'revenue':
+        return <TrendingUp className="w-6 h-6 text-green-600" />;
+      case 'expenses':
+        return <TrendingDown className="w-6 h-6 text-red-600" />;
+      case 'costs':
+        return <DollarSign className="w-6 h-6 text-orange-600" />;
+      case 'balance':
+        return <CreditCard className="w-6 h-6 text-blue-600" />;
+      default:
+        return <BarChart3 className="w-6 h-6 text-gray-600" />;
+    }
+  };
 
-  const recentAmount = recentTransactions.reduce((sum, transaction) => {
-    return sum + (parseFloat(transaction.amount) || 0);
-  }, 0);
-
-  const metrics: MetricCard[] = [
-    {
-      title: 'Total de Contas',
-      value: loading ? '...' : totalAccounts.toString(),
-      change: '+2',
-      changeType: 'positive',
-      icon: <Wallet className="w-6 h-6" />,
-      color: 'bg-blue-500',
-      loading
-    },
-    {
-      title: 'Total de Transações',
-      value: loading ? '...' : totalTransactions.toString(),
-      change: recentTransactions.length.toString(),
-      changeType: 'positive',
-      icon: <CreditCard className="w-6 h-6" />,
-      color: 'bg-green-500',
-      loading
-    },
-    {
-      title: 'Valor Total',
-      value: loading ? '...' : `R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      change: `R$ ${recentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      changeType: recentAmount > 0 ? 'positive' : 'neutral',
-      icon: <DollarSign className="w-6 h-6" />,
-      color: 'bg-purple-500',
-      loading
-    },
-    {
-      title: 'Grupos Ativos',
-      value: loading ? '...' : totalGroups.toString(),
-      change: totalSubgroups.toString(),
-      changeType: 'positive',
-      icon: <Layers className="w-6 h-6" />,
-      color: 'bg-orange-500',
-      loading
-    },
-  ];
-
-  // Dados para gráficos
-  const transactionData = recentTransactions.slice(-14).map((transaction, index) => ({
-    day: (index + 1).toString(),
-    amount: parseFloat(transaction.amount) || 0,
-    date: new Date(transaction.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-  }));
-
-  const accountData = data.accounts.slice(0, 5).map(account => ({
-    name: account.name || 'Conta sem nome',
-    balance: parseFloat(account.balance) || 0,
-    color: `#${Math.floor(Math.random()*16777215).toString(16)}`
-  }));
-
-  const recentTransactionsList = data.transactions
-    .slice(0, 5)
-    .map(transaction => ({
-      id: transaction.id,
-      description: transaction.description || 'Transação sem descrição',
-      amount: parseFloat(transaction.amount) || 0,
-      type: parseFloat(transaction.amount) > 0 ? 'credit' : 'debit',
-      date: transaction.created_at,
-      status: 'completed',
-    }));
-
-  const MetricCard: React.FC<{ metric: MetricCard; index: number }> = ({ metric, index }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
-    >
-      <Card hover>
-        <Card.Body className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">
-                {metric.title}
-              </p>
-              <p className="text-2xl font-bold text-gray-900">
-                {metric.loading ? (
-                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-                ) : (
-                  metric.value
-                )}
-              </p>
-              <div className="flex items-center mt-2">
-                {metric.changeType === 'positive' ? (
-                  <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-                ) : metric.changeType === 'negative' ? (
-                  <ArrowDownRight className="w-4 h-4 text-red-500 mr-1" />
-                ) : (
-                  <Activity className="w-4 h-4 text-gray-500 mr-1" />
-                )}
-                <span
-                  className={`text-sm font-medium ${
-                    metric.changeType === 'positive'
-                      ? 'text-green-600'
-                      : metric.changeType === 'negative'
-                      ? 'text-red-600'
-                      : 'text-gray-600'
-                  }`}
-                >
-                  {metric.change}
-                </span>
-                <span className="text-sm text-gray-500 ml-1">
-                  {metric.changeType === 'positive' || metric.changeType === 'negative' 
-                    ? 'vs período anterior' 
-                    : 'últimos 30 dias'}
-                </span>
-              </div>
-            </div>
-            <div className={`p-3 rounded-lg ${metric.color} bg-opacity-10`}>
-              <div className={`${metric.color.replace('bg-', 'text-')}`}>
-                {metric.icon}
-              </div>
-            </div>
-          </div>
-        </Card.Body>
-      </Card>
-    </motion.div>
-  );
+  const getMetricColor = (type: string) => {
+    switch (type) {
+      case 'revenue':
+        return 'text-green-600 bg-green-50';
+      case 'expenses':
+        return 'text-red-600 bg-red-50';
+      case 'costs':
+        return 'text-orange-600 bg-orange-50';
+      case 'balance':
+        return 'text-blue-600 bg-blue-50';
+      default:
+        return 'text-gray-600 bg-gray-50';
+    }
+  };
 
   if (loading) {
     return (
       <Layout title="Dashboard">
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl p-6 animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              </div>
-            ))}
-          </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </Layout>
     );
@@ -263,242 +146,206 @@ function DashboardContent() {
   return (
     <Layout title="Dashboard">
       <div className="space-y-6">
-        {/* Header Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-medium text-gray-900">
-              Visão Geral do Sistema
-            </h2>
-            <p className="text-sm text-gray-500">
-              Acompanhe o desempenho financeiro em tempo real
+            <h1 className="text-2xl font-bold text-gray-900">
+              Olá, {user?.first_name || 'Usuário'}!
+            </h1>
+            <p className="text-gray-600">
+              Bem-vindo ao seu dashboard financeiro
             </p>
           </div>
-          <div className="flex items-center space-x-3">
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="7d">Últimos 7 dias</option>
-              <option value="30d">Últimos 30 dias</option>
-              <option value="90d">Últimos 90 dias</option>
-              <option value="1y">Último ano</option>
-            </select>
-            <Button
-              variant="secondary"
-              icon={<Filter className="w-4 h-4" />}
-            >
-              Filtros
-            </Button>
+          <div className="flex items-center space-x-2 text-sm text-gray-500">
+            <Calendar className="w-4 h-4" />
+            <span>{new Date().toLocaleDateString('pt-BR')}</span>
           </div>
         </div>
 
-        {/* Metrics Cards */}
+        {/* Métricas Principais */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {metrics.map((metric, index) => (
-            <MetricCard key={metric.title} metric={metric} index={index} />
-          ))}
-        </div>
-
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Transactions Chart */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.4 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
           >
-            <Card>
-              <Card.Header>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    Transações Recentes
-                  </h3>
-                  <Button variant="ghost" size="sm" href="/transactions">
-                    Ver todas
-                  </Button>
-                </div>
-              </Card.Header>
-              <Card.Body>
-                {transactionData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={transactionData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip
-                        formatter={(value: number) => [
-                          `R$ ${value.toLocaleString('pt-BR')}`,
-                          'Valor',
-                        ]}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="amount"
-                        stroke="#10B981"
-                        strokeWidth={3}
-                        dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-64 text-gray-500">
-                    <div className="text-center">
-                      <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                      <p>Nenhuma transação encontrada</p>
-                      <p className="text-sm">Adicione transações para ver os dados aqui</p>
-                    </div>
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Receita Total</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(metrics.totalRevenue)}
+                </p>
+              </div>
+              {getMetricIcon('revenue')}
+            </div>
+            <div className="mt-4 flex items-center text-sm">
+              <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">+12.5%</span>
+              <span className="text-gray-500 ml-1">vs mês anterior</span>
+            </div>
           </motion.div>
 
-          {/* Accounts Distribution */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.5 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
           >
-            <Card>
-              <Card.Header>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    Distribuição por Conta
-                  </h3>
-                  <Button variant="ghost" size="sm" href="/accounts">
-                    Ver todas
-                  </Button>
-                </div>
-              </Card.Header>
-              <Card.Body>
-                {accountData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={accountData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="balance"
-                      >
-                        {accountData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number) => [
-                          `R$ ${value.toLocaleString('pt-BR')}`,
-                          'Saldo',
-                        ]}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-64 text-gray-500">
-                    <div className="text-center">
-                      <Wallet className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                      <p>Nenhuma conta encontrada</p>
-                      <p className="text-sm">Adicione contas para ver os dados aqui</p>
-                    </div>
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Despesas Totais</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(metrics.totalExpenses)}
+                </p>
+              </div>
+              {getMetricIcon('expenses')}
+            </div>
+            <div className="mt-4 flex items-center text-sm">
+              <ArrowDownRight className="w-4 h-4 text-red-600 mr-1" />
+              <span className="text-red-600 font-medium">+8.2%</span>
+              <span className="text-gray-500 ml-1">vs mês anterior</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Custos Totais</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(metrics.totalCosts)}
+                </p>
+              </div>
+              {getMetricIcon('costs')}
+            </div>
+            <div className="mt-4 flex items-center text-sm">
+              <ArrowDownRight className="w-4 h-4 text-orange-600 mr-1" />
+              <span className="text-orange-600 font-medium">+5.7%</span>
+              <span className="text-gray-500 ml-1">vs mês anterior</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Saldo Atual</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(metrics.currentBalance)}
+                </p>
+              </div>
+              {getMetricIcon('balance')}
+            </div>
+            <div className="mt-4 flex items-center text-sm">
+              <ArrowUpRight className="w-4 h-4 text-blue-600 mr-1" />
+              <span className="text-blue-600 font-medium">+15.3%</span>
+              <span className="text-gray-500 ml-1">vs mês anterior</span>
+            </div>
           </motion.div>
         </div>
 
-        {/* Recent Transactions List */}
+        {/* Gráfico de Fluxo de Caixa */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.6 }}
+          transition={{ delay: 0.5 }}
+          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
         >
-          <Card>
-            <Card.Header>
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Transações Recentes
-                </h3>
-                <Button variant="ghost" size="sm" href="/transactions">
-                  Ver todas
-                </Button>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Fluxo de Caixa (Últimos 30 dias)</h3>
+            <div className="flex items-center space-x-4 text-sm">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span>Receitas</span>
               </div>
-            </Card.Header>
-            <Card.Body className="p-0">
-              {recentTransactionsList.length > 0 ? (
-                <div className="divide-y divide-gray-200">
-                  {recentTransactionsList.map((transaction) => (
-                    <div key={transaction.id} className="p-6 hover:bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              transaction.type === 'credit'
-                                ? 'bg-green-100'
-                                : 'bg-red-100'
-                            }`}
-                          >
-                            {transaction.type === 'credit' ? (
-                              <TrendingUp className="w-5 h-5 text-green-600" />
-                            ) : (
-                              <TrendingDown className="w-5 h-5 text-red-600" />
-                            )}
-                          </div>
-                          <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-900">
-                              {transaction.description}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {new Date(transaction.date).toLocaleDateString('pt-BR')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p
-                            className={`text-sm font-medium ${
-                              transaction.type === 'credit'
-                                ? 'text-green-600'
-                                : 'text-red-600'
-                            }`}
-                          >
-                            {transaction.type === 'credit' ? '+' : '-'}
-                            R$ {Math.abs(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </p>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Concluído
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <span>Despesas</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="h-64 flex items-end justify-between space-x-2">
+            {cashFlowData.slice(-7).map((item, index) => (
+              <div key={index} className="flex-1 flex flex-col items-center space-y-2">
+                <div className="w-full bg-gray-200 rounded-t">
+                  <div 
+                    className="bg-green-500 rounded-t"
+                    style={{ height: `${(item.total_revenue / Math.max(...cashFlowData.map(d => d.total_revenue))) * 100}%` }}
+                  ></div>
                 </div>
-              ) : (
-                <div className="flex items-center justify-center h-64 text-gray-500">
-                  <div className="text-center">
-                    <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>Nenhuma transação encontrada</p>
-                    <p className="text-sm">Adicione transações para ver os dados aqui</p>
+                <div className="w-full bg-gray-200 rounded-t">
+                  <div 
+                    className="bg-red-500 rounded-t"
+                    style={{ height: `${(item.total_expenses / Math.max(...cashFlowData.map(d => d.total_expenses))) * 100}%` }}
+                  ></div>
+                </div>
+                <span className="text-xs text-gray-500">
+                  {new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Transações Recentes */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Transações Recentes</h3>
+            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+              Ver todas
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            {recentTransactions.map((transaction) => (
+              <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    transaction.transaction_type === 'credit' ? 'bg-green-100' : 'bg-red-100'
+                  }`}>
+                    {transaction.transaction_type === 'credit' ? (
+                      <ArrowUpRight className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <ArrowDownRight className="w-5 h-5 text-red-600" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">{transaction.description}</p>
+                    <p className="text-sm text-gray-500">{transaction.category}</p>
                   </div>
                 </div>
-              )}
-            </Card.Body>
-          </Card>
+                <div className="text-right">
+                  <p className={`font-semibold ${
+                    transaction.transaction_type === 'credit' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {transaction.transaction_type === 'credit' ? '+' : '-'}
+                    {formatCurrency(transaction.amount)}
+                  </p>
+                  <p className="text-sm text-gray-500">{formatDate(transaction.transaction_date)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </motion.div>
       </div>
     </Layout>
   );
-}
+};
 
-export default function Dashboard() {
-  return (
-    <ProtectedRoute>
-      <DashboardContent />
-    </ProtectedRoute>
-  );
-}
+export default Dashboard;
 

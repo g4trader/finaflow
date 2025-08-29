@@ -2,19 +2,30 @@ import React, { createContext, useState, useEffect, ReactNode, useContext } from
 import jwtDecode from 'jwt-decode';
 import { login as apiLogin, signup as apiSignup } from '../services/api';
 
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  tenant_id: string;
+  business_unit_id?: string;
+  department_id?: string;
+}
+
 interface AuthContextType {
   token: string | null;
-  role: string | null;
-  tenantId: string | null;
+  user: User | null;
   login: (username: string, password: string) => Promise<void>;
   signup: (data: any) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
+  refreshToken: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-// Hook personalizado para usar o contexto de autenticação
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -23,7 +34,6 @@ export const useAuth = () => {
   return context;
 };
 
-// Função para definir cookie
 const setCookie = (name: string, value: string, days: number) => {
   if (typeof window !== 'undefined') {
     const expires = new Date();
@@ -32,7 +42,6 @@ const setCookie = (name: string, value: string, days: number) => {
   }
 };
 
-// Função para obter cookie
 const getCookie = (name: string): string | null => {
   if (typeof window !== 'undefined') {
     const nameEQ = name + "=";
@@ -46,7 +55,6 @@ const getCookie = (name: string): string | null => {
   return null;
 };
 
-// Função para remover cookie
 const removeCookie = (name: string) => {
   if (typeof window !== 'undefined') {
     document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
@@ -55,34 +63,35 @@ const removeCookie = (name: string) => {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se estamos no cliente (browser)
     if (typeof window !== 'undefined') {
       try {
-        // Tentar localStorage primeiro (para compatibilidade)
         let stored = localStorage.getItem('token');
-        
-        // Se não tem no localStorage, tentar cookie
         if (!stored) {
           stored = getCookie('auth-token');
         }
-        
+
         if (stored) {
           setToken(stored);
           const decoded: any = jwtDecode(stored);
-          setRole(decoded.role);
-          setTenantId(decoded.tenant_id || null);
-          
-          // Sincronizar com cookie para middleware
+          setUser({
+            id: decoded.sub,
+            username: decoded.username,
+            email: decoded.email,
+            first_name: decoded.first_name || '',
+            last_name: decoded.last_name || '',
+            role: decoded.role,
+            tenant_id: decoded.tenant_id,
+            business_unit_id: decoded.business_unit_id,
+            department_id: decoded.department_id
+          });
           setCookie('auth-token', stored, 7);
         }
       } catch (error) {
         console.error('Erro ao carregar token:', error);
-        // Limpar tokens inválidos
         localStorage.removeItem('token');
         removeCookie('auth-token');
       }
@@ -94,14 +103,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const data = await apiLogin(username, password);
       setToken(data.access_token);
-      
-      // Salvar em localStorage e cookie
       localStorage.setItem('token', data.access_token);
       setCookie('auth-token', data.access_token, 7);
       
       const decoded: any = jwtDecode(data.access_token);
-      setRole(decoded.role);
-      setTenantId(decoded.tenant_id || null);
+      setUser({
+        id: decoded.sub,
+        username: decoded.username,
+        email: decoded.email,
+        first_name: decoded.first_name || '',
+        last_name: decoded.last_name || '',
+        role: decoded.role,
+        tenant_id: decoded.tenant_id,
+        business_unit_id: decoded.business_unit_id,
+        department_id: decoded.department_id
+      });
     } catch (error) {
       console.error('Erro no login:', error);
       throw error;
@@ -115,16 +131,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setToken(null);
-    setRole(null);
-    setTenantId(null);
-    
-    // Limpar localStorage e cookie
+    setUser(null);
     localStorage.removeItem('token');
     removeCookie('auth-token');
   };
 
+  const refreshToken = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refresh-token');
+      if (!refreshToken) {
+        throw new Error('Refresh token não encontrado');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao renovar token');
+      }
+
+      const data = await response.json();
+      setToken(data.access_token);
+      localStorage.setItem('token', data.access_token);
+      setCookie('auth-token', data.access_token, 7);
+      
+      const decoded: any = jwtDecode(data.access_token);
+      setUser({
+        id: decoded.sub,
+        username: decoded.username,
+        email: decoded.email,
+        first_name: decoded.first_name || '',
+        last_name: decoded.last_name || '',
+        role: decoded.role,
+        tenant_id: decoded.tenant_id,
+        business_unit_id: decoded.business_unit_id,
+        department_id: decoded.department_id
+      });
+    } catch (error) {
+      console.error('Erro ao renovar token:', error);
+      logout();
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ token, role, tenantId, login, signup, logout, isLoading }}>
+    <AuthContext.Provider value={{ token, user, login, signup, logout, isLoading, refreshToken }}>
       {children}
     </AuthContext.Provider>
   );
