@@ -36,7 +36,7 @@ function TransactionsContent() {
 
   const fetchTransactions = async () => {
     try {
-      const data = await getTransactions(token ?? undefined);
+      const data = await getTransactions({}, token ?? undefined);
       setTransactions(data);
     } catch (error) {
       console.error('Erro ao buscar transações', error);
