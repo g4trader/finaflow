@@ -115,7 +115,7 @@ function AccountsContent() {
       if (editing) {
         await updateAccount(editing.id, payload);
       } else {
-        await createAccount(payload, token ?? undefined);
+        await createAccount(payload);
       }
       
       await fetchData();
