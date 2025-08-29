@@ -75,7 +75,7 @@ class FinaFlowQATest(unittest.TestCase):
         print("\n🔍 Teste 2: Acessibilidade do frontend")
         
         try:
-            self.driver.get(self.frontend_url)
+            self.driver.get(f"{self.frontend_url}/login")
             self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
             
             title = self.driver.title
@@ -90,7 +90,7 @@ class FinaFlowQATest(unittest.TestCase):
         print("\n🔍 Teste 3: Funcionalidade de login")
         
         try:
-            self.driver.get(self.frontend_url)
+            self.driver.get(f"{self.frontend_url}/login")
             self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
             
             username_field = self.wait.until(
@@ -121,9 +121,27 @@ class FinaFlowQATest(unittest.TestCase):
             self.test_03_login_functionality()
             time.sleep(2)
             
-            users_link = self.wait.until(
-                EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Usuários')]"))
-            )
+            # Procurar por diferentes seletores para o link de usuários
+            users_link = None
+            selectors = [
+                "//a[contains(text(), 'Usuários')]",
+                "//a[contains(text(), 'Users')]",
+                "//a[@href='/users']",
+                "//a[contains(@href, 'users')]"
+            ]
+            
+            for selector in selectors:
+                try:
+                    users_link = self.wait.until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    print(f"   ✅ Link de usuários encontrado com seletor: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not users_link:
+                self.fail("❌ Link de usuários não encontrado com nenhum seletor")
             users_link.click()
             
             self.wait.until(EC.url_contains("users"))

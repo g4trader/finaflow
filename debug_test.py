@@ -30,7 +30,7 @@ def debug_frontend():
     try:
         # 1. Acessar página de login
         print("1️⃣ Acessando página de login...")
-        driver.get("https://finaflow.vercel.app")
+        driver.get("https://finaflow.vercel.app/login")
         
         # Aguardar carregamento
         wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
