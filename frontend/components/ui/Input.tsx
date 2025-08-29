@@ -1,19 +1,7 @@
 'use client';
 import React, { forwardRef } from 'react';
-import { motion, type HTMLMotionProps } from 'framer-motion';
 
-/**
- * Input compatível com framer-motion v11:
- * - Usa APENAS HTMLMotionProps<'input'> (não mistura com InputHTMLAttributes).
- * - Omite handlers de animação que conflitam (onAnimationStart/End/Iteration/Complete).
- * - Mantém whileFocus/transition configuráveis.
- */
-type MotionSafeInputProps = Omit<
-  HTMLMotionProps<'input'>,
-  'children' | 'onAnimationStart' | 'onAnimationEnd' | 'onAnimationIteration' | 'onAnimationComplete'
->;
-
-interface InputProps extends MotionSafeInputProps {
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   helperText?: string;
@@ -32,8 +20,6 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       iconPosition = 'left',
       fullWidth = false,
       className = '',
-      whileFocus = { scale: 1.01 },
-      transition = { duration: 0.2 },
       ...props
     },
     ref
@@ -68,11 +54,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             </div>
           )}
 
-          <motion.input
+          <input
             ref={ref}
             className={inputClasses}
-            whileFocus={whileFocus}
-            transition={transition}
             {...props}
           />
         </div>

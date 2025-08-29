@@ -34,6 +34,28 @@ interface User {
   last_login: string;
 }
 
+// Função para aplicar máscara de telefone
+const applyPhoneMask = (value: string): string => {
+  // Remove tudo que não é dígito
+  const numbers = value.replace(/\D/g, '');
+  
+  // Aplica a máscara (11) 99999-9999
+  if (numbers.length <= 2) {
+    return `(${numbers}`;
+  } else if (numbers.length <= 7) {
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+  } else if (numbers.length <= 11) {
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+  } else {
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+  }
+};
+
+// Função para remover máscara de telefone
+const removePhoneMask = (value: string): string => {
+  return value.replace(/\D/g, '');
+};
+
 function UsersContent() {
   const { token } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
@@ -117,10 +139,16 @@ function UsersContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Remove a máscara do telefone antes de enviar
+      const dataToSend = {
+        ...formData,
+        phone: removePhoneMask(formData.phone)
+      };
+
       if (editingUser) {
-        await updateUser(editingUser.id, formData, token ?? undefined);
+        await updateUser(editingUser.id, dataToSend, token ?? undefined);
       } else {
-        await createUser(formData, token ?? undefined);
+        await createUser(dataToSend, token ?? undefined);
       }
       setIsModalOpen(false);
       setFormData({ name: '', email: '', phone: '', role: 'user', status: 'active' });
@@ -147,7 +175,7 @@ function UsersContent() {
     setFormData({
       name: user.name,
       email: user.email,
-      phone: user.phone,
+      phone: applyPhoneMask(user.phone), // Aplica máscara ao editar
       role: user.role,
       status: user.status
     });
@@ -174,7 +202,8 @@ function UsersContent() {
   }, [handleInputChange]);
 
   const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    handleInputChange('phone', e.target.value);
+    const maskedValue = applyPhoneMask(e.target.value);
+    handleInputChange('phone', maskedValue);
   }, [handleInputChange]);
 
   const handleRoleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
