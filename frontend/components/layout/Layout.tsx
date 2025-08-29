@@ -113,9 +113,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => {
     return (
       <motion.div
-        initial={mobile ? { x: -300 } : false}
-        animate={mobile ? { x: 0 } : false}
-        exit={mobile ? { x: -300 } : false}
+        initial={mobile ? { x: -300 } : { x: 0 }}
+        animate={mobile ? { x: 0 } : { x: 0 }}
+        exit={mobile ? { x: -300 } : { x: 0 }}
         transition={{ duration: 0.3 }}
         className={`bg-white border-r border-gray-200 flex flex-col ${
           mobile ? 'fixed inset-y-0 left-0 z-50 w-80 lg:hidden' : 'hidden lg:flex w-80'
