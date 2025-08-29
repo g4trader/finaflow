@@ -17,12 +17,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar requirements e instalar dependências Python
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Instalar dependências Python
+RUN pip install fastapi uvicorn
 
-# Copiar código da aplicação
-COPY . .
+# Copiar app híbrido
+COPY hybrid_app.py .
 
 # Alterar proprietário dos arquivos para o usuário não-root
 RUN chown -R appuser:appuser /app
@@ -34,5 +33,5 @@ USER appuser
 EXPOSE 8080
 
 # Comando para iniciar a aplicação
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "hybrid_app.py"]
 
