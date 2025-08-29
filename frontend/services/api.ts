@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+// Build timestamp: 2025-08-29 11:30:00 - Forcing rebuild
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Configuração do axios
