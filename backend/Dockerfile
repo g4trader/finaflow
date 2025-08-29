@@ -18,7 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar dependências Python
-RUN pip install fastapi uvicorn
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
 # Copiar app híbrido
 COPY hybrid_app.py .
