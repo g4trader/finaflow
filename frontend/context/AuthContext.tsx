@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import jwtDecode from 'jwt-decode';
 import { login as apiLogin, signup as apiSignup } from '../services/api';
+import Cookies from 'js-cookie';
 
 interface AuthContextType {
   token: string | null;
@@ -33,16 +34,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Verificar se estamos no cliente (browser)
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('token');
+        // Tentar localStorage primeiro (para compatibilidade)
+        let stored = localStorage.getItem('token');
+        
+        // Se não tem no localStorage, tentar cookie
+        if (!stored) {
+          stored = Cookies.get('auth-token') || null;
+        }
+        
         if (stored) {
           setToken(stored);
           const decoded: any = jwtDecode(stored);
           setRole(decoded.role);
           setTenantId(decoded.tenant_id || null);
+          
+          // Sincronizar com cookie para middleware
+          Cookies.set('auth-token', stored, { expires: 7, secure: true, sameSite: 'strict' });
         }
       } catch (error) {
-        console.error('Erro ao carregar token do localStorage:', error);
+        console.error('Erro ao carregar token:', error);
+        // Limpar tokens inválidos
         localStorage.removeItem('token');
+        Cookies.remove('auth-token');
       }
     }
     setIsLoading(false);
@@ -52,7 +65,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const data = await apiLogin(username, password);
       setToken(data.access_token);
+      
+      // Salvar em localStorage e cookie
       localStorage.setItem('token', data.access_token);
+      Cookies.set('auth-token', data.access_token, { expires: 7, secure: true, sameSite: 'strict' });
+      
       const decoded: any = jwtDecode(data.access_token);
       setRole(decoded.role);
       setTenantId(decoded.tenant_id || null);
@@ -69,9 +86,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setToken(null);
-    localStorage.removeItem('token');
     setRole(null);
     setTenantId(null);
+    
+    // Limpar localStorage e cookie
+    localStorage.removeItem('token');
+    Cookies.remove('auth-token');
   };
 
   return (
