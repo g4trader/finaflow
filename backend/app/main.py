@@ -21,9 +21,10 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+include_routers(app)
+# Debug routers devem vir por último para não interferir com as rotas principais
 app.include_router(debug.router)
 app.include_router(debug_auth.router)
-include_routers(app)
 
 @app.get("/healthz", tags=["health"])
 async def health_check():
