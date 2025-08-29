@@ -103,5 +103,71 @@ async def get_cash_flow():
         ]
     }
 
+# Usuários
+@app.get("/api/v1/auth/users")
+async def get_users():
+    return [
+        {
+            "id": "1",
+            "name": "João Silva",
+            "email": "joao@empresa.com",
+            "phone": "(11) 99999-9999",
+            "role": "admin",
+            "status": "active",
+            "created_at": "2024-01-15",
+            "last_login": "2024-08-07"
+        },
+        {
+            "id": "2",
+            "name": "Maria Santos",
+            "email": "maria@empresa.com",
+            "phone": "(11) 88888-8888",
+            "role": "manager",
+            "status": "active",
+            "created_at": "2024-02-20",
+            "last_login": "2024-08-06"
+        },
+        {
+            "id": "3",
+            "name": "Pedro Costa",
+            "email": "pedro@empresa.com",
+            "phone": "(11) 77777-7777",
+            "role": "user",
+            "status": "inactive",
+            "created_at": "2024-03-10",
+            "last_login": "2024-07-30"
+        }
+    ]
+
+@app.post("/api/v1/auth/users")
+async def create_user():
+    return {
+        "id": "4",
+        "name": "Novo Usuário",
+        "email": "novo@empresa.com",
+        "phone": "(11) 66666-6666",
+        "role": "user",
+        "status": "active",
+        "created_at": "2024-08-07",
+        "last_login": None
+    }
+
+@app.put("/api/v1/auth/users/{user_id}")
+async def update_user(user_id: str):
+    return {
+        "id": user_id,
+        "name": "Usuário Atualizado",
+        "email": "atualizado@empresa.com",
+        "phone": "(11) 55555-5555",
+        "role": "manager",
+        "status": "active",
+        "created_at": "2024-01-15",
+        "last_login": "2024-08-07"
+    }
+
+@app.delete("/api/v1/auth/users/{user_id}")
+async def delete_user(user_id: str):
+    return {"message": f"Usuário {user_id} deletado com sucesso"}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
