@@ -6,6 +6,7 @@ import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import ProtectedRoute from '../components/ProtectedRoute';
 import {
   getAccounts,
   createAccount,
@@ -30,7 +31,7 @@ interface Subgroup {
   name: string;
 }
 
-export default function Accounts() {
+function AccountsContent() {
   const { token, tenantId } = useContext(AuthContext);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
@@ -447,5 +448,13 @@ export default function Accounts() {
         </Modal>
       </div>
     </Layout>
+  );
+}
+
+export default function Accounts() {
+  return (
+    <ProtectedRoute>
+      <AccountsContent />
+    </ProtectedRoute>
   );
 }

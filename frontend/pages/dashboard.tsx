@@ -35,6 +35,7 @@ import {
 import Layout from '../components/layout/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 import { getAccounts, getTransactions, getGroups, getSubgroups } from '../services/api';
 
@@ -55,7 +56,7 @@ interface DashboardData {
   subgroups: any[];
 }
 
-export default function Dashboard() {
+function DashboardContent() {
   const [timeRange, setTimeRange] = useState('30d');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>({
@@ -490,6 +491,14 @@ export default function Dashboard() {
         </motion.div>
       </div>
     </Layout>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   );
 }
 
