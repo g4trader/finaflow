@@ -6,6 +6,7 @@ import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import ProtectedRoute from '../components/ProtectedRoute';
 import {
   getForecasts,
   createForecast,
