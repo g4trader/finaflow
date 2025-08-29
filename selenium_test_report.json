@@ -1,17 +1,17 @@
 {
-  "timestamp": "2025-08-28 23:01:48",
+  "timestamp": "2025-08-28 23:08:33",
   "results": {
     "middleware_protection": false,
     "login_redirect": false,
-    "login_working": true,
-    "dashboard_access": true,
-    "menu_portuguese": true,
-    "protected_routes": true,
+    "login_working": false,
+    "dashboard_access": false,
+    "menu_portuguese": false,
+    "protected_routes": false,
     "logout_working": false
   },
   "summary": {
-    "passed": 4,
+    "passed": 0,
     "total": 7,
-    "percentage": 57.14285714285714
+    "percentage": 0.0
   }
 }
