@@ -7,8 +7,9 @@ import os
 from contextlib import asynccontextmanager
 
 from app.database import create_tables
-from app.api import auth
+from app.api import auth, financial
 from app.models.auth import Base
+from app.models.financial import Base as FinancialBase
 
 # Configurações de segurança
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,finaflow.vercel.app").split(",")
@@ -91,6 +92,7 @@ async def health_check():
 
 # Incluir routers
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(financial.router, prefix="/api/v1")
 
 # Rota raiz
 @app.get("/")
