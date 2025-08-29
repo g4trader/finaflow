@@ -1,7 +1,6 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import jwtDecode from 'jwt-decode';
 import { login as apiLogin, signup as apiSignup } from '../services/api';
-import Cookies from 'js-cookie';
 
 interface AuthContextType {
   token: string | null;
@@ -24,6 +23,36 @@ export const useAuth = () => {
   return context;
 };
 
+// Função para definir cookie
+const setCookie = (name: string, value: string, days: number) => {
+  if (typeof window !== 'undefined') {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;secure;samesite=strict`;
+  }
+};
+
+// Função para obter cookie
+const getCookie = (name: string): string | null => {
+  if (typeof window !== 'undefined') {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+  }
+  return null;
+};
+
+// Função para remover cookie
+const removeCookie = (name: string) => {
+  if (typeof window !== 'undefined') {
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+  }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
@@ -39,7 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Se não tem no localStorage, tentar cookie
         if (!stored) {
-          stored = Cookies.get('auth-token') || null;
+          stored = getCookie('auth-token');
         }
         
         if (stored) {
@@ -49,13 +78,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setTenantId(decoded.tenant_id || null);
           
           // Sincronizar com cookie para middleware
-          Cookies.set('auth-token', stored, { expires: 7, secure: true, sameSite: 'strict' });
+          setCookie('auth-token', stored, 7);
         }
       } catch (error) {
         console.error('Erro ao carregar token:', error);
         // Limpar tokens inválidos
         localStorage.removeItem('token');
-        Cookies.remove('auth-token');
+        removeCookie('auth-token');
       }
     }
     setIsLoading(false);
@@ -68,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Salvar em localStorage e cookie
       localStorage.setItem('token', data.access_token);
-      Cookies.set('auth-token', data.access_token, { expires: 7, secure: true, sameSite: 'strict' });
+      setCookie('auth-token', data.access_token, 7);
       
       const decoded: any = jwtDecode(data.access_token);
       setRole(decoded.role);
@@ -91,7 +120,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Limpar localStorage e cookie
     localStorage.removeItem('token');
-    Cookies.remove('auth-token');
+    removeCookie('auth-token');
   };
 
   return (
