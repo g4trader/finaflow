@@ -39,7 +39,24 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     router.push('/login');
   };
 
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+  // Detectar se a página atual está em um submenu e expandir automaticamente
+  const getInitialExpandedMenus = () => {
+    const expanded = new Set<string>();
+    
+    // Verificar se a página atual está no submenu de Configurações
+    const configSubmenuPages = [
+      'Empresas', 'Business Units', 'Usuários', 'Contas', 
+      'Grupos', 'Subgrupos', 'Importar CSV'
+    ];
+    
+    if (title && configSubmenuPages.includes(title)) {
+      expanded.add('Configurações');
+    }
+    
+    return expanded;
+  };
+
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(getInitialExpandedMenus());
 
   const toggleMenu = (menuKey: string) => {
     const newExpanded = new Set(expandedMenus);
@@ -51,33 +68,44 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     setExpandedMenus(newExpanded);
   };
 
+  // Função para verificar se um item está ativo baseado no pathname e título
+  const isItemActive = (itemHref: string | null, itemTitle: string) => {
+    if (itemHref && router.pathname === itemHref) {
+      return true;
+    }
+    if (title && title === itemTitle) {
+      return true;
+    }
+    return false;
+  };
+
   const menuItems = [
     {
       icon: <LayoutDashboard className="w-5 h-5" />,
       label: 'Dashboard',
       href: '/dashboard',
-      active: title === 'Dashboard',
+      active: isItemActive('/dashboard', 'Dashboard'),
       description: 'Visão geral do sistema'
     },
     {
       icon: <CreditCard className="w-5 h-5" />,
       label: 'Transações',
       href: '/transactions',
-      active: title === 'Transações',
+      active: isItemActive('/transactions', 'Transações'),
       description: 'Registrar e visualizar transações'
     },
     {
       icon: <TrendingUp className="w-5 h-5" />,
       label: 'Previsões',
       href: '/forecast',
-      active: title === 'Previsões',
+      active: isItemActive('/forecast', 'Previsões'),
       description: 'Análise e previsões financeiras'
     },
     {
       icon: <BarChart3 className="w-5 h-5" />,
       label: 'Relatórios',
       href: '/reports',
-      active: title === 'Relatórios',
+      active: isItemActive('/reports', 'Relatórios'),
       description: 'Relatórios e análises'
     },
     {
@@ -92,49 +120,49 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           icon: <Building2 className="w-4 h-4" />,
           label: 'Empresas',
           href: '/companies',
-          active: title === 'Empresas',
+          active: isItemActive('/companies', 'Empresas'),
           description: 'Gerenciar empresas (tenants)'
         },
         {
           icon: <GitBranch className="w-4 h-4" />,
           label: 'Business Units',
           href: '/business-units',
-          active: title === 'Business Units',
+          active: isItemActive('/business-units', 'Business Units'),
           description: 'Gerenciar business units'
         },
         {
           icon: <Users className="w-4 h-4" />,
           label: 'Usuários',
           href: '/users',
-          active: title === 'Usuários',
+          active: isItemActive('/users', 'Usuários'),
           description: 'Gerenciar usuários do sistema'
         },
         {
           icon: <Wallet className="w-4 h-4" />,
           label: 'Contas',
           href: '/accounts',
-          active: title === 'Contas',
+          active: isItemActive('/accounts', 'Contas'),
           description: 'Gerenciar contas bancárias'
         },
         {
           icon: <Layers className="w-4 h-4" />,
           label: 'Grupos',
           href: '/groups',
-          active: title === 'Grupos',
+          active: isItemActive('/groups', 'Grupos'),
           description: 'Organizar contas em grupos'
         },
         {
           icon: <Layers3 className="w-4 h-4" />,
           label: 'Subgrupos',
           href: '/subgroups',
-          active: title === 'Subgrupos',
+          active: isItemActive('/subgroups', 'Subgrupos'),
           description: 'Subdivisões dos grupos'
         },
         {
           icon: <Upload className="w-4 h-4" />,
           label: 'Importar CSV',
           href: '/csv-import',
-          active: title === 'Importar CSV',
+          active: isItemActive('/csv-import', 'Importar CSV'),
           description: 'Importar dados via arquivo CSV'
         }
       ]
