@@ -6,6 +6,8 @@ import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
 import ProtectedRoute from '../components/ProtectedRoute';
 
+// Página de gerenciamento de empresas (tenants)
+
 interface Company {
   id: string;
   name: string;
