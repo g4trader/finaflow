@@ -9,17 +9,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 # Importar configurações do banco de dados
-try:
-    from app.database import get_db, engine
-    from app.models.auth import User, Base as AuthBase
-    DB_AVAILABLE = True
-    print("✅ Database models available")
-except ImportError as e:
-    DB_AVAILABLE = False
-    print(f"⚠️ Database models not available: {e}")
-    # Função de fallback para quando o banco não está disponível
-    def get_db():
-        return None
+from app.database import get_db, engine
+from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 
 # Modelos Pydantic para Tenants e Business Units
 class TenantCreate(BaseModel):
@@ -132,14 +123,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Criar tabelas no banco de dados se disponível
-if DB_AVAILABLE:
-    try:
-        AuthBase.metadata.create_all(bind=engine)
-        print("✅ Database tables created")
-    except Exception as e:
-        print(f"⚠️ Could not create database tables: {e}")
-        DB_AVAILABLE = False
+# Criar tabelas no banco de dados
+try:
+    AuthBase.metadata.create_all(bind=engine)
+    print("✅ Database tables created")
+except Exception as e:
+    print(f"❌ Could not create database tables: {e}")
+    raise e
 
 # Modelos Pydantic para compatibilidade com o frontend
 class UserCreate(BaseModel):
@@ -169,102 +159,10 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# Banco de dados em memória como fallback
-users_db = [
-    {
-        "id": "1",
-        "name": "João Silva",
-        "email": "joao@empresa.com",
-        "phone": "(11) 99999-9999",
-        "role": "admin",
-        "status": "active",
-        "created_at": "2024-01-15",
-        "last_login": "2024-08-07"
-    },
-    {
-        "id": "2",
-        "name": "Maria Santos",
-        "email": "maria@empresa.com",
-        "phone": "(11) 88888-8888",
-        "role": "manager",
-        "status": "active",
-        "created_at": "2024-02-20",
-        "last_login": "2024-08-06"
-    },
-    {
-        "id": "3",
-        "name": "Pedro Costa",
-        "email": "pedro@empresa.com",
-        "phone": "(11) 77777-7777",
-        "role": "user",
-        "status": "inactive",
-        "created_at": "2024-03-10",
-        "last_login": "2024-07-30"
-    }
-]
-
-# Dados em memória para Tenants
-tenants_db = [
-    {
-        "id": "1",
-        "name": "Empresa A",
-        "domain": "empresa-a.com",
-        "status": "active",
-        "created_at": "2024-01-15",
-        "updated_at": "2024-01-15"
-    },
-    {
-        "id": "2",
-        "name": "Empresa B",
-        "domain": "empresa-b.com",
-        "status": "active",
-        "created_at": "2024-02-20",
-        "updated_at": "2024-02-20"
-    }
-]
-
-# Dados em memória para Business Units
-business_units_db = [
-    {
-        "id": "1",
-        "tenant_id": "1",
-        "name": "BU São Paulo",
-        "code": "SP",
-        "status": "active",
-        "created_at": "2024-01-15",
-        "updated_at": "2024-01-15"
-    },
-    {
-        "id": "2",
-        "tenant_id": "1",
-        "name": "BU Rio de Janeiro",
-        "code": "RJ",
-        "status": "active",
-        "created_at": "2024-02-20",
-        "updated_at": "2024-02-20"
-    },
-    {
-        "id": "3",
-        "tenant_id": "2",
-        "name": "BU Minas Gerais",
-        "code": "MG",
-        "status": "active",
-        "created_at": "2024-03-10",
-        "updated_at": "2024-03-10"
-    }
-]
-
-# Contadores para IDs
-next_tenant_id = 3
-next_bu_id = 4
-
-next_user_id = 4
-
-# Dados em memória para empresas e BUs
-tenants_db = []
-next_tenant_id = 1
-business_units_db = []
-next_bu_id = 1
+# Configuração JWT
+SECRET_KEY = "your-secret-key-here"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 @app.get("/")
 async def root():
@@ -308,321 +206,311 @@ async def login():
 @app.get("/api/v1/tenants", response_model=List[TenantResponse])
 async def get_tenants(db: Session = Depends(get_db)):
     """Listar todas as empresas"""
-    return [TenantResponse(**tenant) for tenant in tenants_db]
+    tenants = db.query(Tenant).all()
+    return [TenantResponse(
+        id=tenant.id,
+        name=tenant.name,
+        domain=tenant.domain,
+        status=tenant.status,
+        created_at=tenant.created_at.strftime("%Y-%m-%d") if tenant.created_at else "",
+        updated_at=tenant.updated_at.strftime("%Y-%m-%d") if tenant.updated_at else ""
+    ) for tenant in tenants]
 
 @app.get("/api/v1/tenants/{tenant_id}", response_model=TenantResponse)
 async def get_tenant(tenant_id: str, db: Session = Depends(get_db)):
     """Buscar empresa por ID"""
-    tenant = next((t for t in tenants_db if t["id"] == tenant_id), None)
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
-    return TenantResponse(**tenant)
+    
+    return TenantResponse(
+        id=tenant.id,
+        name=tenant.name,
+        domain=tenant.domain,
+        status=tenant.status,
+        created_at=tenant.created_at.strftime("%Y-%m-%d") if tenant.created_at else "",
+        updated_at=tenant.updated_at.strftime("%Y-%m-%d") if tenant.updated_at else ""
+    )
 
 @app.post("/api/v1/tenants", response_model=TenantResponse, status_code=201)
 async def create_tenant(tenant_data: TenantCreate, db: Session = Depends(get_db)):
     """Criar nova empresa"""
-    global next_tenant_id
-    tenant = {
-        "id": str(next_tenant_id),
-        "name": tenant_data.name,
-        "domain": tenant_data.domain,
-        "status": tenant_data.status,
-        "created_at": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "updated_at": datetime.datetime.now().strftime("%Y-%m-%d")
-    }
-    tenants_db.append(tenant)
-    next_tenant_id += 1
-    return TenantResponse(**tenant)
+    tenant = Tenant(
+        name=tenant_data.name,
+        domain=tenant_data.domain,
+        status=tenant_data.status
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+    
+    return TenantResponse(
+        id=tenant.id,
+        name=tenant.name,
+        domain=tenant.domain,
+        status=tenant.status,
+        created_at=tenant.created_at.strftime("%Y-%m-%d") if tenant.created_at else "",
+        updated_at=tenant.updated_at.strftime("%Y-%m-%d") if tenant.updated_at else ""
+    )
 
 @app.put("/api/v1/tenants/{tenant_id}", response_model=TenantResponse)
 async def update_tenant(tenant_id: str, tenant_data: TenantUpdate, db: Session = Depends(get_db)):
     """Atualizar empresa"""
-    tenant = next((t for t in tenants_db if t["id"] == tenant_id), None)
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     
     if tenant_data.name is not None:
-        tenant["name"] = tenant_data.name
+        tenant.name = tenant_data.name
     if tenant_data.domain is not None:
-        tenant["domain"] = tenant_data.domain
+        tenant.domain = tenant_data.domain
     if tenant_data.status is not None:
-        tenant["status"] = tenant_data.status
+        tenant.status = tenant_data.status
     
-    tenant["updated_at"] = datetime.datetime.now().strftime("%Y-%m-%d")
-    return TenantResponse(**tenant)
+    db.commit()
+    db.refresh(tenant)
+    
+    return TenantResponse(
+        id=tenant.id,
+        name=tenant.name,
+        domain=tenant.domain,
+        status=tenant.status,
+        created_at=tenant.created_at.strftime("%Y-%m-%d") if tenant.created_at else "",
+        updated_at=tenant.updated_at.strftime("%Y-%m-%d") if tenant.updated_at else ""
+    )
 
 @app.delete("/api/v1/tenants/{tenant_id}")
 async def delete_tenant(tenant_id: str, db: Session = Depends(get_db)):
     """Excluir empresa"""
-    global tenants_db
-    tenant = next((t for t in tenants_db if t["id"] == tenant_id), None)
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     
-    tenants_db = [t for t in tenants_db if t["id"] != tenant_id]
+    db.delete(tenant)
+    db.commit()
     return {"message": "Empresa excluída com sucesso"}
 
 # CRUD de Business Units
 @app.get("/api/v1/business-units", response_model=List[BusinessUnitResponse])
 async def get_business_units(db: Session = Depends(get_db)):
     """Listar todas as BUs"""
-    return [BusinessUnitResponse(**bu) for bu in business_units_db]
+    business_units = db.query(BusinessUnit).all()
+    return [BusinessUnitResponse(
+        id=bu.id,
+        tenant_id=bu.tenant_id,
+        name=bu.name,
+        code=bu.code,
+        status=bu.status,
+        created_at=bu.created_at.strftime("%Y-%m-%d") if bu.created_at else "",
+        updated_at=bu.updated_at.strftime("%Y-%m-%d") if bu.updated_at else ""
+    ) for bu in business_units]
 
 @app.get("/api/v1/business-units/{bu_id}", response_model=BusinessUnitResponse)
 async def get_business_unit(bu_id: str, db: Session = Depends(get_db)):
     """Buscar BU por ID"""
-    bu = next((b for b in business_units_db if b["id"] == bu_id), None)
+    bu = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
     if not bu:
         raise HTTPException(status_code=404, detail="BU não encontrada")
-    return BusinessUnitResponse(**bu)
+    
+    return BusinessUnitResponse(
+        id=bu.id,
+        tenant_id=bu.tenant_id,
+        name=bu.name,
+        code=bu.code,
+        status=bu.status,
+        created_at=bu.created_at.strftime("%Y-%m-%d") if bu.created_at else "",
+        updated_at=bu.updated_at.strftime("%Y-%m-%d") if bu.updated_at else ""
+    )
 
 @app.post("/api/v1/business-units", response_model=BusinessUnitResponse, status_code=201)
 async def create_business_unit(bu_data: BusinessUnitCreate, db: Session = Depends(get_db)):
     """Criar nova BU"""
-    global next_bu_id
-    bu = {
-        "id": str(next_bu_id),
-        "tenant_id": bu_data.tenant_id,
-        "name": bu_data.name,
-        "code": bu_data.code,
-        "status": bu_data.status,
-        "created_at": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "updated_at": datetime.datetime.now().strftime("%Y-%m-%d")
-    }
-    business_units_db.append(bu)
-    next_bu_id += 1
-    return BusinessUnitResponse(**bu)
+    bu = BusinessUnit(
+        tenant_id=bu_data.tenant_id,
+        name=bu_data.name,
+        code=bu_data.code,
+        status=bu_data.status
+    )
+    db.add(bu)
+    db.commit()
+    db.refresh(bu)
+    
+    return BusinessUnitResponse(
+        id=bu.id,
+        tenant_id=bu.tenant_id,
+        name=bu.name,
+        code=bu.code,
+        status=bu.status,
+        created_at=bu.created_at.strftime("%Y-%m-%d") if bu.created_at else "",
+        updated_at=bu.updated_at.strftime("%Y-%m-%d") if bu.updated_at else ""
+    )
 
 @app.put("/api/v1/business-units/{bu_id}", response_model=BusinessUnitResponse)
 async def update_business_unit(bu_id: str, bu_data: BusinessUnitUpdate, db: Session = Depends(get_db)):
     """Atualizar BU"""
-    bu = next((b for b in business_units_db if b["id"] == bu_id), None)
+    bu = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
     if not bu:
         raise HTTPException(status_code=404, detail="BU não encontrada")
     
     if bu_data.tenant_id is not None:
-        bu["tenant_id"] = bu_data.tenant_id
+        bu.tenant_id = bu_data.tenant_id
     if bu_data.name is not None:
-        bu["name"] = bu_data.name
+        bu.name = bu_data.name
     if bu_data.code is not None:
-        bu["code"] = bu_data.code
+        bu.code = bu_data.code
     if bu_data.status is not None:
-        bu["status"] = bu_data.status
+        bu.status = bu_data.status
     
-    bu["updated_at"] = datetime.datetime.now().strftime("%Y-%m-%d")
-    return BusinessUnitResponse(**bu)
+    db.commit()
+    db.refresh(bu)
+    
+    return BusinessUnitResponse(
+        id=bu.id,
+        tenant_id=bu.tenant_id,
+        name=bu.name,
+        code=bu.code,
+        status=bu.status,
+        created_at=bu.created_at.strftime("%Y-%m-%d") if bu.created_at else "",
+        updated_at=bu.updated_at.strftime("%Y-%m-%d") if bu.updated_at else ""
+    )
 
 @app.delete("/api/v1/business-units/{bu_id}")
 async def delete_business_unit(bu_id: str, db: Session = Depends(get_db)):
     """Excluir BU"""
-    global business_units_db
-    bu = next((b for b in business_units_db if b["id"] == bu_id), None)
+    bu = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
     if not bu:
         raise HTTPException(status_code=404, detail="BU não encontrada")
     
-    business_units_db = [b for b in business_units_db if b["id"] != bu_id]
+    db.delete(bu)
+    db.commit()
     return {"message": "BU excluída com sucesso"}
 
-# CRUD de Usuários - Usando banco de dados real se disponível, senão em memória
+# CRUD de Usuários
 @app.get("/api/v1/users", response_model=List[UserResponse])
 async def get_users(db: Session = Depends(get_db)):
     """Listar todos os usuários"""
-    if DB_AVAILABLE and db:
-        try:
-            users = db.query(User).all()
-            return [
-                UserResponse(
-                    id=user.id,
-                    name=f"{user.first_name} {user.last_name}",
-                    email=user.email,
-                    phone=user.phone or '(11) 99999-9999',  # Usar campo phone do banco
-                    role=user.role,
-                    status=user.status,
-                    created_at=user.created_at.strftime("%Y-%m-%d") if user.created_at else "",
-                    last_login=user.last_login.strftime("%Y-%m-%d") if user.last_login else None
-                )
-                for user in users
-            ]
-        except Exception as e:
-            print(f"Database error: {e}")
-            # Fallback para dados em memória
-            pass
-    
-    # Dados em memória
-    return [UserResponse(**user) for user in users_db]
+    users = db.query(User).all()
+    return [
+        UserResponse(
+            id=user.id,
+            name=f"{user.first_name} {user.last_name}",
+            email=user.email,
+            phone=user.phone or '(11) 99999-9999',
+            role=user.role,
+            status=user.status,
+            created_at=user.created_at.strftime("%Y-%m-%d") if user.created_at else "",
+            last_login=user.last_login.strftime("%Y-%m-%d") if user.last_login else None
+        )
+        for user in users
+    ]
 
 @app.get("/api/v1/users/{user_id}", response_model=UserResponse)
 async def get_user(user_id: str, db: Session = Depends(get_db)):
     """Buscar usuário por ID"""
-    if DB_AVAILABLE and db:
-        try:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                return UserResponse(
-                    id=user.id,
-                    name=f"{user.first_name} {user.last_name}",
-                    email=user.email,
-                    phone=user.phone or '(11) 99999-9999',  # Usar campo phone do banco
-                    role=user.role,
-                    status=user.status,
-                    created_at=user.created_at.strftime("%Y-%m-%d") if user.created_at else "",
-                    last_login=user.last_login.strftime("%Y-%m-%d") if user.last_login else None
-                )
-        except Exception as e:
-            print(f"Database error: {e}")
-    
-    # Dados em memória
-    user = next((u for u in users_db if u["id"] == user_id), None)
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    return UserResponse(**user)
+    
+    return UserResponse(
+        id=user.id,
+        name=f"{user.first_name} {user.last_name}",
+        email=user.email,
+        phone=user.phone or '(11) 99999-9999',
+        role=user.role,
+        status=user.status,
+        created_at=user.created_at.strftime("%Y-%m-%d") if user.created_at else "",
+        last_login=user.last_login.strftime("%Y-%m-%d") if user.last_login else None
+    )
 
 @app.post("/api/v1/users", response_model=UserResponse, status_code=201)
 async def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
     """Criar novo usuário"""
-    if DB_AVAILABLE and db:
-        try:
-            # Verificar se email já existe
-            existing_user = db.query(User).filter(User.email == user_data.email).first()
-            if existing_user:
-                raise HTTPException(status_code=400, detail="Email já cadastrado")
-            
-            # Separar nome completo em primeiro e último nome
-            name_parts = user_data.name.split(" ", 1)
-            first_name = name_parts[0]
-            last_name = name_parts[1] if len(name_parts) > 1 else ""
-            
-            # Criar novo usuário
-            new_user = User(
-                tenant_id="1",
-                username=user_data.email,
-                email=user_data.email,
-                first_name=first_name,
-                last_name=last_name,
-                phone=user_data.phone,  # Salvar telefone
-                hashed_password="hashed_password_placeholder",
-                role=user_data.role,
-                status=user_data.status
-            )
-            
-            db.add(new_user)
-            db.commit()
-            db.refresh(new_user)
-            
-            return UserResponse(
-                id=new_user.id,
-                name=f"{new_user.first_name} {new_user.last_name}",
-                email=new_user.email,
-                phone=user_data.phone,
-                role=new_user.role,
-                status=new_user.status,
-                created_at=new_user.created_at.strftime("%Y-%m-%d") if new_user.created_at else "",
-                last_login=None
-            )
-        except Exception as e:
-            print(f"Database error: {e}")
-            # Fallback para dados em memória
-            pass
-    
-    # Dados em memória
-    global next_user_id
-    if any(u["email"] == user_data.email for u in users_db):
+    # Verificar se email já existe
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
         raise HTTPException(status_code=400, detail="Email já cadastrado")
     
-    new_user = {
-        "id": str(next_user_id),
-        "name": user_data.name,
-        "email": user_data.email,
-        "phone": user_data.phone,
-        "role": user_data.role,
-        "status": user_data.status,
-        "created_at": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "last_login": None
-    }
+    # Separar nome completo em primeiro e último nome
+    name_parts = user_data.name.split(" ", 1)
+    first_name = name_parts[0]
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
     
-    users_db.append(new_user)
-    next_user_id += 1
+    # Criar novo usuário
+    new_user = User(
+        tenant_id="1",
+        username=user_data.email,
+        email=user_data.email,
+        first_name=first_name,
+        last_name=last_name,
+        phone=user_data.phone,
+        hashed_password="hashed_password_placeholder",
+        role=user_data.role,
+        status=user_data.status
+    )
     
-    return UserResponse(**new_user)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return UserResponse(
+        id=new_user.id,
+        name=f"{new_user.first_name} {new_user.last_name}",
+        email=new_user.email,
+        phone=user_data.phone,
+        role=new_user.role,
+        status=new_user.status,
+        created_at=new_user.created_at.strftime("%Y-%m-%d") if new_user.created_at else "",
+        last_login=None
+    )
 
 @app.put("/api/v1/users/{user_id}", response_model=UserResponse)
 async def update_user(user_id: str, user_data: UserUpdate, db: Session = Depends(get_db)):
     """Atualizar usuário"""
-    if DB_AVAILABLE and db:
-        try:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                if user_data.name is not None:
-                    name_parts = user_data.name.split(" ", 1)
-                    user.first_name = name_parts[0]
-                    user.last_name = name_parts[1] if len(name_parts) > 1 else ""
-                
-                if user_data.email is not None:
-                    user.email = user_data.email
-                    user.username = user_data.email
-                
-                if user_data.phone is not None:
-                    user.phone = user_data.phone
-                
-                if user_data.role is not None:
-                    user.role = user_data.role
-                
-                if user_data.status is not None:
-                    user.status = user_data.status
-                
-                db.commit()
-                db.refresh(user)
-                
-                return UserResponse(
-                    id=user.id,
-                    name=f"{user.first_name} {user.last_name}",
-                    email=user.email,
-                    phone=user.phone or '(11) 99999-9999',  # Usar campo phone do banco
-                    role=user.role,
-                    status=user.status,
-                    created_at=user.created_at.strftime("%Y-%m-%d") if user.created_at else "",
-                    last_login=user.last_login.strftime("%Y-%m-%d") if user.last_login else None
-                )
-        except Exception as e:
-            print(f"Database error: {e}")
-    
-    # Dados em memória
-    user_index = next((i for i, u in enumerate(users_db) if u["id"] == user_id), None)
-    if user_index is None:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
     if user_data.name is not None:
-        users_db[user_index]["name"] = user_data.name
-    if user_data.email is not None:
-        users_db[user_index]["email"] = user_data.email
-    if user_data.phone is not None:
-        users_db[user_index]["phone"] = user_data.phone
-    if user_data.role is not None:
-        users_db[user_index]["role"] = user_data.role
-    if user_data.status is not None:
-        users_db[user_index]["status"] = user_data.status
+        name_parts = user_data.name.split(" ", 1)
+        user.first_name = name_parts[0]
+        user.last_name = name_parts[1] if len(name_parts) > 1 else ""
     
-    return UserResponse(**users_db[user_index])
+    if user_data.email is not None:
+        user.email = user_data.email
+        user.username = user_data.email
+    
+    if user_data.phone is not None:
+        user.phone = user_data.phone
+    
+    if user_data.role is not None:
+        user.role = user_data.role
+    
+    if user_data.status is not None:
+        user.status = user_data.status
+    
+    db.commit()
+    db.refresh(user)
+    
+    return UserResponse(
+        id=user.id,
+        name=f"{user.first_name} {user.last_name}",
+        email=user.email,
+        phone=user.phone or '(11) 99999-9999',
+        role=user.role,
+        status=user.status,
+        created_at=user.created_at.strftime("%Y-%m-%d") if user.created_at else "",
+        last_login=user.last_login.strftime("%Y-%m-%d") if user.last_login else None
+    )
 
 @app.delete("/api/v1/users/{user_id}")
 async def delete_user(user_id: str, db: Session = Depends(get_db)):
     """Deletar usuário"""
-    if DB_AVAILABLE and db:
-        try:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                db.delete(user)
-                db.commit()
-                return {"message": f"Usuário {user_id} deletado com sucesso"}
-        except Exception as e:
-            print(f"Database error: {e}")
-    
-    # Dados em memória
-    user_index = next((i for i, u in enumerate(users_db) if u["id"] == user_id), None)
-    if user_index is None:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
-    users_db.pop(user_index)
+    db.delete(user)
+    db.commit()
     return {"message": f"Usuário {user_id} deletado com sucesso"}
 
 @app.get("/api/v1/financial/transactions")
@@ -678,38 +566,30 @@ async def get_cash_flow():
 # ENDPOINTS DE PERMISSÕES
 # ============================================================================
 
-# Dados em memória para permissões
-tenant_permissions_db = []
-business_unit_permissions_db = []
-next_permission_id = 1
-
 @app.get("/api/v1/permissions/tenants/{user_id}", response_model=List[UserTenantAccessResponse])
 async def get_user_tenant_permissions(user_id: str, db: Session = Depends(get_db)):
     """Lista permissões de um usuário em empresas"""
     # Buscar permissões do usuário
-    permissions = [p for p in tenant_permissions_db if p["user_id"] == user_id]
+    permissions = db.query(UserTenantAccess).filter(UserTenantAccess.user_id == user_id).all()
     
     # Formatar resposta
     result = []
     for perm in permissions:
         # Buscar nome da empresa
-        tenant_name = "Empresa não encontrada"
-        for tenant in tenants_db:
-            if tenant["id"] == perm["tenant_id"]:
-                tenant_name = tenant["name"]
-                break
+        tenant = db.query(Tenant).filter(Tenant.id == perm.tenant_id).first()
+        tenant_name = tenant.name if tenant else "Empresa não encontrada"
         
         result.append(UserTenantAccessResponse(
-            id=perm["id"],
-            user_id=perm["user_id"],
-            tenant_id=perm["tenant_id"],
+            id=perm.id,
+            user_id=perm.user_id,
+            tenant_id=perm.tenant_id,
             tenant_name=tenant_name,
-            can_read=perm["can_read"],
-            can_write=perm["can_write"],
-            can_delete=perm["can_delete"],
-            can_manage_users=perm["can_manage_users"],
-            created_at=perm["created_at"],
-            updated_at=perm["updated_at"]
+            can_read=perm.can_read,
+            can_write=perm.can_write,
+            can_delete=perm.can_delete,
+            can_manage_users=perm.can_manage_users,
+            created_at=perm.created_at.strftime("%Y-%m-%d") if perm.created_at else "",
+            updated_at=perm.updated_at.strftime("%Y-%m-%d") if perm.updated_at else ""
         ))
     
     return result
@@ -717,102 +597,93 @@ async def get_user_tenant_permissions(user_id: str, db: Session = Depends(get_db
 @app.post("/api/v1/permissions/tenants", response_model=UserTenantAccessResponse)
 async def create_user_tenant_permission(permission_data: UserTenantAccessCreate, db: Session = Depends(get_db)):
     """Cria permissão de usuário em uma empresa"""
-    global next_permission_id
-    
     # Verificar se já existe permissão
-    existing = next((p for p in tenant_permissions_db 
-                    if p["user_id"] == permission_data.user_id 
-                    and p["tenant_id"] == permission_data.tenant_id), None)
+    existing = db.query(UserTenantAccess).filter(
+        UserTenantAccess.user_id == permission_data.user_id,
+        UserTenantAccess.tenant_id == permission_data.tenant_id
+    ).first()
     
     if existing:
         raise HTTPException(status_code=400, detail="Permissão já existe para este usuário nesta empresa")
     
     # Criar nova permissão
-    permission = {
-        "id": str(next_permission_id),
-        "user_id": permission_data.user_id,
-        "tenant_id": permission_data.tenant_id,
-        "can_read": permission_data.can_read,
-        "can_write": permission_data.can_write,
-        "can_delete": permission_data.can_delete,
-        "can_manage_users": permission_data.can_manage_users,
-        "created_at": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "updated_at": datetime.datetime.now().strftime("%Y-%m-%d")
-    }
+    permission = UserTenantAccess(
+        user_id=permission_data.user_id,
+        tenant_id=permission_data.tenant_id,
+        can_read=permission_data.can_read,
+        can_write=permission_data.can_write,
+        can_delete=permission_data.can_delete,
+        can_manage_users=permission_data.can_manage_users
+    )
     
-    tenant_permissions_db.append(permission)
-    next_permission_id += 1
+    db.add(permission)
+    db.commit()
+    db.refresh(permission)
     
     # Buscar nome da empresa
-    tenant_name = "Empresa não encontrada"
-    for tenant in tenants_db:
-        if tenant["id"] == permission_data.tenant_id:
-            tenant_name = tenant["name"]
-            break
+    tenant = db.query(Tenant).filter(Tenant.id == permission_data.tenant_id).first()
+    tenant_name = tenant.name if tenant else "Empresa não encontrada"
     
     return UserTenantAccessResponse(
-        id=permission["id"],
-        user_id=permission["user_id"],
-        tenant_id=permission["tenant_id"],
+        id=permission.id,
+        user_id=permission.user_id,
+        tenant_id=permission.tenant_id,
         tenant_name=tenant_name,
-        can_read=permission["can_read"],
-        can_write=permission["can_write"],
-        can_delete=permission["can_delete"],
-        can_manage_users=permission["can_manage_users"],
-        created_at=permission["created_at"],
-        updated_at=permission["updated_at"]
+        can_read=permission.can_read,
+        can_write=permission.can_write,
+        can_delete=permission.can_delete,
+        can_manage_users=permission.can_manage_users,
+        created_at=permission.created_at.strftime("%Y-%m-%d") if permission.created_at else "",
+        updated_at=permission.updated_at.strftime("%Y-%m-%d") if permission.updated_at else ""
     )
 
 @app.put("/api/v1/permissions/tenants/{permission_id}", response_model=UserTenantAccessResponse)
 async def update_user_tenant_permission(permission_id: str, permission_data: UserTenantAccessUpdate, db: Session = Depends(get_db)):
     """Atualiza permissão de usuário em uma empresa"""
     # Buscar permissão
-    permission = next((p for p in tenant_permissions_db if p["id"] == permission_id), None)
+    permission = db.query(UserTenantAccess).filter(UserTenantAccess.id == permission_id).first()
     if not permission:
         raise HTTPException(status_code=404, detail="Permissão não encontrada")
     
     # Atualizar permissões
     if permission_data.can_read is not None:
-        permission["can_read"] = permission_data.can_read
+        permission.can_read = permission_data.can_read
     if permission_data.can_write is not None:
-        permission["can_write"] = permission_data.can_write
+        permission.can_write = permission_data.can_write
     if permission_data.can_delete is not None:
-        permission["can_delete"] = permission_data.can_delete
+        permission.can_delete = permission_data.can_delete
     if permission_data.can_manage_users is not None:
-        permission["can_manage_users"] = permission_data.can_manage_users
+        permission.can_manage_users = permission_data.can_manage_users
     
-    permission["updated_at"] = datetime.datetime.now().strftime("%Y-%m-%d")
+    db.commit()
+    db.refresh(permission)
     
     # Buscar nome da empresa
-    tenant_name = "Empresa não encontrada"
-    for tenant in tenants_db:
-        if tenant["id"] == permission["tenant_id"]:
-            tenant_name = tenant["name"]
-            break
+    tenant = db.query(Tenant).filter(Tenant.id == permission.tenant_id).first()
+    tenant_name = tenant.name if tenant else "Empresa não encontrada"
     
     return UserTenantAccessResponse(
-        id=permission["id"],
-        user_id=permission["user_id"],
-        tenant_id=permission["tenant_id"],
+        id=permission.id,
+        user_id=permission.user_id,
+        tenant_id=permission.tenant_id,
         tenant_name=tenant_name,
-        can_read=permission["can_read"],
-        can_write=permission["can_write"],
-        can_delete=permission["can_delete"],
-        can_manage_users=permission["can_manage_users"],
-        created_at=permission["created_at"],
-        updated_at=permission["updated_at"]
+        can_read=permission.can_read,
+        can_write=permission.can_write,
+        can_delete=permission.can_delete,
+        can_manage_users=permission.can_manage_users,
+        created_at=permission.created_at.strftime("%Y-%m-%d") if permission.created_at else "",
+        updated_at=permission.updated_at.strftime("%Y-%m-%d") if permission.updated_at else ""
     )
 
 @app.delete("/api/v1/permissions/tenants/{permission_id}")
 async def delete_user_tenant_permission(permission_id: str, db: Session = Depends(get_db)):
     """Remove permissão de usuário em uma empresa"""
-    global tenant_permissions_db
-    
-    permission = next((p for p in tenant_permissions_db if p["id"] == permission_id), None)
+    permission = db.query(UserTenantAccess).filter(UserTenantAccess.id == permission_id).first()
     if not permission:
         raise HTTPException(status_code=404, detail="Permissão não encontrada")
     
-    tenant_permissions_db = [p for p in tenant_permissions_db if p["id"] != permission_id]
+    db.delete(permission)
+    db.commit()
     return {"message": "Permissão removida com sucesso"}
 
 @app.get("/api/v1/permissions/business-units/{user_id}", response_model=List[UserBusinessUnitAccessResponse])
