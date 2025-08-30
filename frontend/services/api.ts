@@ -253,8 +253,30 @@ export const deleteUser = async (id: string, token?: string) => {
 };
 
 // Tenants
-export const createTenant = async (data: any) => {
-  const response = await api.post('/api/v1/auth/tenants', data);
+export const getTenants = async (token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/tenants', { headers });
+  return response.data;
+};
+
+export const createTenant = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/tenants', data, { headers });
+  return response.data;
+};
+
+export const deleteTenant = async (id: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/tenants/${id}`, { headers });
   return response.data;
 };
 
@@ -428,7 +450,44 @@ export const updateTenant = async (id: string, data: any, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.put(`/api/v1/auth/tenants/${id}`, data, { headers });
+  const response = await api.put(`/api/v1/tenants/${id}`, data, { headers });
+  return response.data;
+};
+
+// Business Units
+export const getBusinessUnits = async (token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/business-units', { headers });
+  return response.data;
+};
+
+export const createBusinessUnit = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/business-units', data, { headers });
+  return response.data;
+};
+
+export const updateBusinessUnit = async (id: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/business-units/${id}`, data, { headers });
+  return response.data;
+};
+
+export const deleteBusinessUnit = async (id: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/business-units/${id}`, { headers });
   return response.data;
 };
 
