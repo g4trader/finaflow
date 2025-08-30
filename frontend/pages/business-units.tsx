@@ -4,6 +4,7 @@ import { getBusinessUnits, createBusinessUnit, updateBusinessUnit, deleteBusines
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
+import Layout from '../components/layout/Layout';
 import ProtectedRoute from '../components/ProtectedRoute';
 
 interface BusinessUnit {
@@ -139,9 +140,8 @@ const BusinessUnitsContent: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <Layout title="Business Units">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Business Units</h1>
         <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-700">
           Nova BU
         </Button>
@@ -294,7 +294,7 @@ const BusinessUnitsContent: React.FC = () => {
           </form>
         </div>
       </Modal>
-    </div>
+    </Layout>
   );
 };
 

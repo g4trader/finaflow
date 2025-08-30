@@ -4,6 +4,7 @@ import { getTenants, createTenant, updateTenant, deleteTenant } from '../service
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
+import Layout from '../components/layout/Layout';
 import ProtectedRoute from '../components/ProtectedRoute';
 
 // Página de gerenciamento de empresas (tenants)
@@ -114,9 +115,8 @@ const CompaniesContent: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <Layout title="Empresas">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Empresas</h1>
         <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-700">
           Nova Empresa
         </Button>
@@ -245,7 +245,7 @@ const CompaniesContent: React.FC = () => {
           </form>
         </div>
       </Modal>
-    </div>
+    </Layout>
   );
 };
 
