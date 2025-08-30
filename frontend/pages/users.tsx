@@ -240,19 +240,11 @@ function UsersContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Debug: verificar valores antes de enviar
-      console.log('formData antes de enviar:', formData);
-      
       // Remove a máscara do telefone antes de enviar
-      const phoneWithoutMask = removePhoneMask(formData.phone);
-      console.log('Telefone sem máscara:', phoneWithoutMask);
-      
       const dataToSend = {
         ...formData,
-        phone: phoneWithoutMask
+        phone: removePhoneMask(formData.phone)
       };
-      
-      console.log('dataToSend:', dataToSend);
 
       if (editingUser) {
         await updateUser(editingUser.id, dataToSend, token ?? undefined);
