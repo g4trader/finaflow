@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -39,6 +39,7 @@ class Tenant(Base):
     # Relationships
     users = relationship("User", back_populates="tenant")
     business_units = relationship("BusinessUnit", back_populates="tenant")
+    user_access = relationship("UserTenantAccess", back_populates="tenant")
 
 class BusinessUnit(Base):
     __tablename__ = "business_units"
@@ -55,6 +56,7 @@ class BusinessUnit(Base):
     tenant = relationship("Tenant", back_populates="business_units")
     users = relationship("User", back_populates="business_unit")
     departments = relationship("Department", back_populates="business_unit")
+    user_access = relationship("UserBusinessUnitAccess", back_populates="business_unit")
 
 class Department(Base):
     __tablename__ = "departments"
@@ -84,6 +86,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
+    phone = Column(String(20), nullable=True)  # Campo para telefone
     
     role = Column(String(50), nullable=False, default=UserRole.USER)
     status = Column(String(50), default=UserStatus.PENDING_ACTIVATION)
@@ -100,6 +103,8 @@ class User(Base):
     business_unit = relationship("BusinessUnit", back_populates="users")
     department = relationship("Department", back_populates="users")
     sessions = relationship("UserSession", back_populates="user")
+    tenant_access = relationship("UserTenantAccess", back_populates="user")
+    business_unit_access = relationship("UserBusinessUnitAccess", back_populates="user")
 
 class UserSession(Base):
     __tablename__ = "user_sessions"
@@ -117,6 +122,53 @@ class UserSession(Base):
     
     # Relationships
     user = relationship("User", back_populates="sessions")
+
+# Tabelas de relacionamento para acesso multi-empresa/BU
+class UserTenantAccess(Base):
+    __tablename__ = "user_tenant_access"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
+    
+    # Permissões específicas para esta empresa
+    can_read = Column(Boolean, default=True)
+    can_write = Column(Boolean, default=False)
+    can_delete = Column(Boolean, default=False)
+    can_manage_users = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="tenant_access")
+    tenant = relationship("Tenant", back_populates="user_access")
+    
+    # Constraint único para evitar duplicatas
+    __table_args__ = (UniqueConstraint('user_id', 'tenant_id', name='uq_user_tenant_access'),)
+
+class UserBusinessUnitAccess(Base):
+    __tablename__ = "user_business_unit_access"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=False)
+    
+    # Permissões específicas para esta BU
+    can_read = Column(Boolean, default=True)
+    can_write = Column(Boolean, default=False)
+    can_delete = Column(Boolean, default=False)
+    can_manage_users = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="business_unit_access")
+    business_unit = relationship("BusinessUnit", back_populates="user_access")
+    
+    # Constraint único para evitar duplicatas
+    __table_args__ = (UniqueConstraint('user_id', 'business_unit_id', name='uq_user_business_unit_access'),)
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
@@ -219,11 +271,77 @@ class UserResponse(BaseModel):
     email: str
     first_name: str
     last_name: str
+    phone: Optional[str] = None
     role: UserRole
     status: UserStatus
     last_login: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+
+# Modelos para controle de acesso
+class UserTenantAccessCreate(BaseModel):
+    user_id: str
+    tenant_id: str
+    can_read: bool = True
+    can_write: bool = False
+    can_delete: bool = False
+    can_manage_users: bool = False
+
+class UserTenantAccessUpdate(BaseModel):
+    can_read: Optional[bool] = None
+    can_write: Optional[bool] = None
+    can_delete: Optional[bool] = None
+    can_manage_users: Optional[bool] = None
+
+class UserTenantAccessResponse(BaseModel):
+    id: str
+    user_id: str
+    tenant_id: str
+    tenant_name: str
+    can_read: bool
+    can_write: bool
+    can_delete: bool
+    can_manage_users: bool
+    created_at: datetime
+    updated_at: datetime
+
+class UserBusinessUnitAccessCreate(BaseModel):
+    user_id: str
+    business_unit_id: str
+    can_read: bool = True
+    can_write: bool = False
+    can_delete: bool = False
+    can_manage_users: bool = False
+
+class UserBusinessUnitAccessUpdate(BaseModel):
+    can_read: Optional[bool] = None
+    can_write: Optional[bool] = None
+    can_delete: Optional[bool] = None
+    can_manage_users: Optional[bool] = None
+
+class UserBusinessUnitAccessResponse(BaseModel):
+    id: str
+    user_id: str
+    business_unit_id: str
+    business_unit_name: str
+    tenant_name: str
+    can_read: bool
+    can_write: bool
+    can_delete: bool
+    can_manage_users: bool
+    created_at: datetime
+    updated_at: datetime
+
+# Modelos para login e autenticação
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse
 
 class UserLogin(BaseModel):
     username: str

@@ -491,4 +491,92 @@ export const deleteBusinessUnit = async (id: string, token?: string) => {
   return response.data;
 };
 
+// ============================================================================
+// PERMISSÕES DE USUÁRIO
+// ============================================================================
+
+// Permissões de Empresa (Tenant)
+export const getUserTenantPermissions = async (userId: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get(`/api/v1/permissions/tenants/${userId}`, { headers });
+  return response.data;
+};
+
+export const createUserTenantPermission = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/permissions/tenants', data, { headers });
+  return response.data;
+};
+
+export const updateUserTenantPermission = async (permissionId: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/permissions/tenants/${permissionId}`, data, { headers });
+  return response.data;
+};
+
+export const deleteUserTenantPermission = async (permissionId: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/permissions/tenants/${permissionId}`, { headers });
+  return response.data;
+};
+
+// Permissões de Business Unit
+export const getUserBusinessUnitPermissions = async (userId: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get(`/api/v1/permissions/business-units/${userId}`, { headers });
+  return response.data;
+};
+
+export const createUserBusinessUnitPermission = async (data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/permissions/business-units', data, { headers });
+  return response.data;
+};
+
+export const updateUserBusinessUnitPermission = async (permissionId: string, data: any, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.put(`/api/v1/permissions/business-units/${permissionId}`, data, { headers });
+  return response.data;
+};
+
+export const deleteUserBusinessUnitPermission = async (permissionId: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.delete(`/api/v1/permissions/business-units/${permissionId}`, { headers });
+  return response.data;
+};
+
+// Consulta de permissões do usuário atual
+export const getMyAccess = async (token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/permissions/my-access', { headers });
+  return response.data;
+};
+
 export default api;

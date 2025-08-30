@@ -67,6 +67,60 @@ class BusinessUnitResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# Modelos Pydantic para permissões
+class UserTenantAccessCreate(BaseModel):
+    user_id: str
+    tenant_id: str
+    can_read: bool = True
+    can_write: bool = False
+    can_delete: bool = False
+    can_manage_users: bool = False
+
+class UserTenantAccessUpdate(BaseModel):
+    can_read: Optional[bool] = None
+    can_write: Optional[bool] = None
+    can_delete: Optional[bool] = None
+    can_manage_users: Optional[bool] = None
+
+class UserTenantAccessResponse(BaseModel):
+    id: str
+    user_id: str
+    tenant_id: str
+    tenant_name: str
+    can_read: bool
+    can_write: bool
+    can_delete: bool
+    can_manage_users: bool
+    created_at: str
+    updated_at: str
+
+class UserBusinessUnitAccessCreate(BaseModel):
+    user_id: str
+    business_unit_id: str
+    can_read: bool = True
+    can_write: bool = False
+    can_delete: bool = False
+    can_manage_users: bool = False
+
+class UserBusinessUnitAccessUpdate(BaseModel):
+    can_read: Optional[bool] = None
+    can_write: Optional[bool] = None
+    can_delete: Optional[bool] = None
+    can_manage_users: Optional[bool] = None
+
+class UserBusinessUnitAccessResponse(BaseModel):
+    id: str
+    user_id: str
+    business_unit_id: str
+    business_unit_name: str
+    tenant_name: str
+    can_read: bool
+    can_write: bool
+    can_delete: bool
+    can_manage_users: bool
+    created_at: str
+    updated_at: str
+
 app = FastAPI()
 
 # CORS
@@ -618,6 +672,313 @@ async def get_cash_flow():
             {"month": "Jan", "income": 50000, "expense": 30000, "balance": 20000},
             {"month": "Fev", "income": 60000, "expense": 35000, "balance": 25000}
         ]
+    }
+
+# ============================================================================
+# ENDPOINTS DE PERMISSÕES
+# ============================================================================
+
+# Dados em memória para permissões
+tenant_permissions_db = []
+business_unit_permissions_db = []
+next_permission_id = 1
+
+@app.get("/api/v1/permissions/tenants/{user_id}", response_model=List[UserTenantAccessResponse])
+async def get_user_tenant_permissions(user_id: str, db: Session = Depends(get_db)):
+    """Lista permissões de um usuário em empresas"""
+    # Buscar permissões do usuário
+    permissions = [p for p in tenant_permissions_db if p["user_id"] == user_id]
+    
+    # Formatar resposta
+    result = []
+    for perm in permissions:
+        # Buscar nome da empresa
+        tenant_name = "Empresa não encontrada"
+        for tenant in tenants_db:
+            if tenant["id"] == perm["tenant_id"]:
+                tenant_name = tenant["name"]
+                break
+        
+        result.append(UserTenantAccessResponse(
+            id=perm["id"],
+            user_id=perm["user_id"],
+            tenant_id=perm["tenant_id"],
+            tenant_name=tenant_name,
+            can_read=perm["can_read"],
+            can_write=perm["can_write"],
+            can_delete=perm["can_delete"],
+            can_manage_users=perm["can_manage_users"],
+            created_at=perm["created_at"],
+            updated_at=perm["updated_at"]
+        ))
+    
+    return result
+
+@app.post("/api/v1/permissions/tenants", response_model=UserTenantAccessResponse)
+async def create_user_tenant_permission(permission_data: UserTenantAccessCreate, db: Session = Depends(get_db)):
+    """Cria permissão de usuário em uma empresa"""
+    global next_permission_id
+    
+    # Verificar se já existe permissão
+    existing = next((p for p in tenant_permissions_db 
+                    if p["user_id"] == permission_data.user_id 
+                    and p["tenant_id"] == permission_data.tenant_id), None)
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Permissão já existe para este usuário nesta empresa")
+    
+    # Criar nova permissão
+    permission = {
+        "id": str(next_permission_id),
+        "user_id": permission_data.user_id,
+        "tenant_id": permission_data.tenant_id,
+        "can_read": permission_data.can_read,
+        "can_write": permission_data.can_write,
+        "can_delete": permission_data.can_delete,
+        "can_manage_users": permission_data.can_manage_users,
+        "created_at": datetime.datetime.now().strftime("%Y-%m-%d"),
+        "updated_at": datetime.datetime.now().strftime("%Y-%m-%d")
+    }
+    
+    tenant_permissions_db.append(permission)
+    next_permission_id += 1
+    
+    # Buscar nome da empresa
+    tenant_name = "Empresa não encontrada"
+    for tenant in tenants_db:
+        if tenant["id"] == permission_data.tenant_id:
+            tenant_name = tenant["name"]
+            break
+    
+    return UserTenantAccessResponse(
+        id=permission["id"],
+        user_id=permission["user_id"],
+        tenant_id=permission["tenant_id"],
+        tenant_name=tenant_name,
+        can_read=permission["can_read"],
+        can_write=permission["can_write"],
+        can_delete=permission["can_delete"],
+        can_manage_users=permission["can_manage_users"],
+        created_at=permission["created_at"],
+        updated_at=permission["updated_at"]
+    )
+
+@app.put("/api/v1/permissions/tenants/{permission_id}", response_model=UserTenantAccessResponse)
+async def update_user_tenant_permission(permission_id: str, permission_data: UserTenantAccessUpdate, db: Session = Depends(get_db)):
+    """Atualiza permissão de usuário em uma empresa"""
+    # Buscar permissão
+    permission = next((p for p in tenant_permissions_db if p["id"] == permission_id), None)
+    if not permission:
+        raise HTTPException(status_code=404, detail="Permissão não encontrada")
+    
+    # Atualizar permissões
+    if permission_data.can_read is not None:
+        permission["can_read"] = permission_data.can_read
+    if permission_data.can_write is not None:
+        permission["can_write"] = permission_data.can_write
+    if permission_data.can_delete is not None:
+        permission["can_delete"] = permission_data.can_delete
+    if permission_data.can_manage_users is not None:
+        permission["can_manage_users"] = permission_data.can_manage_users
+    
+    permission["updated_at"] = datetime.datetime.now().strftime("%Y-%m-%d")
+    
+    # Buscar nome da empresa
+    tenant_name = "Empresa não encontrada"
+    for tenant in tenants_db:
+        if tenant["id"] == permission["tenant_id"]:
+            tenant_name = tenant["name"]
+            break
+    
+    return UserTenantAccessResponse(
+        id=permission["id"],
+        user_id=permission["user_id"],
+        tenant_id=permission["tenant_id"],
+        tenant_name=tenant_name,
+        can_read=permission["can_read"],
+        can_write=permission["can_write"],
+        can_delete=permission["can_delete"],
+        can_manage_users=permission["can_manage_users"],
+        created_at=permission["created_at"],
+        updated_at=permission["updated_at"]
+    )
+
+@app.delete("/api/v1/permissions/tenants/{permission_id}")
+async def delete_user_tenant_permission(permission_id: str, db: Session = Depends(get_db)):
+    """Remove permissão de usuário em uma empresa"""
+    global tenant_permissions_db
+    
+    permission = next((p for p in tenant_permissions_db if p["id"] == permission_id), None)
+    if not permission:
+        raise HTTPException(status_code=404, detail="Permissão não encontrada")
+    
+    tenant_permissions_db = [p for p in tenant_permissions_db if p["id"] != permission_id]
+    return {"message": "Permissão removida com sucesso"}
+
+@app.get("/api/v1/permissions/business-units/{user_id}", response_model=List[UserBusinessUnitAccessResponse])
+async def get_user_business_unit_permissions(user_id: str, db: Session = Depends(get_db)):
+    """Lista permissões de um usuário em BUs"""
+    # Buscar permissões do usuário
+    permissions = [p for p in business_unit_permissions_db if p["user_id"] == user_id]
+    
+    # Formatar resposta
+    result = []
+    for perm in permissions:
+        # Buscar nome da BU e empresa
+        bu_name = "BU não encontrada"
+        tenant_name = "Empresa não encontrada"
+        
+        for bu in business_units_db:
+            if bu["id"] == perm["business_unit_id"]:
+                bu_name = bu["name"]
+                # Buscar empresa
+                for tenant in tenants_db:
+                    if tenant["id"] == bu["tenant_id"]:
+                        tenant_name = tenant["name"]
+                        break
+                break
+        
+        result.append(UserBusinessUnitAccessResponse(
+            id=perm["id"],
+            user_id=perm["user_id"],
+            business_unit_id=perm["business_unit_id"],
+            business_unit_name=bu_name,
+            tenant_name=tenant_name,
+            can_read=perm["can_read"],
+            can_write=perm["can_write"],
+            can_delete=perm["can_delete"],
+            can_manage_users=perm["can_manage_users"],
+            created_at=perm["created_at"],
+            updated_at=perm["updated_at"]
+        ))
+    
+    return result
+
+@app.post("/api/v1/permissions/business-units", response_model=UserBusinessUnitAccessResponse)
+async def create_user_business_unit_permission(permission_data: UserBusinessUnitAccessCreate, db: Session = Depends(get_db)):
+    """Cria permissão de usuário em uma BU"""
+    global next_permission_id
+    
+    # Verificar se já existe permissão
+    existing = next((p for p in business_unit_permissions_db 
+                    if p["user_id"] == permission_data.user_id 
+                    and p["business_unit_id"] == permission_data.business_unit_id), None)
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Permissão já existe para este usuário nesta BU")
+    
+    # Criar nova permissão
+    permission = {
+        "id": str(next_permission_id),
+        "user_id": permission_data.user_id,
+        "business_unit_id": permission_data.business_unit_id,
+        "can_read": permission_data.can_read,
+        "can_write": permission_data.can_write,
+        "can_delete": permission_data.can_delete,
+        "can_manage_users": permission_data.can_manage_users,
+        "created_at": datetime.datetime.now().strftime("%Y-%m-%d"),
+        "updated_at": datetime.datetime.now().strftime("%Y-%m-%d")
+    }
+    
+    business_unit_permissions_db.append(permission)
+    next_permission_id += 1
+    
+    # Buscar nome da BU e empresa
+    bu_name = "BU não encontrada"
+    tenant_name = "Empresa não encontrada"
+    
+    for bu in business_units_db:
+        if bu["id"] == permission_data.business_unit_id:
+            bu_name = bu["name"]
+            # Buscar empresa
+            for tenant in tenants_db:
+                if tenant["id"] == bu["tenant_id"]:
+                    tenant_name = tenant["name"]
+                    break
+            break
+    
+    return UserBusinessUnitAccessResponse(
+        id=permission["id"],
+        user_id=permission["user_id"],
+        business_unit_id=permission["business_unit_id"],
+        business_unit_name=bu_name,
+        tenant_name=tenant_name,
+        can_read=permission["can_read"],
+        can_write=permission["can_write"],
+        can_delete=permission["can_delete"],
+        can_manage_users=permission["can_manage_users"],
+        created_at=permission["created_at"],
+        updated_at=permission["updated_at"]
+    )
+
+@app.put("/api/v1/permissions/business-units/{permission_id}", response_model=UserBusinessUnitAccessResponse)
+async def update_user_business_unit_permission(permission_id: str, permission_data: UserBusinessUnitAccessUpdate, db: Session = Depends(get_db)):
+    """Atualiza permissão de usuário em uma BU"""
+    # Buscar permissão
+    permission = next((p for p in business_unit_permissions_db if p["id"] == permission_id), None)
+    if not permission:
+        raise HTTPException(status_code=404, detail="Permissão não encontrada")
+    
+    # Atualizar permissões
+    if permission_data.can_read is not None:
+        permission["can_read"] = permission_data.can_read
+    if permission_data.can_write is not None:
+        permission["can_write"] = permission_data.can_write
+    if permission_data.can_delete is not None:
+        permission["can_delete"] = permission_data.can_delete
+    if permission_data.can_manage_users is not None:
+        permission["can_manage_users"] = permission_data.can_manage_users
+    
+    permission["updated_at"] = datetime.datetime.now().strftime("%Y-%m-%d")
+    
+    # Buscar nome da BU e empresa
+    bu_name = "BU não encontrada"
+    tenant_name = "Empresa não encontrada"
+    
+    for bu in business_units_db:
+        if bu["id"] == permission["business_unit_id"]:
+            bu_name = bu["name"]
+            # Buscar empresa
+            for tenant in tenants_db:
+                if tenant["id"] == bu["tenant_id"]:
+                    tenant_name = tenant["name"]
+                    break
+            break
+    
+    return UserBusinessUnitAccessResponse(
+        id=permission["id"],
+        user_id=permission["user_id"],
+        business_unit_id=permission["business_unit_id"],
+        business_unit_name=bu_name,
+        tenant_name=tenant_name,
+        can_read=permission["can_read"],
+        can_write=permission["can_write"],
+        can_delete=permission["can_delete"],
+        can_manage_users=permission["can_manage_users"],
+        created_at=permission["created_at"],
+        updated_at=permission["updated_at"]
+    )
+
+@app.delete("/api/v1/permissions/business-units/{permission_id}")
+async def delete_user_business_unit_permission(permission_id: str, db: Session = Depends(get_db)):
+    """Remove permissão de usuário em uma BU"""
+    global business_unit_permissions_db
+    
+    permission = next((p for p in business_unit_permissions_db if p["id"] == permission_id), None)
+    if not permission:
+        raise HTTPException(status_code=404, detail="Permissão não encontrada")
+    
+    business_unit_permissions_db = [p for p in business_unit_permissions_db if p["id"] != permission_id]
+    return {"message": "Permissão removida com sucesso"}
+
+@app.get("/api/v1/permissions/my-access")
+async def get_my_access(db: Session = Depends(get_db)):
+    """Retorna as permissões do usuário atual (mock)"""
+    return {
+        "user_id": "current-user-id",
+        "role": "super_admin",
+        "accessible_tenants": ["1", "2"],
+        "accessible_business_units": ["1", "2", "3"]
     }
 
 if __name__ == "__main__":

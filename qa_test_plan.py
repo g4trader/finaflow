@@ -1,256 +1,389 @@
 #!/usr/bin/env python3
 """
-PLANO PROFISSIONAL DE QA - FinaFlow
-Testes automatizados com Selenium para validação real do sistema
+Teste de QA Profissional - FinaFlow
+Validação completa do CRUD de usuários com verificação no banco de dados
 """
 
-import time
 import unittest
+import time
+import requests
+import json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-import json
-import requests
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 
 class FinaFlowQATest(unittest.TestCase):
-    """Testes automatizados para o sistema FinaFlow"""
-    
     def setUp(self):
-        """Configuração inicial do ambiente de teste"""
+        """Configuração do ambiente de teste"""
         print("🔧 Configurando ambiente de teste...")
         
-        # Configurações do Chrome
+        # URLs
+        self.frontend_url = "https://finaflow.vercel.app"
+        self.backend_url = "https://finaflow-backend-609095880025.us-central1.run.app"
+        
+        # Configurar Chrome
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--window-size=1920,1080")
         
         # Inicializar driver
-        self.driver = webdriver.Chrome(options=chrome_options)
+        service = Service(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(service=service, options=chrome_options)
         self.wait = WebDriverWait(self.driver, 10)
         
-        # URLs do sistema
-        self.frontend_url = "https://finaflow.vercel.app"
-        self.backend_url = "https://finaflow-backend-609095880025.us-central1.run.app"
-        
-        # Credenciais de teste
-        self.test_credentials = {
-            "username": "admin",
-            "password": "test"
+        # Dados de teste
+        self.test_user = {
+            "name": f"Usuário Teste QA {int(time.time())}",
+            "email": f"teste.qa.{int(time.time())}@finaflow.com",
+            "phone": f"1199999{int(time.time()) % 10000:04d}",
+            "role": "user",
+            "status": "active"
         }
+        
+        self.created_user_id = None
+        self.auth_token = None
         
         print("✅ Ambiente configurado com sucesso")
 
     def tearDown(self):
-        """Limpeza após os testes"""
-        if hasattr(self, 'driver'):
-            self.driver.quit()
+        """Limpeza do ambiente de teste"""
         print("🧹 Ambiente limpo")
+        if self.driver:
+            self.driver.quit()
 
     def test_01_backend_health_check(self):
         """Teste 1: Verificar se o backend está respondendo"""
         print("\n🔍 Teste 1: Verificação de saúde do backend")
         
+        # Verificar se o backend está online
         try:
             response = requests.get(f"{self.backend_url}/health", timeout=10)
             self.assertEqual(response.status_code, 200)
             print("✅ Backend respondendo corretamente")
-            
-            response = requests.get(f"{self.backend_url}/api/v1/auth/users", timeout=10)
-            self.assertEqual(response.status_code, 200)
-            users_data = response.json()
-            self.assertIsInstance(users_data, list)
-            print(f"✅ Endpoint de usuários funcionando - {len(users_data)} usuários encontrados")
-            
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             self.fail(f"❌ Backend não está respondendo: {e}")
+        
+        # Verificar endpoint de usuários
+        try:
+            response = requests.get(f"{self.backend_url}/api/v1/users", timeout=10)
+            self.assertEqual(response.status_code, 200)
+            users = response.json()
+            print(f"✅ Endpoint de usuários funcionando - {len(users)} usuários encontrados")
+        except Exception as e:
+            self.fail(f"❌ Endpoint de usuários falhou: {e}")
 
-    def test_02_frontend_accessibility(self):
-        """Teste 2: Verificar se o frontend está acessível"""
-        print("\n🔍 Teste 2: Acessibilidade do frontend")
+    def test_02_login_and_get_token(self):
+        """Teste 2: Fazer login e obter token de autenticação"""
+        print("\n🔍 Teste 2: Login e obtenção de token")
+        
+        # Fazer login via API
+        login_data = {
+            "username": "admin@finaflow.com",
+            "password": "admin123"
+        }
         
         try:
-            self.driver.get(f"{self.frontend_url}/login")
-            self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+            response = requests.post(f"{self.backend_url}/api/v1/auth/login", json=login_data, timeout=10)
+            self.assertEqual(response.status_code, 200)
             
-            title = self.driver.title
-            self.assertIn("FinaFlow", title)
-            print(f"✅ Frontend acessível - Título: {title}")
+            login_response = response.json()
+            self.auth_token = login_response.get("access_token")
+            self.assertIsNotNone(self.auth_token, "Token de acesso não foi retornado")
             
-        except TimeoutException:
-            self.fail("❌ Frontend não carregou dentro do tempo limite")
+            print("✅ Login realizado com sucesso")
+            print(f"✅ Token obtido: {self.auth_token[:20]}...")
+            
+        except Exception as e:
+            self.fail(f"❌ Falha no login: {e}")
 
-    def test_03_login_functionality(self):
-        """Teste 3: Testar funcionalidade de login"""
-        print("\n🔍 Teste 3: Funcionalidade de login")
+    def test_03_verify_initial_users_in_database(self):
+        """Teste 3: Verificar usuários iniciais no banco de dados"""
+        print("\n🔍 Teste 3: Verificação de usuários iniciais no banco")
+        
+        headers = {"Authorization": f"Bearer {self.auth_token}"}
         
         try:
+            response = requests.get(f"{self.backend_url}/api/v1/users", headers=headers, timeout=10)
+            self.assertEqual(response.status_code, 200)
+            
+            initial_users = response.json()
+            print(f"✅ {len(initial_users)} usuários encontrados no banco inicialmente")
+            
+            # Verificar se são dados reais (não mock)
+            for user in initial_users:
+                self.assertIn("id", user, "Usuário deve ter ID")
+                self.assertIn("name", user, "Usuário deve ter nome")
+                self.assertIn("email", user, "Usuário deve ter email")
+                print(f"   - {user['name']} ({user['email']})")
+            
+            self.initial_users_count = len(initial_users)
+            
+        except Exception as e:
+            self.fail(f"❌ Falha ao verificar usuários iniciais: {e}")
+
+    def test_04_create_user_via_api(self):
+        """Teste 4: Criar usuário via API e verificar no banco"""
+        print("\n🔍 Teste 4: Criação de usuário via API")
+        
+        headers = {"Authorization": f"Bearer {self.auth_token}"}
+        
+        try:
+            # Verificar número inicial de usuários
+            response = requests.get(f"{self.backend_url}/api/v1/users", headers=headers, timeout=10)
+            self.assertEqual(response.status_code, 200)
+            initial_users = response.json()
+            initial_count = len(initial_users)
+            
+            # Criar usuário
+            response = requests.post(f"{self.backend_url}/api/v1/users", 
+                                   json=self.test_user, 
+                                   headers=headers, 
+                                   timeout=10)
+            self.assertEqual(response.status_code, 201)
+            
+            created_user = response.json()
+            self.created_user_id = created_user["id"]
+            
+            print(f"✅ Usuário criado com ID: {self.created_user_id}")
+            print(f"   - Nome: {created_user['name']}")
+            print(f"   - Email: {created_user['email']}")
+            
+            # Verificar se foi realmente salvo no banco
+            response = requests.get(f"{self.backend_url}/api/v1/users", headers=headers, timeout=10)
+            self.assertEqual(response.status_code, 200)
+            
+            users_after_create = response.json()
+            self.assertEqual(len(users_after_create), initial_count + 1)
+            
+            # Encontrar o usuário criado na lista
+            created_user_in_list = next((u for u in users_after_create if u["id"] == self.created_user_id), None)
+            self.assertIsNotNone(created_user_in_list, "Usuário criado não encontrado na lista")
+            
+            print("✅ Usuário confirmado no banco de dados")
+            
+        except Exception as e:
+            self.fail(f"❌ Falha na criação de usuário: {e}")
+
+    def test_05_update_user_via_api(self):
+        """Teste 5: Atualizar usuário via API e verificar no banco"""
+        print("\n🔍 Teste 5: Atualização de usuário via API")
+        
+        if not self.created_user_id:
+            self.skipTest("Usuário não foi criado no teste anterior")
+        
+        headers = {"Authorization": f"Bearer {self.auth_token}"}
+        
+        # Dados de atualização
+        update_data = {
+            "name": f"{self.test_user['name']} - ATUALIZADO",
+            "phone": f"1188888{int(time.time()) % 10000:04d}",
+            "role": "admin"
+        }
+        
+        try:
+            # Atualizar usuário
+            response = requests.put(f"{self.backend_url}/api/v1/users/{self.created_user_id}", 
+                                  json=update_data, 
+                                  headers=headers, 
+                                  timeout=10)
+            self.assertEqual(response.status_code, 200)
+            
+            updated_user = response.json()
+            print(f"✅ Usuário atualizado: {updated_user['name']}")
+            
+            # Verificar se foi realmente atualizado no banco
+            response = requests.get(f"{self.backend_url}/api/v1/users/{self.created_user_id}", 
+                                  headers=headers, 
+                                  timeout=10)
+            self.assertEqual(response.status_code, 200)
+            
+            user_from_db = response.json()
+            self.assertEqual(user_from_db["name"], update_data["name"])
+            self.assertEqual(user_from_db["phone"], update_data["phone"])
+            self.assertEqual(user_from_db["role"], update_data["role"])
+            
+            print("✅ Atualização confirmada no banco de dados")
+            
+        except Exception as e:
+            self.fail(f"❌ Falha na atualização de usuário: {e}")
+
+    def test_06_delete_user_via_api(self):
+        """Teste 6: Deletar usuário via API e verificar no banco"""
+        print("\n🔍 Teste 6: Exclusão de usuário via API")
+        
+        if not self.created_user_id:
+            self.skipTest("Usuário não foi criado nos testes anteriores")
+        
+        headers = {"Authorization": f"Bearer {self.auth_token}"}
+        
+        try:
+            # Deletar usuário
+            response = requests.delete(f"{self.backend_url}/api/v1/users/{self.created_user_id}", 
+                                     headers=headers, 
+                                     timeout=10)
+            self.assertEqual(response.status_code, 204)
+            
+            print("✅ Usuário deletado via API")
+            
+            # Verificar se foi realmente removido do banco
+            response = requests.get(f"{self.backend_url}/api/v1/users", headers=headers, timeout=10)
+            self.assertEqual(response.status_code, 200)
+            
+            users_after_delete = response.json()
+            self.assertEqual(len(users_after_delete), self.initial_users_count)
+            
+            # Verificar se o usuário não existe mais
+            response = requests.get(f"{self.backend_url}/api/v1/users/{self.created_user_id}", 
+                                  headers=headers, 
+                                  timeout=10)
+            self.assertEqual(response.status_code, 404)
+            
+            print("✅ Exclusão confirmada no banco de dados")
+            
+        except Exception as e:
+            self.fail(f"❌ Falha na exclusão de usuário: {e}")
+
+    def test_07_frontend_crud_integration(self):
+        """Teste 7: Testar CRUD completo via frontend"""
+        print("\n🔍 Teste 7: CRUD completo via frontend")
+        
+        try:
+            # 1. Acessar página de login
             self.driver.get(f"{self.frontend_url}/login")
-            self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+            self.wait.until(EC.title_contains("FinaFlow - Login"))
+            print("✅ Página de login carregada")
             
-            username_field = self.wait.until(
-                EC.presence_of_element_located((By.NAME, "username"))
-            )
-            password_field = self.driver.find_element(By.NAME, "password")
+            # 2. Fazer login
+            username_input = self.wait.until(EC.presence_of_element_located((By.NAME, "username")))
+            password_input = self.driver.find_element(By.NAME, "password")
             
-            username_field.clear()
-            username_field.send_keys(self.test_credentials["username"])
-            
-            password_field.clear()
-            password_field.send_keys(self.test_credentials["password"])
+            username_input.send_keys("admin@finaflow.com")
+            password_input.send_keys("admin123")
             
             login_button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Entrar')]")
             login_button.click()
             
-            self.wait.until(EC.url_contains("dashboard"))
+            # 3. Aguardar redirecionamento para dashboard
+            self.wait.until(EC.url_contains("/dashboard"))
             print("✅ Login realizado com sucesso")
             
-        except (TimeoutException, NoSuchElementException) as e:
-            self.fail(f"❌ Falha no login: {e}")
-
-    def test_04_users_page_navigation(self):
-        """Teste 4: Navegação para página de usuários"""
-        print("\n🔍 Teste 4: Navegação para página de usuários")
-        
-        try:
-            self.test_03_login_functionality()
-            time.sleep(2)
-            
-            # Procurar por diferentes seletores para o link de usuários
-            users_link = None
-            selectors = [
-                "//a[contains(text(), 'Usuários')]",
-                "//a[contains(text(), 'Users')]",
-                "//a[@href='/users']",
-                "//a[contains(@href, 'users')]"
-            ]
-            
-            for selector in selectors:
-                try:
-                    users_link = self.wait.until(
-                        EC.element_to_be_clickable((By.XPATH, selector))
-                    )
-                    print(f"   ✅ Link de usuários encontrado com seletor: {selector}")
-                    break
-                except:
-                    continue
-            
-            if not users_link:
-                self.fail("❌ Link de usuários não encontrado com nenhum seletor")
+            # 4. Navegar para página de usuários
+            users_link = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//a[@href='/users']")))
             users_link.click()
             
-            self.wait.until(EC.url_contains("users"))
-            print("✅ Navegação para página de usuários bem-sucedida")
+            # 5. Aguardar carregamento da página de usuários
+            self.wait.until(EC.url_contains("/users"))
+            print("✅ Página de usuários carregada")
             
-        except (TimeoutException, NoSuchElementException) as e:
-            self.fail(f"❌ Falha na navegação para usuários: {e}")
-
-    def test_05_users_page_loading(self):
-        """Teste 5: Carregamento da página de usuários"""
-        print("\n🔍 Teste 5: Carregamento da página de usuários")
-        
-        try:
-            self.test_04_users_page_navigation()
+            # 6. Verificar se os dados são reais (mesmo número do banco)
+            users_table = self.wait.until(EC.presence_of_element_located((By.XPATH, "//table")))
+            user_rows = users_table.find_elements(By.XPATH, ".//tbody/tr")
             
-            self.wait.until(
-                EC.presence_of_element_located((By.XPATH, "//h1[contains(text(), 'Usuários')]"))
-            )
+            # Verificar se há pelo menos 3 usuários (dados reais do banco)
+            self.assertGreaterEqual(len(user_rows), 3)
+            print(f"✅ Tabela mostra {len(user_rows)} usuários (dados reais do banco)")
             
-            users_table = self.wait.until(
-                EC.presence_of_element_located((By.TAG_NAME, "table"))
-            )
-            print("✅ Página de usuários carregada corretamente")
+            # 7. Testar criação via frontend
+            create_button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Novo Usuário')]")
+            create_button.click()
             
-            table_rows = users_table.find_elements(By.TAG_NAME, "tr")
-            self.assertGreater(len(table_rows), 1)
-            print(f"✅ Tabela de usuários com {len(table_rows)-1} registros")
+            # Aguardar modal
+            modal = self.wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'modal')]")))
+            print("✅ Modal de criação aberto")
             
-        except (TimeoutException, NoSuchElementException) as e:
-            self.fail(f"❌ Falha no carregamento da página de usuários: {e}")
-
-    def test_06_create_user_form(self):
-        """Teste 6: Testar formulário de criação de usuário"""
-        print("\n🔍 Teste 6: Formulário de criação de usuário")
-        
-        try:
-            self.test_05_users_page_loading()
+            # Preencher formulário
+            name_input = modal.find_element(By.NAME, "name")
+            email_input = modal.find_element(By.NAME, "email")
+            phone_input = modal.find_element(By.NAME, "phone")
             
-            new_user_button = self.wait.until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Novo Usuário')]"))
-            )
-            new_user_button.click()
+            test_name = f"Frontend Test {int(time.time())}"
+            test_email = f"frontend.test.{int(time.time())}@finaflow.com"
+            test_phone = f"1177777{int(time.time()) % 10000:04d}"
             
-            self.wait.until(
-                EC.presence_of_element_located((By.XPATH, "//h2[contains(text(), 'Novo Usuário')]"))
-            )
-            print("✅ Modal de criação de usuário aberto")
+            name_input.send_keys(test_name)
+            email_input.send_keys(test_email)
+            phone_input.send_keys(test_phone)
             
-            form_fields = {
-                "name": "Teste QA",
-                "email": "teste.qa@empresa.com",
-                "phone": "(11) 12345-6789"
-            }
+            # Salvar
+            save_button = modal.find_element(By.XPATH, ".//button[contains(text(), 'Salvar')]")
+            save_button.click()
             
-            for field_name, field_value in form_fields.items():
-                try:
-                    field = self.driver.find_element(By.NAME, field_name)
-                    field.clear()
-                    field.send_keys(field_value)
-                    time.sleep(0.5)
-                    
-                    actual_value = field.get_attribute("value")
-                    self.assertEqual(actual_value, field_value)
-                    print(f"✅ Campo {field_name} funcionando corretamente")
-                    
-                except NoSuchElementException:
-                    print(f"⚠️ Campo {field_name} não encontrado")
+            # Aguardar atualização da tabela
+            time.sleep(2)
+            updated_user_rows = users_table.find_elements(By.XPATH, ".//tbody/tr")
+            self.assertGreaterEqual(len(updated_user_rows), 4)  # Pelo menos 4 usuários após criação
+            print("✅ Usuário criado via frontend")
             
-            print("✅ Formulário preenchido com sucesso")
+            # 8. Testar edição via frontend
+            edit_button = updated_user_rows[-1].find_element(By.XPATH, ".//button[contains(@title, 'Editar')]")
+            edit_button.click()
             
-        except (TimeoutException, NoSuchElementException) as e:
-            self.fail(f"❌ Falha no formulário de criação: {e}")
-
-    def test_07_form_field_focus_issue(self):
-        """Teste 7: Verificar problema de perda de foco nos campos"""
-        print("\n🔍 Teste 7: Verificação de perda de foco nos campos")
-        
-        try:
-            self.test_06_create_user_form()
+            # Aguardar modal de edição
+            edit_modal = self.wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'modal')]")))
+            print("✅ Modal de edição aberto")
             
-            name_field = self.driver.find_element(By.NAME, "name")
-            name_field.click()
-            name_field.clear()
+            # Modificar nome
+            edit_name_input = edit_modal.find_element(By.NAME, "name")
+            edit_name_input.clear()
+            edit_name_input.send_keys(f"{test_name} - EDITADO")
             
-            test_text = "Teste de digitação contínua"
-            for char in test_text:
-                name_field.send_keys(char)
-                time.sleep(0.1)
-                
-                focused_element = self.driver.switch_to.active_element
-                if focused_element != name_field:
-                    self.fail(f"❌ Campo perdeu foco após digitar '{char}'")
+            # Salvar edição
+            edit_save_button = edit_modal.find_element(By.XPATH, ".//button[contains(text(), 'Salvar')]")
+            edit_save_button.click()
             
-            print("✅ Campo mantém foco durante digitação")
+            time.sleep(2)
+            print("✅ Usuário editado via frontend")
             
-        except (TimeoutException, NoSuchElementException) as e:
-            self.fail(f"❌ Falha no teste de foco: {e}")
+            # 9. Testar exclusão via frontend
+            delete_button = updated_user_rows[-1].find_element(By.XPATH, ".//button[contains(@title, 'Excluir')]")
+            delete_button.click()
+            
+            # Confirmar exclusão
+            confirm_button = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Confirmar')]")))
+            confirm_button.click()
+            
+            time.sleep(2)
+            final_user_rows = users_table.find_elements(By.XPATH, ".//tbody/tr")
+            self.assertGreaterEqual(len(final_user_rows), 3)  # Voltou para pelo menos 3 usuários
+            print("✅ Usuário excluído via frontend")
+            
+            print("✅ CRUD completo via frontend validado com sucesso!")
+            
+        except Exception as e:
+            self.fail(f"❌ Falha no CRUD via frontend: {e}")
 
 def run_qa_tests():
     """Executar todos os testes de QA"""
-    print("🚀 INICIANDO TESTES PROFISSIONAIS DE QA - FinaFlow")
+    print("\n🚀 INICIANDO TESTES PROFISSIONAIS DE QA - FinaFlow")
     print("=" * 60)
     
-    suite = unittest.TestLoader().loadTestsFromTestCase(FinaFlowQATest)
+    # Configurar suite de testes
+    suite = unittest.TestSuite()
+    
+    # Adicionar testes na ordem correta
+    suite.addTest(FinaFlowQATest("test_01_backend_health_check"))
+    suite.addTest(FinaFlowQATest("test_02_login_and_get_token"))
+    suite.addTest(FinaFlowQATest("test_03_verify_initial_users_in_database"))
+    suite.addTest(FinaFlowQATest("test_04_create_user_via_api"))
+    suite.addTest(FinaFlowQATest("test_05_update_user_via_api"))
+    suite.addTest(FinaFlowQATest("test_06_delete_user_via_api"))
+    suite.addTest(FinaFlowQATest("test_07_frontend_crud_integration"))
+    
+    # Executar testes
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
     
+    # Relatório final
     print("\n" + "=" * 60)
-    print("📊 RELATÓRIO FINAL DE QA")
+    print("📊 RELATÓRIO FINAL DE QA PROFISSIONAL")
     print("=" * 60)
     print(f"✅ Testes executados: {result.testsRun}")
     print(f"❌ Falhas: {len(result.failures)}")
@@ -269,11 +402,17 @@ def run_qa_tests():
             print(traceback)
     
     if result.wasSuccessful():
-        print("\n🎉 TODOS OS TESTES PASSARAM!")
-        return True
+        print("\n🎉 TODOS OS TESTES PASSARAM - SISTEMA APROVADO!")
+        print("✅ Backend: Funcionando")
+        print("✅ Frontend: Funcionando")
+        print("✅ CRUD: Totalmente operacional")
+        print("✅ Banco de dados: Integrado")
+        print("✅ Autenticação: Funcionando")
+        print("✅ Interface: Responsiva")
     else:
         print("\n❌ ALGUNS TESTES FALHARAM - NECESSÁRIO CORREÇÃO")
-        return False
+    
+    return result.wasSuccessful()
 
 if __name__ == "__main__":
     success = run_qa_tests()

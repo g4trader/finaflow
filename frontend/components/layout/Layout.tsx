@@ -18,7 +18,8 @@ import {
   LogOut,
   ChevronDown,
   Building2,
-  GitBranch
+  GitBranch,
+  Shield
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -43,11 +44,11 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const getInitialExpandedMenus = () => {
     const expanded = new Set<string>();
     
-    // Verificar se a página atual está no submenu de Configurações
-    const configSubmenuPages = [
-      'Empresas', 'Business Units', 'Usuários', 'Contas', 
-      'Grupos', 'Subgrupos', 'Importar CSV'
-    ];
+      // Verificar se a página atual está no submenu de Configurações
+  const configSubmenuPages = [
+    'Empresas', 'Business Units', 'Usuários', 'Contas', 
+    'Grupos', 'Subgrupos', 'Importar CSV', 'Permissões de Usuário'
+  ];
     
     if (title && configSubmenuPages.includes(title)) {
       expanded.add('Configurações');
@@ -164,6 +165,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           href: '/csv-import',
           active: isItemActive('/csv-import', 'Importar CSV'),
           description: 'Importar dados via arquivo CSV'
+        },
+        {
+          icon: <Shield className="w-4 h-4" />,
+          label: 'Permissões de Usuário',
+          href: '/user-permissions',
+          active: isItemActive('/user-permissions', 'Permissões de Usuário'),
+          description: 'Gerenciar permissões de usuário por empresa/BU'
         }
       ]
     },
