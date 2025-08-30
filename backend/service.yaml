@@ -18,7 +18,13 @@ spec:
         - containerPort: 8080
         env:
         - name: DATABASE_URL
-          value: "sqlite:///./finaflow.db"
+          value: "postgresql://finaflow_user:finaflow_password@34.95.208.207:5432/finaflow_db"
+        - name: SECRET_KEY
+          value: "finaflow-secret-key-2024"
+        - name: ALLOWED_HOSTS
+          value: "localhost,127.0.0.1,finaflow.vercel.app"
+        - name: CORS_ORIGINS
+          value: "https://finaflow.vercel.app,http://localhost:3000"
         resources:
           limits:
             cpu: "1"
