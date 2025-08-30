@@ -21,8 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Copiar app híbrido
-COPY hybrid_app.py .
+# Copiar toda a estrutura do projeto
+COPY . .
 
 # Alterar proprietário dos arquivos para o usuário não-root
 RUN chown -R appuser:appuser /app

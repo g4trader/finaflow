@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from app.database import create_tables
 from app.api import auth, financial
+from app.routes import permissions
 from app.models.auth import Base
 from app.models.financial import Base as FinancialBase
 
@@ -93,6 +94,7 @@ async def health_check():
 # Incluir routers
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(financial.router, prefix="/api/v1")
+app.include_router(permissions.router)
 
 # Rota raiz
 @app.get("/")
