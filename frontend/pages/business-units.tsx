@@ -217,11 +217,12 @@ const BusinessUnitsContent: React.FC = () => {
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={closeModal}>
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={closeModal}
+        title={editingBU ? 'Editar BU' : 'Nova BU'}
+      >
         <div className="bg-white p-6 rounded-lg max-w-md w-full">
-          <h2 className="text-xl font-semibold mb-4">
-            {editingBU ? 'Editar BU' : 'Nova BU'}
-          </h2>
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
