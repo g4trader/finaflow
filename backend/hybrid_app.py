@@ -17,6 +17,9 @@ try:
 except ImportError as e:
     DB_AVAILABLE = False
     print(f"⚠️ Database models not available: {e}")
+    # Função de fallback para quando o banco não está disponível
+    def get_db():
+        return None
 
 # Modelos Pydantic para Tenants e Business Units
 class TenantCreate(BaseModel):
