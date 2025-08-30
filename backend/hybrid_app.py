@@ -7,6 +7,7 @@ import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from fastapi.security import HTTPBearer
 
 # Importar configurações do banco de dados
 from app.database import get_db, engine
@@ -160,9 +161,22 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 # Configuração JWT
-SECRET_KEY = "your-secret-key-here"
+SECRET_KEY = "finaflow-secret-key-2024"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Função para verificar token JWT
+def get_current_user(token: str = Depends(HTTPBearer())):
+    try:
+        payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("username")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido")
 
 @app.get("/")
 async def root():
@@ -204,7 +218,7 @@ async def login():
 
 # CRUD de Empresas (Tenants)
 @app.get("/api/v1/tenants", response_model=List[TenantResponse])
-async def get_tenants(db: Session = Depends(get_db)):
+async def get_tenants(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Listar todas as empresas"""
     tenants = db.query(Tenant).all()
     return [TenantResponse(
@@ -217,7 +231,7 @@ async def get_tenants(db: Session = Depends(get_db)):
     ) for tenant in tenants]
 
 @app.get("/api/v1/tenants/{tenant_id}", response_model=TenantResponse)
-async def get_tenant(tenant_id: str, db: Session = Depends(get_db)):
+async def get_tenant(tenant_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Buscar empresa por ID"""
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
@@ -233,7 +247,7 @@ async def get_tenant(tenant_id: str, db: Session = Depends(get_db)):
     )
 
 @app.post("/api/v1/tenants", response_model=TenantResponse, status_code=201)
-async def create_tenant(tenant_data: TenantCreate, db: Session = Depends(get_db)):
+async def create_tenant(tenant_data: TenantCreate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Criar nova empresa"""
     tenant = Tenant(
         name=tenant_data.name,
@@ -254,7 +268,7 @@ async def create_tenant(tenant_data: TenantCreate, db: Session = Depends(get_db)
     )
 
 @app.put("/api/v1/tenants/{tenant_id}", response_model=TenantResponse)
-async def update_tenant(tenant_id: str, tenant_data: TenantUpdate, db: Session = Depends(get_db)):
+async def update_tenant(tenant_id: str, tenant_data: TenantUpdate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Atualizar empresa"""
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
@@ -280,7 +294,7 @@ async def update_tenant(tenant_id: str, tenant_data: TenantUpdate, db: Session =
     )
 
 @app.delete("/api/v1/tenants/{tenant_id}")
-async def delete_tenant(tenant_id: str, db: Session = Depends(get_db)):
+async def delete_tenant(tenant_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Excluir empresa"""
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
@@ -292,7 +306,7 @@ async def delete_tenant(tenant_id: str, db: Session = Depends(get_db)):
 
 # CRUD de Business Units
 @app.get("/api/v1/business-units", response_model=List[BusinessUnitResponse])
-async def get_business_units(db: Session = Depends(get_db)):
+async def get_business_units(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Listar todas as BUs"""
     business_units = db.query(BusinessUnit).all()
     return [BusinessUnitResponse(
@@ -306,7 +320,7 @@ async def get_business_units(db: Session = Depends(get_db)):
     ) for bu in business_units]
 
 @app.get("/api/v1/business-units/{bu_id}", response_model=BusinessUnitResponse)
-async def get_business_unit(bu_id: str, db: Session = Depends(get_db)):
+async def get_business_unit(bu_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Buscar BU por ID"""
     bu = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
     if not bu:
@@ -323,7 +337,7 @@ async def get_business_unit(bu_id: str, db: Session = Depends(get_db)):
     )
 
 @app.post("/api/v1/business-units", response_model=BusinessUnitResponse, status_code=201)
-async def create_business_unit(bu_data: BusinessUnitCreate, db: Session = Depends(get_db)):
+async def create_business_unit(bu_data: BusinessUnitCreate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Criar nova BU"""
     bu = BusinessUnit(
         tenant_id=bu_data.tenant_id,
@@ -346,7 +360,7 @@ async def create_business_unit(bu_data: BusinessUnitCreate, db: Session = Depend
     )
 
 @app.put("/api/v1/business-units/{bu_id}", response_model=BusinessUnitResponse)
-async def update_business_unit(bu_id: str, bu_data: BusinessUnitUpdate, db: Session = Depends(get_db)):
+async def update_business_unit(bu_id: str, bu_data: BusinessUnitUpdate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Atualizar BU"""
     bu = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
     if not bu:
@@ -375,7 +389,7 @@ async def update_business_unit(bu_id: str, bu_data: BusinessUnitUpdate, db: Sess
     )
 
 @app.delete("/api/v1/business-units/{bu_id}")
-async def delete_business_unit(bu_id: str, db: Session = Depends(get_db)):
+async def delete_business_unit(bu_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Excluir BU"""
     bu = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
     if not bu:
@@ -387,7 +401,7 @@ async def delete_business_unit(bu_id: str, db: Session = Depends(get_db)):
 
 # CRUD de Usuários
 @app.get("/api/v1/users", response_model=List[UserResponse])
-async def get_users(db: Session = Depends(get_db)):
+async def get_users(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Listar todos os usuários"""
     users = db.query(User).all()
     return [
@@ -405,7 +419,7 @@ async def get_users(db: Session = Depends(get_db)):
     ]
 
 @app.get("/api/v1/users/{user_id}", response_model=UserResponse)
-async def get_user(user_id: str, db: Session = Depends(get_db)):
+async def get_user(user_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Buscar usuário por ID"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -423,7 +437,7 @@ async def get_user(user_id: str, db: Session = Depends(get_db)):
     )
 
 @app.post("/api/v1/users", response_model=UserResponse, status_code=201)
-async def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
+async def create_user(user_data: UserCreate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Criar novo usuário"""
     # Verificar se email já existe
     existing_user = db.query(User).filter(User.email == user_data.email).first()
@@ -464,7 +478,7 @@ async def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
     )
 
 @app.put("/api/v1/users/{user_id}", response_model=UserResponse)
-async def update_user(user_id: str, user_data: UserUpdate, db: Session = Depends(get_db)):
+async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Atualizar usuário"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -503,7 +517,7 @@ async def update_user(user_id: str, user_data: UserUpdate, db: Session = Depends
     )
 
 @app.delete("/api/v1/users/{user_id}")
-async def delete_user(user_id: str, db: Session = Depends(get_db)):
+async def delete_user(user_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Deletar usuário"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
