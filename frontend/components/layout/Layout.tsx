@@ -16,7 +16,9 @@ import {
   Search, 
   Bell, 
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Building2,
+  GitBranch
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -37,6 +39,18 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     router.push('/login');
   };
 
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+
+  const toggleMenu = (menuKey: string) => {
+    const newExpanded = new Set(expandedMenus);
+    if (newExpanded.has(menuKey)) {
+      newExpanded.delete(menuKey);
+    } else {
+      newExpanded.add(menuKey);
+    }
+    setExpandedMenus(newExpanded);
+  };
+
   const menuItems = [
     {
       icon: <LayoutDashboard className="w-5 h-5" />,
@@ -46,32 +60,11 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       description: 'Visão geral do sistema'
     },
     {
-      icon: <Wallet className="w-5 h-5" />,
-      label: 'Contas',
-      href: '/accounts',
-      active: title === 'Contas',
-      description: 'Gerenciar contas bancárias'
-    },
-    {
       icon: <CreditCard className="w-5 h-5" />,
       label: 'Transações',
       href: '/transactions',
       active: title === 'Transações',
       description: 'Registrar e visualizar transações'
-    },
-    {
-      icon: <Layers className="w-5 h-5" />,
-      label: 'Grupos',
-      href: '/groups',
-      active: title === 'Grupos',
-      description: 'Organizar contas em grupos'
-    },
-    {
-      icon: <Layers3 className="w-5 h-5" />,
-      label: 'Subgrupos',
-      href: '/subgroups',
-      active: title === 'Subgrupos',
-      description: 'Subdivisões dos grupos'
     },
     {
       icon: <TrendingUp className="w-5 h-5" />,
@@ -88,25 +81,63 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       description: 'Relatórios e análises'
     },
     {
-      icon: <Upload className="w-5 h-5" />,
-      label: 'Importar CSV',
-      href: '/csv-import',
-      active: title === 'Importar CSV',
-      description: 'Importar dados via arquivo CSV'
-    },
-    {
-      icon: <Users className="w-5 h-5" />,
-      label: 'Usuários',
-      href: '/users',
-      active: title === 'Usuários',
-      description: 'Gerenciar usuários do sistema'
-    },
-    {
       icon: <Settings className="w-5 h-5" />,
       label: 'Configurações',
-      href: '/settings',
-      active: title === 'Configurações',
-      description: 'Configurações do sistema'
+      href: null,
+      active: false,
+      description: 'Configurações do sistema',
+      hasSubmenu: true,
+      submenu: [
+        {
+          icon: <Building2 className="w-4 h-4" />,
+          label: 'Empresas',
+          href: '/companies',
+          active: title === 'Empresas',
+          description: 'Gerenciar empresas (tenants)'
+        },
+        {
+          icon: <GitBranch className="w-4 h-4" />,
+          label: 'Business Units',
+          href: '/business-units',
+          active: title === 'Business Units',
+          description: 'Gerenciar business units'
+        },
+        {
+          icon: <Users className="w-4 h-4" />,
+          label: 'Usuários',
+          href: '/users',
+          active: title === 'Usuários',
+          description: 'Gerenciar usuários do sistema'
+        },
+        {
+          icon: <Wallet className="w-4 h-4" />,
+          label: 'Contas',
+          href: '/accounts',
+          active: title === 'Contas',
+          description: 'Gerenciar contas bancárias'
+        },
+        {
+          icon: <Layers className="w-4 h-4" />,
+          label: 'Grupos',
+          href: '/groups',
+          active: title === 'Grupos',
+          description: 'Organizar contas em grupos'
+        },
+        {
+          icon: <Layers3 className="w-4 h-4" />,
+          label: 'Subgrupos',
+          href: '/subgroups',
+          active: title === 'Subgrupos',
+          description: 'Subdivisões dos grupos'
+        },
+        {
+          icon: <Upload className="w-4 h-4" />,
+          label: 'Importar CSV',
+          href: '/csv-import',
+          active: title === 'Importar CSV',
+          description: 'Importar dados via arquivo CSV'
+        }
+      ]
     },
   ];
 
@@ -146,21 +177,69 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
         <nav className="flex-1 overflow-y-auto p-4">
           <div className="space-y-2">
             {menuItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors group ${
-                  item.active
-                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-                title={item.description}
-              >
-                <span className={item.active ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}>
-                  {item.icon}
-                </span>
-                <span className="font-medium">{item.label}</span>
-              </a>
+              <div key={item.label}>
+                {item.hasSubmenu ? (
+                  <div>
+                    <button
+                      onClick={() => toggleMenu(item.label)}
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg transition-colors group ${
+                        item.active
+                          ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                      title={item.description}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className={item.active ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}>
+                          {item.icon}
+                        </span>
+                        <span className="font-medium">{item.label}</span>
+                      </div>
+                      <ChevronDown 
+                        className={`w-4 h-4 transition-transform ${
+                          expandedMenus.has(item.label) ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                    {expandedMenus.has(item.label) && (
+                      <div className="ml-6 mt-2 space-y-1">
+                        {item.submenu?.map((subItem) => (
+                          <a
+                            key={subItem.href}
+                            href={subItem.href}
+                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors group ${
+                              subItem.active
+                                ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            }`}
+                            title={subItem.description}
+                          >
+                            <span className={subItem.active ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}>
+                              {subItem.icon}
+                            </span>
+                            <span className="font-medium text-sm">{subItem.label}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <a
+                    href={item.href}
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors group ${
+                      item.active
+                        ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                    title={item.description}
+                  >
+                    <span className={item.active ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}>
+                      {item.icon}
+                    </span>
+                    <span className="font-medium">{item.label}</span>
+                  </a>
+                )}
+              </div>
             ))}
           </div>
         </nav>
