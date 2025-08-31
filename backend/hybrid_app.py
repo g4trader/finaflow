@@ -427,6 +427,78 @@ async def get_user_business_units(current_user: dict = Depends(get_current_user)
     
     return available_bus
 
+@app.post("/api/v1/auth/create-superadmin")
+async def create_superadmin(db: Session = Depends(get_db)):
+    """Criar usuário superadmin inicial (endpoint temporário)"""
+    # Verificar se já existe um superadmin
+    existing_admin = db.query(User).filter(User.role == "super_admin").first()
+    if existing_admin:
+        return {"message": "Superadmin já existe", "username": existing_admin.username, "email": existing_admin.email}
+    
+    # Buscar o tenant padrão ou criar
+    default_tenant = db.query(Tenant).first()
+    if not default_tenant:
+        default_tenant = Tenant(
+            name="FinaFlow",
+            domain="finaflow.com",
+            status="active"
+        )
+        db.add(default_tenant)
+        db.commit()
+        db.refresh(default_tenant)
+    
+    # Criar superadmin
+    superadmin_password = "Admin@123"
+    hashed_password = hash_password(superadmin_password)
+    
+    superadmin = User(
+        tenant_id=default_tenant.id,
+        username="admin",
+        email="admin@finaflow.com",
+        first_name="Super",
+        last_name="Admin",
+        phone="(11) 99999-9999",
+        hashed_password=hashed_password,
+        role="super_admin",
+        status="active"
+    )
+    
+    db.add(superadmin)
+    db.commit()
+    db.refresh(superadmin)
+    
+    return {
+        "message": "Superadmin criado com sucesso",
+        "username": "admin",
+        "email": "admin@finaflow.com",
+        "password": superadmin_password,
+        "role": "super_admin"
+    }
+
+@app.post("/api/v1/auth/reset-superadmin-password")
+async def reset_superadmin_password(db: Session = Depends(get_db)):
+    """Reset da senha do superadmin (endpoint temporário)"""
+    # Buscar o superadmin
+    superadmin = db.query(User).filter(User.role == "super_admin").first()
+    if not superadmin:
+        raise HTTPException(status_code=404, detail="Superadmin não encontrado")
+    
+    # Definir nova senha
+    new_password = "Admin@123"
+    hashed_password = hash_password(new_password)
+    
+    superadmin.hashed_password = hashed_password
+    db.commit()
+    db.refresh(superadmin)
+    
+    return {
+        "message": "Senha do superadmin resetada com sucesso",
+        "username": superadmin.username,
+        "email": superadmin.email,
+        "password": new_password,
+        "role": superadmin.role
+    }
+
 @app.post("/api/v1/auth/select-business-unit")
 async def select_business_unit(request: dict, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     business_unit_id = request.get("business_unit_id")
