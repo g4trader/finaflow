@@ -12,6 +12,7 @@ from fastapi.security import HTTPBearer
 # Importar configurações do banco de dados
 from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
+from app.models.chart_of_accounts import AccountGroup, AccountSubgroup, ChartAccount, Base as ChartBase
 
 # Modelos Pydantic para Tenants e Business Units
 class TenantCreate(BaseModel):
@@ -156,6 +157,102 @@ class UserResponse(BaseModel):
     status: str
     created_at: str
     last_login: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+# Modelos Pydantic para Plano de Contas
+class AccountGroupCreate(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+    tenant_id: str
+    business_unit_id: str
+    status: str = "active"
+
+class AccountGroupUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+class AccountGroupResponse(BaseModel):
+    id: str
+    name: str
+    code: str
+    description: Optional[str]
+    tenant_id: str
+    business_unit_id: str
+    status: str
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+class AccountSubgroupCreate(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+    group_id: str
+    tenant_id: str
+    business_unit_id: str
+    status: str = "active"
+
+class AccountSubgroupUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+class AccountSubgroupResponse(BaseModel):
+    id: str
+    name: str
+    code: str
+    description: Optional[str]
+    group_id: str
+    group_name: str
+    tenant_id: str
+    business_unit_id: str
+    status: str
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+class ChartAccountCreate(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+    subgroup_id: str
+    tenant_id: str
+    business_unit_id: str
+    is_active: bool = True
+    status: str = "active"
+
+class ChartAccountUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    status: Optional[str] = None
+
+class ChartAccountResponse(BaseModel):
+    id: str
+    name: str
+    code: str
+    description: Optional[str]
+    subgroup_id: str
+    subgroup_name: str
+    group_id: str
+    group_name: str
+    tenant_id: str
+    business_unit_id: str
+    is_active: bool
+    status: str
+    created_at: str
+    updated_at: str
 
     class Config:
         from_attributes = True
@@ -865,6 +962,249 @@ async def get_my_access(db: Session = Depends(get_db)):
         "accessible_tenants": ["1", "2"],
         "accessible_business_units": ["1", "2", "3"]
     }
+
+# ============================================================================
+# ENDPOINTS DO PLANO DE CONTAS
+# ============================================================================
+
+# CRUD de Grupos de Contas
+@app.get("/api/v1/financial/account-groups", response_model=List[AccountGroupResponse])
+async def get_account_groups(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Listar todos os grupos de contas"""
+    groups = db.query(AccountGroup).all()
+    return [AccountGroupResponse(
+        id=group.id,
+        name=group.name,
+        code=group.code,
+        description=group.description,
+        tenant_id=group.tenant_id,
+        business_unit_id=group.business_unit_id,
+        status=group.status,
+        created_at=group.created_at.strftime("%Y-%m-%d") if group.created_at else "",
+        updated_at=group.updated_at.strftime("%Y-%m-%d") if group.updated_at else ""
+    ) for group in groups]
+
+@app.get("/api/v1/financial/account-groups/{group_id}", response_model=AccountGroupResponse)
+async def get_account_group(group_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Buscar grupo de contas por ID"""
+    group = db.query(AccountGroup).filter(AccountGroup.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo de contas não encontrado")
+    
+    return AccountGroupResponse(
+        id=group.id,
+        name=group.name,
+        code=group.code,
+        description=group.description,
+        tenant_id=group.tenant_id,
+        business_unit_id=group.business_unit_id,
+        status=group.status,
+        created_at=group.created_at.strftime("%Y-%m-%d") if group.created_at else "",
+        updated_at=group.updated_at.strftime("%Y-%m-%d") if group.updated_at else ""
+    )
+
+@app.post("/api/v1/financial/account-groups", response_model=AccountGroupResponse)
+async def create_account_group(group_data: AccountGroupCreate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Criar novo grupo de contas"""
+    new_group = AccountGroup(
+        name=group_data.name,
+        code=group_data.code,
+        description=group_data.description,
+        tenant_id=group_data.tenant_id,
+        business_unit_id=group_data.business_unit_id,
+        status=group_data.status
+    )
+    db.add(new_group)
+    db.commit()
+    db.refresh(new_group)
+    
+    return AccountGroupResponse(
+        id=new_group.id,
+        name=new_group.name,
+        code=new_group.code,
+        description=new_group.description,
+        tenant_id=new_group.tenant_id,
+        business_unit_id=new_group.business_unit_id,
+        status=new_group.status,
+        created_at=new_group.created_at.strftime("%Y-%m-%d") if new_group.created_at else "",
+        updated_at=new_group.updated_at.strftime("%Y-%m-%d") if new_group.updated_at else ""
+    )
+
+# CRUD de Subgrupos de Contas
+@app.get("/api/v1/financial/account-subgroups", response_model=List[AccountSubgroupResponse])
+async def get_account_subgroups(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Listar todos os subgrupos de contas"""
+    subgroups = db.query(AccountSubgroup).join(AccountGroup).all()
+    return [AccountSubgroupResponse(
+        id=subgroup.id,
+        name=subgroup.name,
+        code=subgroup.code,
+        description=subgroup.description,
+        group_id=subgroup.group_id,
+        group_name=subgroup.group.name,
+        tenant_id=subgroup.tenant_id,
+        business_unit_id=subgroup.business_unit_id,
+        status=subgroup.status,
+        created_at=subgroup.created_at.strftime("%Y-%m-%d") if subgroup.created_at else "",
+        updated_at=subgroup.updated_at.strftime("%Y-%m-%d") if subgroup.updated_at else ""
+    ) for subgroup in subgroups]
+
+@app.get("/api/v1/financial/account-subgroups/{subgroup_id}", response_model=AccountSubgroupResponse)
+async def get_account_subgroup(subgroup_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Buscar subgrupo de contas por ID"""
+    subgroup = db.query(AccountSubgroup).join(AccountGroup).filter(AccountSubgroup.id == subgroup_id).first()
+    if not subgroup:
+        raise HTTPException(status_code=404, detail="Subgrupo de contas não encontrado")
+    
+    return AccountSubgroupResponse(
+        id=subgroup.id,
+        name=subgroup.name,
+        code=subgroup.code,
+        description=subgroup.description,
+        group_id=subgroup.group_id,
+        group_name=subgroup.group.name,
+        tenant_id=subgroup.tenant_id,
+        business_unit_id=subgroup.business_unit_id,
+        status=subgroup.status,
+        created_at=subgroup.created_at.strftime("%Y-%m-%d") if subgroup.created_at else "",
+        updated_at=subgroup.updated_at.strftime("%Y-%m-%d") if subgroup.updated_at else ""
+    )
+
+@app.post("/api/v1/financial/account-subgroups", response_model=AccountSubgroupResponse)
+async def create_account_subgroup(subgroup_data: AccountSubgroupCreate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Criar novo subgrupo de contas"""
+    new_subgroup = AccountSubgroup(
+        name=subgroup_data.name,
+        code=subgroup_data.code,
+        description=subgroup_data.description,
+        group_id=subgroup_data.group_id,
+        tenant_id=subgroup_data.tenant_id,
+        business_unit_id=subgroup_data.business_unit_id,
+        status=subgroup_data.status
+    )
+    db.add(new_subgroup)
+    db.commit()
+    db.refresh(new_subgroup)
+    
+    # Buscar o grupo para incluir o nome na resposta
+    group = db.query(AccountGroup).filter(AccountGroup.id == new_subgroup.group_id).first()
+    
+    return AccountSubgroupResponse(
+        id=new_subgroup.id,
+        name=new_subgroup.name,
+        code=new_subgroup.code,
+        description=new_subgroup.description,
+        group_id=new_subgroup.group_id,
+        group_name=group.name if group else "",
+        tenant_id=new_subgroup.tenant_id,
+        business_unit_id=new_subgroup.business_unit_id,
+        status=new_subgroup.status,
+        created_at=new_subgroup.created_at.strftime("%Y-%m-%d") if new_subgroup.created_at else "",
+        updated_at=new_subgroup.updated_at.strftime("%Y-%m-%d") if new_subgroup.updated_at else ""
+    )
+
+# CRUD de Contas Contábeis
+@app.get("/api/v1/financial/chart-accounts", response_model=List[ChartAccountResponse])
+async def get_chart_accounts(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Listar todas as contas contábeis"""
+    accounts = db.query(ChartAccount).join(AccountSubgroup).join(AccountGroup).all()
+    return [ChartAccountResponse(
+        id=account.id,
+        name=account.name,
+        code=account.code,
+        description=account.description,
+        subgroup_id=account.subgroup_id,
+        subgroup_name=account.subgroup.name,
+        group_id=account.subgroup.group_id,
+        group_name=account.subgroup.group.name,
+        tenant_id=account.tenant_id,
+        business_unit_id=account.business_unit_id,
+        is_active=account.is_active,
+        status=account.status,
+        created_at=account.created_at.strftime("%Y-%m-%d") if account.created_at else "",
+        updated_at=account.updated_at.strftime("%Y-%m-%d") if account.updated_at else ""
+    ) for account in accounts]
+
+@app.get("/api/v1/financial/chart-accounts/{account_id}", response_model=ChartAccountResponse)
+async def get_chart_account(account_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Buscar conta contábil por ID"""
+    account = db.query(ChartAccount).join(AccountSubgroup).join(AccountGroup).filter(ChartAccount.id == account_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Conta contábil não encontrada")
+    
+    return ChartAccountResponse(
+        id=account.id,
+        name=account.name,
+        code=account.code,
+        description=account.description,
+        subgroup_id=account.subgroup_id,
+        subgroup_name=account.subgroup.name,
+        group_id=account.subgroup.group_id,
+        group_name=account.subgroup.group.name,
+        tenant_id=account.tenant_id,
+        business_unit_id=account.business_unit_id,
+        is_active=account.is_active,
+        status=account.status,
+        created_at=account.created_at.strftime("%Y-%m-%d") if account.created_at else "",
+        updated_at=account.updated_at.strftime("%Y-%m-%d") if account.updated_at else ""
+    )
+
+@app.post("/api/v1/financial/chart-accounts", response_model=ChartAccountResponse)
+async def create_chart_account(account_data: ChartAccountCreate, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Criar nova conta contábil"""
+    new_account = ChartAccount(
+        name=account_data.name,
+        code=account_data.code,
+        description=account_data.description,
+        subgroup_id=account_data.subgroup_id,
+        tenant_id=account_data.tenant_id,
+        business_unit_id=account_data.business_unit_id,
+        is_active=account_data.is_active,
+        status=account_data.status
+    )
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    
+    # Buscar o subgrupo e grupo para incluir os nomes na resposta
+    subgroup = db.query(AccountSubgroup).join(AccountGroup).filter(AccountSubgroup.id == new_account.subgroup_id).first()
+    
+    return ChartAccountResponse(
+        id=new_account.id,
+        name=new_account.name,
+        code=new_account.code,
+        description=new_account.description,
+        subgroup_id=new_account.subgroup_id,
+        subgroup_name=subgroup.name if subgroup else "",
+        group_id=subgroup.group_id if subgroup else "",
+        group_name=subgroup.group.name if subgroup and subgroup.group else "",
+        tenant_id=new_account.tenant_id,
+        business_unit_id=new_account.business_unit_id,
+        is_active=new_account.is_active,
+        status=new_account.status,
+        created_at=new_account.created_at.strftime("%Y-%m-%d") if new_account.created_at else "",
+        updated_at=new_account.updated_at.strftime("%Y-%m-%d") if new_account.updated_at else ""
+    )
+
+# Endpoint para importar plano de contas
+@app.post("/api/v1/financial/import-chart-accounts")
+async def import_chart_accounts(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Importar plano de contas do CSV"""
+    try:
+        # Executar o script de importação
+        import subprocess
+        import sys
+        
+        result = subprocess.run([sys.executable, "import_chart_of_accounts.py"], 
+                              capture_output=True, text=True, cwd=os.path.dirname(__file__))
+        
+        if result.returncode == 0:
+            return {"message": "Plano de contas importado com sucesso", "output": result.stdout}
+        else:
+            raise HTTPException(status_code=500, detail=f"Erro na importação: {result.stderr}")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao importar plano de contas: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
