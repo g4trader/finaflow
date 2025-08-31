@@ -40,6 +40,7 @@ class Tenant(Base):
     users = relationship("User", back_populates="tenant")
     business_units = relationship("BusinessUnit", back_populates="tenant")
     user_access = relationship("UserTenantAccess", back_populates="tenant")
+    account_groups = relationship("AccountGroup", back_populates="tenant")
 
 class BusinessUnit(Base):
     __tablename__ = "business_units"
@@ -57,6 +58,7 @@ class BusinessUnit(Base):
     users = relationship("User", back_populates="business_unit")
     departments = relationship("Department", back_populates="business_unit")
     user_access = relationship("UserBusinessUnitAccess", back_populates="business_unit")
+    account_groups = relationship("AccountGroup", back_populates="business_unit")
 
 class Department(Base):
     __tablename__ = "departments"
