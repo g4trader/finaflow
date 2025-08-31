@@ -13,6 +13,7 @@ from fastapi.security import HTTPBearer
 from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 from app.models.chart_of_accounts import AccountGroup, AccountSubgroup, ChartAccount, Base as ChartBase
+import bcrypt
 
 # Modelos Pydantic para Tenants e Business Units
 class TenantCreate(BaseModel):
@@ -162,8 +163,12 @@ class UserCreate(BaseModel):
     name: str
     email: str
     phone: str
+    password: str  # Senha obrigatória
     role: str = "user"
     status: str = "active"
+
+class UserSetPassword(BaseModel):
+    password: str
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
@@ -286,6 +291,16 @@ SECRET_KEY = "finaflow-secret-key-2024"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+# Funções de segurança simplificadas
+def hash_password(password: str) -> str:
+    """Hash de senha usando bcrypt."""
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    """Verifica se a senha está correta."""
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+
 # Função para verificar token JWT
 def get_current_user(token: str = Depends(HTTPBearer())):
     try:
@@ -314,30 +329,53 @@ async def test():
     return {"message": "API funcionando!"}
 
 @app.post("/api/v1/auth/login")
-async def login():
-    # Criar um JWT simples para teste
-    payload = {
-        "sub": "1",
-        "username": "admin",
-        "email": "admin@finaflow.com",
-        "first_name": "Admin",
-        "last_name": "User",
-        "role": "admin",
-        "tenant_id": "1",
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    }
+async def login(request: dict, db: Session = Depends(get_db)):
+    """Login com autenticação real"""
+    username = request.get("username")
+    password = request.get("password")
     
-    # Usar uma chave secreta simples para teste
-    secret_key = "finaflow-secret-key-2024"
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Username e password são obrigatórios")
     
-    access_token = jwt.encode(payload, secret_key, algorithm="HS256")
-    
-    return {
-        "access_token": access_token,
-        "refresh_token": "test-refresh-token",
-        "token_type": "bearer",
-        "expires_in": 1800
-    }
+    try:
+        # Buscar usuário no banco
+        user = db.query(User).filter(User.username == username).first()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+        
+        # Verificar senha
+        if not verify_password(password, user.hashed_password):
+            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+        
+        # Criar payload do JWT
+        payload = {
+            "sub": str(user.id),
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "role": user.role,
+            "tenant_id": str(user.tenant_id),
+            "business_unit_id": str(user.business_unit_id) if user.business_unit_id else None,
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+        }
+        
+        # Usar uma chave secreta simples para teste
+        secret_key = "finaflow-secret-key-2024"
+        
+        access_token = jwt.encode(payload, secret_key, algorithm="HS256")
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": "test-refresh-token",
+            "token_type": "bearer",
+            "expires_in": 1800
+        }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
 @app.get("/api/v1/auth/user-business-units")
 async def get_user_business_units(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -746,6 +784,9 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cu
         db.commit()
         db.refresh(default_tenant)
     
+    # Hash da senha
+    hashed_password = hash_password(user_data.password)
+    
     # Criar novo usuário
     new_user = User(
         tenant_id=default_tenant.id,
@@ -754,7 +795,7 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cu
         first_name=first_name,
         last_name=last_name,
         phone=user_data.phone,
-        hashed_password="hashed_password_placeholder",
+        hashed_password=hashed_password,
         role=user_data.role,
         status=user_data.status
     )
@@ -823,6 +864,22 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
     db.delete(user)
     db.commit()
     return {"message": f"Usuário {user_id} deletado com sucesso"}
+
+@app.post("/api/v1/users/{user_id}/set-password")
+async def set_user_password(user_id: str, password_data: UserSetPassword, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Define senha para um usuário"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Hash da nova senha
+    hashed_password = hash_password(password_data.password)
+    user.hashed_password = hashed_password
+    
+    db.commit()
+    db.refresh(user)
+    
+    return {"message": f"Senha definida com sucesso para o usuário {user.email}"}
 
 @app.get("/api/v1/financial/transactions")
 async def get_transactions():
