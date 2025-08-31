@@ -9,7 +9,7 @@ import Card from '../components/ui/Card';
 import { Mail, Lock, Eye, EyeOff, TrendingUp } from 'lucide-react';
 
 export default function Login() {
-  const { login } = useContext(AuthContext);
+  const { login, needsBusinessUnitSelection } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,7 +23,13 @@ export default function Login() {
 
     try {
       await login(email, password);
-      window.location.href = '/dashboard';
+      
+      // Verificar se precisa selecionar BU
+      if (needsBusinessUnitSelection) {
+        window.location.href = '/select-business-unit';
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch {
       setError('Email ou senha incorretos. Tente novamente.');
     } finally {

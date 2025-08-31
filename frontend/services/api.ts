@@ -99,6 +99,19 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
+// Novos endpoints para seleção de BU/Empresa
+export const getUserBusinessUnits = async () => {
+  const response = await api.get('/api/v1/auth/user-business-units');
+  return response.data;
+};
+
+export const selectBusinessUnit = async (businessUnitId: string) => {
+  const response = await api.post('/api/v1/auth/select-business-unit', {
+    business_unit_id: businessUnitId
+  });
+  return response.data;
+};
+
 // Grupos de Contas
 export const getAccountGroups = async () => {
   const response = await api.get('/api/v1/financial/account-groups');

@@ -24,6 +24,8 @@ interface AuthContextType {
   refreshToken: () => Promise<void>;
   role: string | null;
   tenantId: string | null;
+  needsBusinessUnitSelection: boolean;
+  setNeedsBusinessUnitSelection: (needs: boolean) => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -67,6 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [needsBusinessUnitSelection, setNeedsBusinessUnitSelection] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -109,7 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCookie('auth-token', data.access_token, 7);
       
       const decoded: any = jwtDecode(data.access_token);
-      setUser({
+      const userData = {
         id: decoded.sub,
         username: decoded.username,
         email: decoded.email,
@@ -119,7 +122,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         tenant_id: decoded.tenant_id,
         business_unit_id: decoded.business_unit_id,
         department_id: decoded.department_id
-      });
+      };
+      setUser(userData);
+      
+      // Verificar se o usuário precisa selecionar uma BU
+      if (!decoded.business_unit_id) {
+        setNeedsBusinessUnitSelection(true);
+      }
     } catch (error) {
       console.error('Erro no login:', error);
       throw error;
@@ -190,7 +199,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isLoading, 
       refreshToken,
       role: user?.role || null,
-      tenantId: user?.tenant_id || null
+      tenantId: user?.tenant_id || null,
+      needsBusinessUnitSelection,
+      setNeedsBusinessUnitSelection
     }}>
       {children}
     </AuthContext.Provider>
