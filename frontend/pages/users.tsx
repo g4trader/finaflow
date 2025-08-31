@@ -62,6 +62,7 @@ const UserForm = React.memo(({
   handleNameChange, 
   handleEmailChange, 
   handlePhoneChange, 
+  handlePasswordChange,
   handleRoleChange, 
   handleStatusChange, 
   handleSubmit, 
@@ -72,6 +73,7 @@ const UserForm = React.memo(({
   handleNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleEmailChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handlePhoneChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handlePasswordChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleRoleChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   handleStatusChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   handleSubmit: (e: React.FormEvent) => void;
@@ -126,18 +128,29 @@ const UserForm = React.memo(({
       </div>
     </div>
 
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        Status
-      </label>
-      <select
-        className="input w-full"
-        value={formData.status}
-        onChange={handleStatusChange}
-      >
-        <option value="active">Ativo</option>
-        <option value="inactive">Inativo</option>
-      </select>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Input
+        label="Senha"
+        type="password"
+        placeholder="Digite a senha"
+        value={formData.password}
+        onChange={handlePasswordChange}
+        fullWidth
+        required={!editingUser}
+      />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Status
+        </label>
+        <select
+          className="input w-full"
+          value={formData.status}
+          onChange={handleStatusChange}
+        >
+          <option value="active">Ativo</option>
+          <option value="inactive">Inativo</option>
+        </select>
+      </div>
     </div>
 
     <div className="flex justify-end space-x-3 pt-4">
@@ -169,6 +182,7 @@ function UsersContent() {
     name: '',
     email: '',
     phone: '',
+    password: '',
     role: 'user',
     status: 'active'
   });
@@ -252,7 +266,7 @@ function UsersContent() {
         await createUser(dataToSend, token ?? undefined);
       }
       setIsModalOpen(false);
-      setFormData({ name: '', email: '', phone: '', role: 'user', status: 'active' });
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'user', status: 'active' });
       setEditingUser(null);
       fetchUsers();
     } catch (error) {
@@ -277,6 +291,7 @@ function UsersContent() {
       name: user.name,
       email: user.email,
       phone: applyPhoneMask(user.phone), // Aplica máscara ao editar
+      password: '',
       role: user.role,
       status: user.status
     });
@@ -285,7 +300,7 @@ function UsersContent() {
 
   const openCreateModal = () => {
     setEditingUser(null);
-    setFormData({ name: '', email: '', phone: '', role: 'user', status: 'active' });
+            setFormData({ name: '', email: '', phone: '', password: '', role: 'user', status: 'active' });
     setIsModalOpen(true);
   };
 
@@ -309,6 +324,10 @@ function UsersContent() {
 
   const handleRoleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     handleInputChange('role', e.target.value);
+  }, [handleInputChange]);
+
+  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('password', e.target.value);
   }, [handleInputChange]);
 
   const handleStatusChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -525,11 +544,12 @@ function UsersContent() {
         title={editingUser ? 'Editar Usuário' : 'Novo Usuário'}
         size="lg"
       >
-        <UserForm 
+                <UserForm
           formData={formData}
           handleNameChange={handleNameChange}
           handleEmailChange={handleEmailChange}
           handlePhoneChange={handlePhoneChange}
+          handlePasswordChange={handlePasswordChange}
           handleRoleChange={handleRoleChange}
           handleStatusChange={handleStatusChange}
           handleSubmit={handleSubmit}
