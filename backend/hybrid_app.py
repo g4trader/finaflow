@@ -133,6 +133,10 @@ except Exception as e:
     print(f"❌ Could not create database tables: {e}")
     raise e
 
+# Dados mock para permissões (temporário)
+business_unit_permissions_db = []
+next_permission_id = 1
+
 # Modelos Pydantic para compatibilidade com o frontend
 class UserCreate(BaseModel):
     name: str
