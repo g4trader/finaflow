@@ -339,6 +339,140 @@ async def login():
         "expires_in": 1800
     }
 
+@app.get("/api/v1/auth/user-business-units")
+async def get_user_business_units(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Retorna as BUs disponíveis para o usuário logado"""
+    user_id = current_user.get("sub")
+    
+    # Buscar permissões do usuário
+    user_permissions = [p for p in business_unit_permissions_db if p["user_id"] == user_id]
+    
+    # Se não tem permissões específicas, retornar todas as BUs (para admin)
+    if not user_permissions:
+        available_bus = []
+        for bu in business_units_db:
+            tenant = next((t for t in tenants_db if t["id"] == bu["tenant_id"]), None)
+            available_bus.append({
+                "id": bu["id"],
+                "name": bu["name"],
+                "code": bu["code"],
+                "tenant_id": bu["tenant_id"],
+                "tenant_name": tenant["name"] if tenant else "Empresa não encontrada",
+                "permissions": {
+                    "can_read": True,
+                    "can_write": True,
+                    "can_delete": True,
+                    "can_manage_users": True
+                }
+            })
+        return available_bus
+    
+    # Retornar apenas as BUs onde o usuário tem permissão
+    available_bus = []
+    for permission in user_permissions:
+        bu = next((b for b in business_units_db if b["id"] == permission["business_unit_id"]), None)
+        if bu:
+            tenant = next((t for t in tenants_db if t["id"] == bu["tenant_id"]), None)
+            available_bus.append({
+                "id": bu["id"],
+                "name": bu["name"],
+                "code": bu["code"],
+                "tenant_id": bu["tenant_id"],
+                "tenant_name": tenant["name"] if tenant else "Empresa não encontrada",
+                "permissions": {
+                    "can_read": permission["can_read"],
+                    "can_write": permission["can_write"],
+                    "can_delete": permission["can_delete"],
+                    "can_manage_users": permission["can_manage_users"]
+                }
+            })
+    
+    return available_bus
+
+@app.post("/api/v1/auth/select-business-unit")
+async def select_business_unit(request: dict, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    business_unit_id = request.get("business_unit_id")
+    if not business_unit_id:
+        raise HTTPException(status_code=400, detail="business_unit_id é obrigatório")
+    """Seleciona uma BU para o usuário e retorna um novo token com a BU selecionada"""
+    user_id = current_user.get("sub")
+    
+    # Verificar se o usuário tem acesso à BU
+    user_permissions = [p for p in business_unit_permissions_db if p["user_id"] == user_id and p["business_unit_id"] == business_unit_id]
+    
+    # Se não tem permissões específicas, permitir acesso (para admin)
+    if not user_permissions:
+        # Verificar se a BU existe
+        bu = next((b for b in business_units_db if b["id"] == business_unit_id), None)
+        if not bu:
+            raise HTTPException(status_code=404, detail="Business Unit não encontrada")
+        
+        # Criar novo token com a BU selecionada
+        new_payload = {
+            "sub": user_id,
+            "username": current_user.get("username"),
+            "email": current_user.get("email"),
+            "first_name": current_user.get("first_name"),
+            "last_name": current_user.get("last_name"),
+            "role": current_user.get("role"),
+            "tenant_id": bu["tenant_id"],
+            "business_unit_id": business_unit_id,
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+        }
+        
+        secret_key = "finaflow-secret-key-2024"
+        new_access_token = jwt.encode(new_payload, secret_key, algorithm="HS256")
+        
+        return {
+            "access_token": new_access_token,
+            "token_type": "bearer",
+            "expires_in": 1800,
+            "selected_business_unit": {
+                "id": bu["id"],
+                "name": bu["name"],
+                "code": bu["code"],
+                "tenant_id": bu["tenant_id"]
+            }
+        }
+    
+    # Verificar permissões
+    permission = user_permissions[0]
+    if not permission["can_read"]:
+        raise HTTPException(status_code=403, detail="Sem permissão de acesso a esta Business Unit")
+    
+    # Buscar informações da BU
+    bu = next((b for b in business_units_db if b["id"] == business_unit_id), None)
+    if not bu:
+        raise HTTPException(status_code=404, detail="Business Unit não encontrada")
+    
+    # Criar novo token com a BU selecionada
+    new_payload = {
+        "sub": user_id,
+        "username": current_user.get("username"),
+        "email": current_user.get("email"),
+        "first_name": current_user.get("first_name"),
+        "last_name": current_user.get("last_name"),
+        "role": current_user.get("role"),
+        "tenant_id": bu["tenant_id"],
+        "business_unit_id": business_unit_id,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    }
+    
+    secret_key = "finaflow-secret-key-2024"
+    new_access_token = jwt.encode(new_payload, secret_key, algorithm="HS256")
+    
+    return {
+        "access_token": new_access_token,
+        "token_type": "bearer",
+        "expires_in": 1800,
+        "selected_business_unit": {
+            "id": bu["id"],
+            "name": bu["name"],
+            "code": bu["code"],
+            "tenant_id": bu["tenant_id"]
+        }
+    }
+
 # CRUD de Empresas (Tenants)
 @app.get("/api/v1/tenants", response_model=List[TenantResponse])
 async def get_tenants(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
