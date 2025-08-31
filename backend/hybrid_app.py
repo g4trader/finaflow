@@ -137,6 +137,26 @@ except Exception as e:
 business_unit_permissions_db = []
 next_permission_id = 1
 
+# Dados mock para tenants e business units (temporário)
+tenants_db = [
+    {
+        "id": "21564896-889d-4b5c-b431-dfa7ef4f0387",
+        "name": "FinaFlow",
+        "domain": "finaflow.com",
+        "status": "active"
+    }
+]
+
+business_units_db = [
+    {
+        "id": "d22ceace-80e8-4c0f-9000-88d910daaa1d",
+        "name": "FinaFlow",
+        "code": "FF001",
+        "tenant_id": "21564896-889d-4b5c-b431-dfa7ef4f0387",
+        "status": "active"
+    }
+]
+
 # Modelos Pydantic para compatibilidade com o frontend
 class UserCreate(BaseModel):
     name: str
