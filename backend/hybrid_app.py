@@ -328,12 +328,15 @@ async def health():
 async def test():
     return {"message": "API funcionando!"}
 
+from fastapi import Form
+
 @app.post("/api/v1/auth/login")
-async def login(request: dict, db: Session = Depends(get_db)):
+async def login(
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
     """Login com autenticação real"""
-    username = request.get("username")
-    password = request.get("password")
-    
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username e password são obrigatórios")
     
