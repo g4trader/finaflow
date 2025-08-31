@@ -733,9 +733,22 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cu
     first_name = name_parts[0]
     last_name = name_parts[1] if len(name_parts) > 1 else ""
     
+    # Buscar o tenant padrão ou usar o tenant do usuário atual
+    default_tenant = db.query(Tenant).first()
+    if not default_tenant:
+        # Criar tenant padrão se não existir
+        default_tenant = Tenant(
+            name="FinaFlow",
+            domain="finaflow.com",
+            status="active"
+        )
+        db.add(default_tenant)
+        db.commit()
+        db.refresh(default_tenant)
+    
     # Criar novo usuário
     new_user = User(
-        tenant_id="1",
+        tenant_id=default_tenant.id,
         username=user_data.email,
         email=user_data.email,
         first_name=first_name,
