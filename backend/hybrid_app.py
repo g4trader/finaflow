@@ -894,8 +894,7 @@ async def create_user_business_unit_permission(permission_data: UserBusinessUnit
     """Cria permissão de usuário em uma BU"""
     global next_permission_id
     
-    # Debug: imprimir dados recebidos
-    print(f"DEBUG: Dados recebidos: {permission_data}")
+
     
     # Verificar se já existe permissão
     existing = next((p for p in business_unit_permissions_db 
@@ -949,28 +948,7 @@ async def create_user_business_unit_permission(permission_data: UserBusinessUnit
         updated_at=permission["updated_at"]
     )
 
-# Endpoint de debug para ver dados recebidos
-@app.post("/api/v1/debug/permissions")
-async def debug_permissions(request: dict):
-    """Endpoint de debug para ver dados recebidos"""
-    return {"received_data": request, "message": "Dados recebidos com sucesso"}
 
-# Endpoint temporário para capturar dados do frontend
-@app.post("/api/v1/permissions/business-units-debug")
-async def create_user_business_unit_permission_debug(request: dict):
-    """Endpoint temporário para capturar dados do frontend"""
-    return {
-        "received_data": request,
-        "message": "Dados capturados com sucesso",
-        "expected_format": {
-            "user_id": "string",
-            "business_unit_id": "string", 
-            "can_read": "boolean (opcional, default: true)",
-            "can_write": "boolean (opcional, default: false)",
-            "can_delete": "boolean (opcional, default: false)",
-            "can_manage_users": "boolean (opcional, default: false)"
-        }
-    }
 
 @app.put("/api/v1/permissions/business-units/{permission_id}", response_model=UserBusinessUnitAccessResponse)
 async def update_user_business_unit_permission(permission_id: str, permission_data: UserBusinessUnitAccessUpdate, db: Session = Depends(get_db)):
