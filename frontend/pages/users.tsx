@@ -20,7 +20,7 @@ import Card from '../components/ui/Card';
 import Table from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import ProtectedRoute from '../components/ProtectedRoute';
-import { getUsers, createUser, updateUser, deleteUser } from '../services/api';
+import { getUsers, createUser, updateUser, deleteUser, getPermissions, getUserPermissions, updateUserPermissions, getTenants, getBusinessUnits } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 interface User {
@@ -178,6 +178,14 @@ function UsersContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
+  const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<User | null>(null);
+  const [permissions, setPermissions] = useState<any[]>([]);
+  const [userPermissions, setUserPermissions] = useState<any[]>([]);
+  const [selectedTenant, setSelectedTenant] = useState<string>('');
+  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>('');
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -282,6 +290,89 @@ function UsersContent() {
       } catch (error) {
         console.error('Erro ao deletar usuário:', error);
       }
+    }
+  };
+
+  // Funções para gerenciar permissões
+  const openPermissionsModal = async (user: User) => {
+    setSelectedUserForPermissions(user);
+    setIsPermissionsModalOpen(true);
+    
+    try {
+      // Carregar permissões disponíveis
+      const permissionsData = await getPermissions();
+      setPermissions(permissionsData);
+      
+      // Carregar tenants
+      const tenantsData = await getTenants(token ?? undefined);
+      setTenants(tenantsData);
+      
+      // Resetar seleções
+      setSelectedTenant('');
+      setSelectedBusinessUnit('');
+      setUserPermissions([]);
+    } catch (error) {
+      console.error('Erro ao carregar dados para permissões:', error);
+    }
+  };
+
+  const handleTenantChange = async (tenantId: string) => {
+    setSelectedTenant(tenantId);
+    setSelectedBusinessUnit('');
+    setUserPermissions([]);
+    
+    if (tenantId) {
+      try {
+        const businessUnitsData = await getBusinessUnits(tenantId, token ?? undefined);
+        setBusinessUnits(businessUnitsData);
+      } catch (error) {
+        console.error('Erro ao carregar BUs:', error);
+      }
+    }
+  };
+
+  const handleBusinessUnitChange = async (businessUnitId: string) => {
+    setSelectedBusinessUnit(businessUnitId);
+    
+    if (businessUnitId && selectedUserForPermissions) {
+      try {
+        const userPermissionsData = await getUserPermissions(
+          selectedUserForPermissions.id, 
+          businessUnitId
+        );
+        setUserPermissions(userPermissionsData);
+      } catch (error) {
+        console.error('Erro ao carregar permissões do usuário:', error);
+      }
+    }
+  };
+
+  const handlePermissionToggle = (permissionCode: string, isGranted: boolean) => {
+    setUserPermissions(prev => 
+      prev.map(perm => 
+        perm.permission_code === permissionCode 
+          ? { ...perm, is_granted: isGranted }
+          : perm
+      )
+    );
+  };
+
+  const handleSavePermissions = async () => {
+    if (!selectedUserForPermissions || !selectedBusinessUnit) return;
+    
+    try {
+      await updateUserPermissions(
+        selectedUserForPermissions.id,
+        selectedBusinessUnit,
+        userPermissions
+      );
+      
+      setIsPermissionsModalOpen(false);
+      setSelectedUserForPermissions(null);
+      alert('Permissões atualizadas com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar permissões:', error);
+      alert('Erro ao salvar permissões');
     }
   };
 
@@ -517,14 +608,17 @@ function UsersContent() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            icon={<Trash2 className="w-4 h-4" />}
-                            className="text-red-600 hover:text-red-700"
-                            onClick={() => handleDelete(user.id)}
+                            icon={<ShieldCheck className="w-4 h-4" />}
+                            className="text-blue-600 hover:text-blue-700"
+                            onClick={() => openPermissionsModal(user)}
+                            title="Gerenciar Permissões"
                           />
                           <Button
                             variant="ghost"
                             size="sm"
-                            icon={<MoreHorizontal className="w-4 h-4" />}
+                            icon={<Trash2 className="w-4 h-4" />}
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDelete(user.id)}
                           />
                         </div>
                       </Table.Cell>
@@ -556,6 +650,110 @@ function UsersContent() {
           editingUser={editingUser}
           setIsModalOpen={setIsModalOpen}
         />
+      </Modal>
+
+      {/* Permissions Modal */}
+      <Modal
+        isOpen={isPermissionsModalOpen}
+        onClose={() => setIsPermissionsModalOpen(false)}
+        title={`Gerenciar Permissões - ${selectedUserForPermissions?.name || ''}`}
+        size="xl"
+      >
+        <div className="space-y-6">
+          {/* Seleção de Tenant e BU */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Empresa
+              </label>
+              <select
+                className="input w-full"
+                value={selectedTenant}
+                onChange={(e) => handleTenantChange(e.target.value)}
+              >
+                <option value="">Selecione uma empresa</option>
+                {tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Unidade de Negócio
+              </label>
+              <select
+                className="input w-full"
+                value={selectedBusinessUnit}
+                onChange={(e) => handleBusinessUnitChange(e.target.value)}
+                disabled={!selectedTenant}
+              >
+                <option value="">Selecione uma BU</option>
+                {businessUnits.map((bu) => (
+                  <option key={bu.id} value={bu.id}>
+                    {bu.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Lista de Permissões */}
+          {selectedBusinessUnit && (
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Permissões Disponíveis
+              </h3>
+              <div className="space-y-3">
+                {permissions.map((permission) => {
+                  const userPermission = userPermissions.find(
+                    (up) => up.permission_code === permission.code
+                  );
+                  const isGranted = userPermission?.is_granted || false;
+                  
+                  return (
+                    <div key={permission.code} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{permission.name}</h4>
+                        <p className="text-sm text-gray-500">{permission.description}</p>
+                      </div>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={isGranted}
+                          onChange={(e) => handlePermissionToggle(permission.code, e.target.checked)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">
+                          {isGranted ? 'Concedida' : 'Negada'}
+                        </span>
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Botões de Ação */}
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <Button
+              variant="secondary"
+              onClick={() => setIsPermissionsModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSavePermissions}
+              disabled={!selectedBusinessUnit}
+            >
+              Salvar Permissões
+            </Button>
+          </div>
+        </div>
       </Modal>
     </Layout>
   );
