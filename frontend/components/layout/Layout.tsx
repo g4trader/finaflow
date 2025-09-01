@@ -23,7 +23,9 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { getUserInfo } from '../../services/api';
 import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -32,13 +34,30 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { logout, role, tenantId } = useAuth();
+  const { logout, role, tenantId, user } = useAuth();
   const router = useRouter();
+  const [userInfo, setUserInfo] = useState<any>(null);
 
   const handleLogout = () => {
     logout();
     router.push('/login');
   };
+
+  // Buscar informações completas do usuário
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const info = await getUserInfo();
+        setUserInfo(info);
+      } catch (error) {
+        console.error('Erro ao buscar informações do usuário:', error);
+      }
+    };
+
+    if (user) {
+      fetchUserInfo();
+    }
+  }, [user]);
 
   // Detectar se a página atual está em um submenu e expandir automaticamente
   const getInitialExpandedMenus = () => {
@@ -284,13 +303,26 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
             <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">A</span>
+              <span className="text-white text-sm font-medium">
+                {userInfo?.first_name?.charAt(0) || user?.first_name?.charAt(0) || 'A'}
+              </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-700 truncate">Administrador</p>
-              <p className="text-xs text-gray-500 truncate">admin@finaflow.com</p>
-              {role && (
-                <p className="text-xs text-blue-600 font-medium">{role}</p>
+              <p className="text-sm font-medium text-gray-700 truncate">
+                {userInfo?.first_name || user?.first_name || 'Usuário'}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {userInfo?.email || user?.email || 'email@exemplo.com'}
+              </p>
+              {userInfo?.tenant_name && (
+                <p className="text-xs text-blue-600 font-medium">
+                  {userInfo.tenant_name}
+                </p>
+              )}
+              {userInfo?.business_unit_name && (
+                <p className="text-xs text-green-600 font-medium">
+                  {userInfo.business_unit_name}
+                </p>
               )}
             </div>
           </div>

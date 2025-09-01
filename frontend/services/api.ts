@@ -592,4 +592,9 @@ export const getMyAccess = async (token?: string) => {
   return response.data;
 };
 
+export const getUserInfo = async (): Promise<any> => {
+  const response = await api.get('/api/v1/auth/user-info');
+  return response.data;
+};
+
 export default api;
