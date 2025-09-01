@@ -1175,24 +1175,25 @@ async def get_user_permissions(
         # Se não há permissões específicas, retornar todas as permissões disponíveis com is_granted=False
         if not user_permissions:
             all_permissions = db.query(Permission).filter(Permission.is_active == True).all()
-            return [
-                {
+            result = []
+            for perm in all_permissions:
+                result.append({
                     "id": None,
                     "permission_code": perm.code,
                     "is_granted": False,
                     "granted_at": None
-                }
-                for perm in all_permissions
-            ]
-        return [
-            {
+                })
+            return result
+        
+        result = []
+        for up in user_permissions:
+            result.append({
                 "id": up.id,
                 "permission_code": up.permission_code,
                 "is_granted": up.is_granted,
                 "granted_at": up.granted_at.isoformat() if up.granted_at else None
-            }
-            for up in user_permissions
-        ]
+            })
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao buscar permissões do usuário: {str(e)}")
 
