@@ -468,12 +468,21 @@ export const updateTenant = async (id: string, data: any, token?: string) => {
 };
 
 // Business Units
-export const getBusinessUnits = async (token?: string) => {
+export const getBusinessUnits = async (tenantId?: string, token?: string) => {
   const headers: any = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.get('/api/v1/business-units', { headers });
+  
+  const params: any = {};
+  if (tenantId) {
+    params.tenant_id = tenantId;
+  }
+  
+  const response = await api.get('/api/v1/business-units', { 
+    headers,
+    params
+  });
   return response.data;
 };
 

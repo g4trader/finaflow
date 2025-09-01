@@ -790,9 +790,18 @@ async def delete_tenant(tenant_id: str, current_user: dict = Depends(get_current
 
 # CRUD de Business Units
 @app.get("/api/v1/business-units", response_model=List[BusinessUnitResponse])
-async def get_business_units(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Listar todas as BUs"""
-    business_units = db.query(BusinessUnit).all()
+async def get_business_units(
+    tenant_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Listar todas as BUs ou filtrar por tenant"""
+    query = db.query(BusinessUnit)
+    
+    if tenant_id:
+        query = query.filter(BusinessUnit.tenant_id == tenant_id)
+    
+    business_units = query.all()
     return [BusinessUnitResponse(
         id=bu.id,
         tenant_id=bu.tenant_id,
