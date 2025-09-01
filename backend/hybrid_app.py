@@ -1129,6 +1129,42 @@ async def get_cash_flow():
 # ENDPOINTS DE PERMISSÕES
 # ============================================================================
 
+@app.get("/api/v1/permissions")
+async def get_permissions(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Lista todas as permissões disponíveis"""
+    try:
+        from app.models.permissions import Permission
+        permissions = db.query(Permission).filter(Permission.is_active == True).all()
+        return [
+            {
+                "id": perm.id,
+                "name": perm.name,
+                "code": perm.code,
+                "description": perm.description,
+                "category": perm.category
+            }
+            for perm in permissions
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar permissões: {str(e)}")
+
+@app.post("/api/v1/permissions/initialize")
+async def initialize_permissions(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Inicializa as permissões padrão do sistema"""
+    try:
+        # Verificar se o usuário atual é super_admin
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Apenas super_admin pode inicializar permissões")
+        
+        from app.services.permissions import PermissionService
+        success = PermissionService.initialize_permissions(db)
+        if success:
+            return {"message": "Permissões inicializadas com sucesso"}
+        else:
+            raise HTTPException(status_code=500, detail="Erro ao inicializar permissões")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao inicializar permissões: {str(e)}")
+
 @app.get("/api/v1/permissions/tenants/{user_id}", response_model=List[UserTenantAccessResponse])
 async def get_user_tenant_permissions(user_id: str, db: Session = Depends(get_db)):
     """Lista permissões de um usuário em empresas"""
