@@ -135,7 +135,20 @@ except Exception as e:
     raise e
 
 # Dados mock para permissões (temporário)
-business_unit_permissions_db = []
+business_unit_permissions_db = [
+    {
+        "id": "perm-1",
+        "user_id": "0ea47945-21cf-4ed2-b99c-af9609eeb328",  # lucianoterresrosa@gmail.com
+        "business_unit_id": "4ff6ce0c-b64c-410e-8a8c-62165916bc4f",  # G4 Matriz
+        "tenant_id": "b410c4a2-0ab9-4624-89ea-05160ad55acb",  # G4 Mkt
+        "can_read": True,
+        "can_write": True,
+        "can_delete": True,
+        "can_manage_users": True,
+        "created_at": "2025-01-01",
+        "updated_at": "2025-01-01"
+    }
+]
 next_permission_id = 1
 
 # Dados mock para tenants e business units (temporário)
@@ -151,9 +164,16 @@ tenants_db = [
 business_units_db = [
     {
         "id": "d22ceace-80e8-4c0f-9000-88d910daaa1d",
-        "name": "FinaFlow",
-        "code": "FF001",
+        "name": "Matriz",
+        "code": "MAT",
         "tenant_id": "21564896-889d-4b5c-b431-dfa7ef4f0387",
+        "status": "active"
+    },
+    {
+        "id": "4ff6ce0c-b64c-410e-8a8c-62165916bc4f",
+        "name": "G4 Matriz",
+        "code": "G4MAT",
+        "tenant_id": "b410c4a2-0ab9-4624-89ea-05160ad55acb",
         "status": "active"
     }
 ]
@@ -399,22 +419,20 @@ async def debug_token(current_user: dict = Depends(get_current_user)):
 async def get_user_business_units(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Retorna as BUs disponíveis para o usuário logado"""
     user_id = current_user.get("sub")
-    
-    # Buscar permissões do usuário
-    user_permissions = [p for p in business_unit_permissions_db if p["user_id"] == user_id]
-    
-    # Se não tem permissões específicas ou é admin, retornar todas as BUs
     user_role = current_user.get("role")
-    if not user_permissions or user_role in ["admin", "super_admin"]:
+    
+    # Se é super_admin, retornar todas as BUs
+    if user_role == "super_admin":
+        business_units = db.query(BusinessUnit).all()
         available_bus = []
-        for bu in business_units_db:
-            tenant = next((t for t in tenants_db if t["id"] == bu["tenant_id"]), None)
+        for bu in business_units:
+            tenant = db.query(Tenant).filter(Tenant.id == bu.tenant_id).first()
             available_bus.append({
-                "id": bu["id"],
-                "name": bu["name"],
-                "code": bu["code"],
-                "tenant_id": bu["tenant_id"],
-                "tenant_name": tenant["name"] if tenant else "Empresa não encontrada",
+                "id": str(bu.id),
+                "name": bu.name,
+                "code": bu.code,
+                "tenant_id": str(bu.tenant_id),
+                "tenant_name": tenant.name if tenant else "Empresa não encontrada",
                 "permissions": {
                     "can_read": True,
                     "can_write": True,
@@ -424,27 +442,59 @@ async def get_user_business_units(current_user: dict = Depends(get_current_user)
             })
         return available_bus
     
-    # Retornar apenas as BUs onde o usuário tem permissão
-    available_bus = []
-    for permission in user_permissions:
-        bu = next((b for b in business_units_db if b["id"] == permission["business_unit_id"]), None)
-        if bu:
-            tenant = next((t for t in tenants_db if t["id"] == bu["tenant_id"]), None)
+    # Buscar permissões reais do usuário no banco de dados
+    user_permissions = db.query(UserBusinessUnitAccess).filter(
+        UserBusinessUnitAccess.user_id == user_id
+    ).all()
+    
+    # Se não tem permissões específicas e não é admin, retornar vazio
+    if not user_permissions and user_role != "admin":
+        return []
+    
+    # Se é admin mas não tem permissões específicas, retornar todas as BUs
+    if not user_permissions and user_role == "admin":
+        business_units = db.query(BusinessUnit).all()
+        available_bus = []
+        for bu in business_units:
+            tenant = db.query(Tenant).filter(Tenant.id == bu.tenant_id).first()
             available_bus.append({
-                "id": bu["id"],
-                "name": bu["name"],
-                "code": bu["code"],
-                "tenant_id": bu["tenant_id"],
-                "tenant_name": tenant["name"] if tenant else "Empresa não encontrada",
+                "id": str(bu.id),
+                "name": bu.name,
+                "code": bu.code,
+                "tenant_id": str(bu.tenant_id),
+                "tenant_name": tenant.name if tenant else "Empresa não encontrada",
                 "permissions": {
-                    "can_read": permission["can_read"],
-                    "can_write": permission["can_write"],
-                    "can_delete": permission["can_delete"],
-                    "can_manage_users": permission["can_manage_users"]
+                    "can_read": True,
+                    "can_write": True,
+                    "can_delete": True,
+                    "can_manage_users": True
                 }
             })
+        return available_bus
     
-    return available_bus
+    # Se tem permissões específicas, retornar apenas essas (mesmo sendo admin)
+    if user_permissions:
+        available_bus = []
+        for permission in user_permissions:
+            bu = db.query(BusinessUnit).filter(BusinessUnit.id == permission.business_unit_id).first()
+            if bu:
+                tenant = db.query(Tenant).filter(Tenant.id == bu.tenant_id).first()
+                available_bus.append({
+                    "id": str(bu.id),
+                    "name": bu.name,
+                    "code": bu.code,
+                    "tenant_id": str(bu.tenant_id),
+                    "tenant_name": tenant.name if tenant else "Empresa não encontrada",
+                    "permissions": {
+                        "can_read": permission.can_read,
+                        "can_write": permission.can_write,
+                        "can_delete": permission.can_delete,
+                        "can_manage_users": permission.can_manage_users
+                    }
+                })
+        return available_bus
+    
+
 
 @app.post("/api/v1/auth/create-superadmin")
 async def create_superadmin(db: Session = Depends(get_db)):
@@ -1148,38 +1198,38 @@ async def delete_user_tenant_permission(permission_id: str, db: Session = Depend
 @app.get("/api/v1/permissions/business-units/{user_id}", response_model=List[UserBusinessUnitAccessResponse])
 async def get_user_business_unit_permissions(user_id: str, db: Session = Depends(get_db)):
     """Lista permissões de um usuário em BUs"""
-    # Buscar permissões do usuário
-    permissions = [p for p in business_unit_permissions_db if p["user_id"] == user_id]
+    # Buscar permissões reais do usuário no banco de dados
+    permissions = db.query(UserBusinessUnitAccess).filter(
+        UserBusinessUnitAccess.user_id == user_id
+    ).all()
     
     # Formatar resposta
     result = []
     for perm in permissions:
         # Buscar nome da BU e empresa
+        bu = db.query(BusinessUnit).filter(BusinessUnit.id == perm.business_unit_id).first()
+        tenant = None
         bu_name = "BU não encontrada"
         tenant_name = "Empresa não encontrada"
         
-        for bu in business_units_db:
-            if bu["id"] == perm["business_unit_id"]:
-                bu_name = bu["name"]
-                # Buscar empresa
-                for tenant in tenants_db:
-                    if tenant["id"] == bu["tenant_id"]:
-                        tenant_name = tenant["name"]
-                        break
-                break
+        if bu:
+            bu_name = bu.name
+            tenant = db.query(Tenant).filter(Tenant.id == bu.tenant_id).first()
+            if tenant:
+                tenant_name = tenant.name
         
         result.append(UserBusinessUnitAccessResponse(
-            id=perm["id"],
-            user_id=perm["user_id"],
-            business_unit_id=perm["business_unit_id"],
+            id=str(perm.id),
+            user_id=perm.user_id,
+            business_unit_id=perm.business_unit_id,
             business_unit_name=bu_name,
             tenant_name=tenant_name,
-            can_read=perm["can_read"],
-            can_write=perm["can_write"],
-            can_delete=perm["can_delete"],
-            can_manage_users=perm["can_manage_users"],
-            created_at=perm["created_at"],
-            updated_at=perm["updated_at"]
+            can_read=perm.can_read,
+            can_write=perm.can_write,
+            can_delete=perm.can_delete,
+            can_manage_users=perm.can_manage_users,
+            created_at=perm.created_at.strftime("%Y-%m-%d") if perm.created_at else "",
+            updated_at=perm.updated_at.strftime("%Y-%m-%d") if perm.updated_at else ""
         ))
     
     return result
@@ -1187,60 +1237,54 @@ async def get_user_business_unit_permissions(user_id: str, db: Session = Depends
 @app.post("/api/v1/permissions/business-units", response_model=UserBusinessUnitAccessResponse)
 async def create_user_business_unit_permission(permission_data: UserBusinessUnitAccessCreate, db: Session = Depends(get_db)):
     """Cria permissão de usuário em uma BU"""
-    global next_permission_id
-    
-
     
     # Verificar se já existe permissão
-    existing = next((p for p in business_unit_permissions_db 
-                    if p["user_id"] == permission_data.user_id 
-                    and p["business_unit_id"] == permission_data.business_unit_id), None)
+    existing = db.query(UserBusinessUnitAccess).filter(
+        UserBusinessUnitAccess.user_id == permission_data.user_id,
+        UserBusinessUnitAccess.business_unit_id == permission_data.business_unit_id
+    ).first()
     
     if existing:
         raise HTTPException(status_code=400, detail="Permissão já existe para este usuário nesta BU")
     
     # Criar nova permissão
-    permission = {
-        "id": str(next_permission_id),
-        "user_id": permission_data.user_id,
-        "business_unit_id": permission_data.business_unit_id,
-        "can_read": permission_data.can_read,
-        "can_write": permission_data.can_write,
-        "can_delete": permission_data.can_delete,
-        "can_manage_users": permission_data.can_manage_users,
-        "created_at": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "updated_at": datetime.datetime.now().strftime("%Y-%m-%d")
-    }
+    permission = UserBusinessUnitAccess(
+        user_id=permission_data.user_id,
+        business_unit_id=permission_data.business_unit_id,
+        can_read=permission_data.can_read,
+        can_write=permission_data.can_write,
+        can_delete=permission_data.can_delete,
+        can_manage_users=permission_data.can_manage_users
+    )
     
-    business_unit_permissions_db.append(permission)
-    next_permission_id += 1
+    db.add(permission)
+    db.commit()
+    db.refresh(permission)
     
     # Buscar nome da BU e empresa
+    bu = db.query(BusinessUnit).filter(BusinessUnit.id == permission.business_unit_id).first()
+    tenant = None
     bu_name = "BU não encontrada"
     tenant_name = "Empresa não encontrada"
     
-    for bu in business_units_db:
-        if bu["id"] == permission_data.business_unit_id:
-            bu_name = bu["name"]
-            # Buscar empresa
-            for tenant in tenants_db:
-                if tenant["id"] == bu["tenant_id"]:
-                    tenant_name = tenant["name"]
-                    break
-            break
+    if bu:
+        bu_name = bu.name
+        tenant = db.query(Tenant).filter(Tenant.id == bu.tenant_id).first()
+        if tenant:
+            tenant_name = tenant.name
     
     return UserBusinessUnitAccessResponse(
-        id=permission["id"],
-        user_id=permission["user_id"],
-        business_unit_id=permission["business_unit_id"],
+        id=str(permission.id),
+        user_id=permission.user_id,
+        business_unit_id=permission.business_unit_id,
         business_unit_name=bu_name,
         tenant_name=tenant_name,
-        can_read=permission["can_read"],
-        can_write=permission["can_write"],
-        can_delete=permission["can_delete"],
-        can_manage_users=permission["can_manage_users"],
-        created_at=permission["created_at"],
-        updated_at=permission["updated_at"]
+        can_read=permission.can_read,
+        can_write=permission.can_write,
+        can_delete=permission.can_delete,
+        can_manage_users=permission.can_manage_users,
+        created_at=permission.created_at.strftime("%Y-%m-%d") if permission.created_at else "",
+        updated_at=permission.updated_at.strftime("%Y-%m-%d") if permission.updated_at else ""
     )
 
 
