@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import jwtDecode from 'jwt-decode';
-import { login as apiLogin, signup as apiSignup } from '../services/api';
+import { login as apiLogin, signup as apiSignup, needsBusinessUnitSelection } from '../services/api';
 
 interface User {
   id: string;
@@ -130,8 +130,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(userData);
       
       // Verificar se o usuário precisa selecionar uma BU
-      if (!decoded.business_unit_id) {
-        setNeedsBusinessUnitSelection(true);
+      try {
+        const needsSelection = await needsBusinessUnitSelection();
+        setNeedsBusinessUnitSelection(needsSelection.needs_selection);
+      } catch (error) {
+        console.error('Erro ao verificar necessidade de seleção de BU:', error);
+        // Fallback: verificar se tem business_unit_id no token
+        setNeedsBusinessUnitSelection(!decoded.business_unit_id);
       }
     } catch (error) {
       console.error('Erro no login:', error);
