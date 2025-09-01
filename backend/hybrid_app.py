@@ -380,6 +380,21 @@ async def login(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
+@app.get("/api/v1/auth/debug-token")
+async def debug_token(current_user: dict = Depends(get_current_user)):
+    """Endpoint de debug para verificar dados do token"""
+    return {
+        "user_id": current_user.get("sub"),
+        "username": current_user.get("username"),
+        "email": current_user.get("email"),
+        "first_name": current_user.get("first_name"),
+        "last_name": current_user.get("last_name"),
+        "role": current_user.get("role"),
+        "tenant_id": current_user.get("tenant_id"),
+        "business_unit_id": current_user.get("business_unit_id"),
+        "full_token_data": current_user
+    }
+
 @app.get("/api/v1/auth/user-business-units")
 async def get_user_business_units(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Retorna as BUs disponíveis para o usuário logado"""
@@ -388,8 +403,9 @@ async def get_user_business_units(current_user: dict = Depends(get_current_user)
     # Buscar permissões do usuário
     user_permissions = [p for p in business_unit_permissions_db if p["user_id"] == user_id]
     
-    # Se não tem permissões específicas, retornar todas as BUs (para admin)
-    if not user_permissions:
+    # Se não tem permissões específicas ou é admin, retornar todas as BUs
+    user_role = current_user.get("role")
+    if not user_permissions or user_role in ["admin", "super_admin"]:
         available_bus = []
         for bu in business_units_db:
             tenant = next((t for t in tenants_db if t["id"] == bu["tenant_id"]), None)
