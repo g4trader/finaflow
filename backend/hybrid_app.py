@@ -372,6 +372,16 @@ async def login(
             raise HTTPException(status_code=401, detail="Credenciais inválidas")
         
         # Criar payload do JWT
+        # Verificar se o usuário tem múltiplas BUs disponíveis
+        user_permissions = db.query(UserBusinessUnitAccess).filter(
+            UserBusinessUnitAccess.user_id == user.id
+        ).all()
+        
+        # Se tem múltiplas BUs, não incluir business_unit_id no token inicial
+        should_include_bu = True
+        if len(user_permissions) > 1:
+            should_include_bu = False
+        
         payload = {
             "sub": str(user.id),
             "username": user.username,
@@ -380,7 +390,7 @@ async def login(
             "last_name": user.last_name,
             "role": user.role,
             "tenant_id": str(user.tenant_id),
-            "business_unit_id": str(user.business_unit_id) if user.business_unit_id else None,
+            "business_unit_id": str(user.business_unit_id) if user.business_unit_id and should_include_bu else None,
             "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         }
         
@@ -1784,6 +1794,9 @@ async def needs_business_unit_selection(current_user: dict = Depends(get_current
         return {"needs_selection": True, "reason": "Usuário com múltiplas BUs disponíveis"}
     
     return {"needs_selection": True, "reason": "Usuário sem BU definida"}
+
+
+
 
 
 if __name__ == "__main__":
