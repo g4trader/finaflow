@@ -1165,6 +1165,70 @@ async def initialize_permissions(current_user: dict = Depends(get_current_user),
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao inicializar permissões: {str(e)}")
 
+@app.get("/api/v1/permissions/users/{user_id}/business-units/{business_unit_id}")
+async def get_user_permissions(
+    user_id: str, 
+    business_unit_id: str, 
+    current_user: dict = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Obtém permissões de um usuário para uma BU específica"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para visualizar permissões")
+        
+        from app.models.permissions import UserPermission
+        user_permissions = db.query(UserPermission).filter(
+            UserPermission.user_id == user_id,
+            UserPermission.business_unit_id == business_unit_id
+        ).all()
+        
+        return [
+            {
+                "id": up.id,
+                "permission_code": up.permission_code,
+                "is_granted": up.is_granted,
+                "granted_at": up.granted_at.isoformat() if up.granted_at else None
+            }
+            for up in user_permissions
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar permissões do usuário: {str(e)}")
+
+@app.put("/api/v1/permissions/users/{user_id}/business-units/{business_unit_id}")
+async def update_user_permissions(
+    user_id: str,
+    business_unit_id: str,
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Atualiza permissões de um usuário para uma BU específica"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para gerenciar permissões")
+        
+        from app.services.permissions import PermissionService
+        
+        permissions_data = request.get("permissions", [])
+        
+        for perm_data in permissions_data:
+            permission_code = perm_data.get("permission_code")
+            is_granted = perm_data.get("is_granted", False)
+            
+            if is_granted:
+                PermissionService.grant_permission(
+                    db, user_id, business_unit_id, permission_code, current_user.get("sub")
+                )
+            else:
+                PermissionService.revoke_permission(db, user_id, business_unit_id, permission_code)
+        
+        return {"message": "Permissões atualizadas com sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar permissões: {str(e)}")
+
 @app.get("/api/v1/permissions/tenants/{user_id}", response_model=List[UserTenantAccessResponse])
 async def get_user_tenant_permissions(user_id: str, db: Session = Depends(get_db)):
     """Lista permissões de um usuário em empresas"""
