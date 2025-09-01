@@ -106,6 +106,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (username: string, password: string) => {
     try {
+      // Limpar tokens antigos antes do login
+      localStorage.removeItem('token');
+      removeCookie('auth-token');
+      
       const data = await apiLogin(username, password);
       setToken(data.access_token);
       localStorage.setItem('token', data.access_token);
