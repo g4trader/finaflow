@@ -13,6 +13,8 @@ from fastapi.security import HTTPBearer
 from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 from app.models.chart_of_accounts import AccountGroup, AccountSubgroup, ChartAccount, Base as ChartBase
+from app.models.permissions import Permission, UserPermission, PermissionType
+from app.services.permissions import PermissionService
 import bcrypt
 
 # Modelos Pydantic para Tenants e Business Units
@@ -341,12 +343,12 @@ async def root():
     return {"message": "FinaFlow Backend API", "version": "1.0.0"}
 
 @app.get("/health")
-async def health():
-    return {"status": "healthy", "service": "finaflow-backend"}
+async def health_check():
+    return {"status": "healthy", "message": "Backend is running"}
 
-@app.get("/api/v1/test")
-async def test():
-    return {"message": "API funcionando!"}
+@app.get("/test")
+async def test_endpoint():
+    return {"status": "ok", "message": "Test endpoint working"}
 
 from fastapi import Form
 
@@ -1119,7 +1121,6 @@ async def get_cash_flow():
 async def get_permissions(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Lista todas as permissões disponíveis"""
     try:
-        from app.models.permissions import Permission
         permissions = db.query(Permission).filter(Permission.is_active == True).all()
         return [
             {
@@ -1142,7 +1143,6 @@ async def initialize_permissions(current_user: dict = Depends(get_current_user),
         if current_user.get("role") != "super_admin":
             raise HTTPException(status_code=403, detail="Apenas super_admin pode inicializar permissões")
         
-        from app.services.permissions import PermissionService
         success = PermissionService.initialize_permissions(db)
         if success:
             return {"message": "Permissões inicializadas com sucesso"}
@@ -1163,8 +1163,6 @@ async def get_user_permissions(
         # Verificar se o usuário atual tem permissão
         if current_user.get("role") not in ["super_admin", "admin"]:
             raise HTTPException(status_code=403, detail="Sem permissão para visualizar permissões")
-        
-        from app.models.permissions import UserPermission, Permission
         
         # Buscar permissões específicas do usuário
         user_permissions = db.query(UserPermission).filter(
@@ -1210,8 +1208,6 @@ async def update_user_permissions(
         # Verificar se o usuário atual tem permissão
         if current_user.get("role") not in ["super_admin", "admin"]:
             raise HTTPException(status_code=403, detail="Sem permissão para gerenciar permissões")
-        
-        from app.services.permissions import PermissionService
         
         permissions_data = request.get("permissions", [])
         
