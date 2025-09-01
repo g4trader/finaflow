@@ -7,6 +7,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 import { Mail, Lock, Eye, EyeOff, TrendingUp } from 'lucide-react';
+import jwtDecode from 'jwt-decode';
 
 export default function Login() {
   const { login, needsBusinessUnitSelection } = useContext(AuthContext);
@@ -22,11 +23,17 @@ export default function Login() {
     setError('');
 
     try {
-      await login(email, password);
+      const data = await login(email, password);
       
-      // Verificar se precisa selecionar BU
-      if (needsBusinessUnitSelection) {
-        window.location.href = '/select-business-unit';
+      // Verificar se precisa selecionar BU baseado no token
+      const token = localStorage.getItem('token');
+      if (token) {
+        const decoded: any = jwtDecode(token);
+        if (!decoded.business_unit_id) {
+          window.location.href = '/select-business-unit';
+        } else {
+          window.location.href = '/dashboard';
+        }
       } else {
         window.location.href = '/dashboard';
       }
