@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Build timestamp: 2025-09-01 19:00:00 - Updated backend URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-6f3ckz7c7q-uc.a.run.app';
+const API_BASE_URL = 'https://finaflow-backend-6f3ckz7c7q-uc.a.run.app';
 
 // Configuração do axios
 const api = axios.create({
