@@ -7,7 +7,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Shield, Users, Building2, GitBranch, Check, X, Plus, Settings } from 'lucide-react';
-import { getUsers, getTenants, getBusinessUnits, getUserPermissions, updateUserPermissions } from '../services/api';
+import { getUsers, getTenants, getBusinessUnits, getUserPermissions, updateUserPermissions, getPermissions } from '../services/api';
 
 interface User {
   id: string;
