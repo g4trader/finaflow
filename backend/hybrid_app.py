@@ -1154,11 +1154,26 @@ async def get_user_permissions(
         if current_user.get("role") not in ["super_admin", "admin"]:
             raise HTTPException(status_code=403, detail="Sem permissão para visualizar permissões")
         
-        from app.models.permissions import UserPermission
+        from app.models.permissions import UserPermission, Permission
+        
+        # Buscar permissões específicas do usuário
         user_permissions = db.query(UserPermission).filter(
             UserPermission.user_id == user_id,
             UserPermission.business_unit_id == business_unit_id
         ).all()
+        
+        # Se não há permissões específicas, retornar todas as permissões disponíveis com is_granted=False
+        if not user_permissions:
+            all_permissions = db.query(Permission).filter(Permission.is_active == True).all()
+            return [
+                {
+                    "id": None,
+                    "permission_code": perm.code,
+                    "is_granted": False,
+                    "granted_at": None
+                }
+                for perm in all_permissions
+            ]
         
         return [
             {
@@ -1204,6 +1219,8 @@ async def update_user_permissions(
         return {"message": "Permissões atualizadas com sucesso"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao atualizar permissões: {str(e)}")
+
+
 
 @app.get("/api/v1/permissions/tenants/{user_id}", response_model=List[UserTenantAccessResponse])
 async def get_user_tenant_permissions(user_id: str, db: Session = Depends(get_db)):
