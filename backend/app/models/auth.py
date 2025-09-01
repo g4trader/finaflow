@@ -59,6 +59,7 @@ class BusinessUnit(Base):
     departments = relationship("Department", back_populates="business_unit")
     user_access = relationship("UserBusinessUnitAccess", back_populates="business_unit")
     account_groups = relationship("AccountGroup", back_populates="business_unit")
+    user_permissions = relationship("UserPermission", back_populates="business_unit", cascade="all, delete-orphan")
 
 class Department(Base):
     __tablename__ = "departments"
@@ -107,6 +108,7 @@ class User(Base):
     sessions = relationship("UserSession", back_populates="user")
     tenant_access = relationship("UserTenantAccess", back_populates="user")
     business_unit_access = relationship("UserBusinessUnitAccess", back_populates="user")
+    permissions = relationship("UserPermission", back_populates="user", cascade="all, delete-orphan")
 
 class UserSession(Base):
     __tablename__ = "user_sessions"

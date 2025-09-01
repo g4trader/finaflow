@@ -1658,5 +1658,40 @@ async def import_chart_accounts(current_user: dict = Depends(get_current_user), 
 
 
 
+@app.get("/api/v1/auth/needs-business-unit-selection")
+async def needs_business_unit_selection(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Verifica se o usuário precisa selecionar uma BU"""
+    user_id = current_user.get("sub")
+    user_role = current_user.get("role")
+    current_bu_id = current_user.get("business_unit_id")
+    
+    # Se já tem uma BU selecionada, não precisa selecionar
+    if current_bu_id:
+        return {"needs_selection": False, "reason": "BU já selecionada"}
+    
+    # Se é super_admin, pode acessar sem selecionar BU
+    if user_role == "super_admin":
+        return {"needs_selection": False, "reason": "Super admin pode acessar sem BU"}
+    
+    # Verificar quantas BUs o usuário tem acesso
+    user_permissions = db.query(UserBusinessUnitAccess).filter(
+        UserBusinessUnitAccess.user_id == user_id
+    ).all()
+    
+    # Se não tem permissões específicas e não é admin, precisa selecionar
+    if not user_permissions and user_role != "admin":
+        return {"needs_selection": True, "reason": "Usuário sem permissões de BU"}
+    
+    # Se é admin mas não tem permissões específicas, pode acessar sem selecionar
+    if not user_permissions and user_role == "admin":
+        return {"needs_selection": False, "reason": "Admin pode acessar sem BU"}
+    
+    # Se tem permissões específicas, precisa selecionar
+    if user_permissions:
+        return {"needs_selection": True, "reason": "Usuário com múltiplas BUs disponíveis"}
+    
+    return {"needs_selection": True, "reason": "Usuário sem BU definida"}
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)

@@ -23,17 +23,11 @@ export default function Login() {
     setError('');
 
     try {
-      const data = await login(email, password);
+      await login(email, password);
       
-      // Verificar se precisa selecionar BU baseado no token
-      const token = localStorage.getItem('token');
-      if (token) {
-        const decoded: any = jwtDecode(token);
-        if (!decoded.business_unit_id) {
-          window.location.href = '/select-business-unit';
-        } else {
-          window.location.href = '/dashboard';
-        }
+      // Verificar se precisa selecionar BU
+      if (needsBusinessUnitSelection) {
+        window.location.href = '/select-business-unit';
       } else {
         window.location.href = '/dashboard';
       }

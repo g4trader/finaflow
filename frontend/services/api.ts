@@ -597,4 +597,26 @@ export const getUserInfo = async (): Promise<any> => {
   return response.data;
 };
 
+export const needsBusinessUnitSelection = async (): Promise<any> => {
+  const response = await api.get('/api/v1/auth/needs-business-unit-selection');
+  return response.data;
+};
+
+export const getPermissions = async (): Promise<any> => {
+  const response = await api.get('/api/v1/permissions');
+  return response.data;
+};
+
+export const getUserPermissions = async (userId: string, businessUnitId: string): Promise<any> => {
+  const response = await api.get(`/api/v1/permissions/users/${userId}/business-units/${businessUnitId}`);
+  return response.data;
+};
+
+export const updateUserPermissions = async (userId: string, businessUnitId: string, permissions: any[]): Promise<any> => {
+  const response = await api.put(`/api/v1/permissions/users/${userId}/business-units/${businessUnitId}`, {
+    permissions
+  });
+  return response.data;
+};
+
 export default api;
