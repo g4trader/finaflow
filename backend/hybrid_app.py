@@ -434,40 +434,7 @@ async def get_user_info(current_user: dict = Depends(get_current_user), db: Sess
         "business_unit_name": business_unit_name
     }
 
-@app.get("/api/v1/auth/debug-token")
-async def debug_token(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Endpoint de debug para verificar dados do token"""
-    user_id = current_user.get("sub")
-    tenant_id = current_user.get("tenant_id")
-    business_unit_id = current_user.get("business_unit_id")
-    
-    # Buscar informações da empresa e BU
-    tenant_name = "Empresa não encontrada"
-    business_unit_name = "BU não encontrada"
-    
-    if tenant_id:
-        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-        if tenant:
-            tenant_name = tenant.name
-    
-    if business_unit_id:
-        business_unit = db.query(BusinessUnit).filter(BusinessUnit.id == business_unit_id).first()
-        if business_unit:
-            business_unit_name = business_unit.name
-    
-    return {
-        "user_id": user_id,
-        "username": current_user.get("username"),
-        "email": current_user.get("email"),
-        "first_name": current_user.get("first_name"),
-        "last_name": current_user.get("last_name"),
-        "role": current_user.get("role"),
-        "tenant_id": tenant_id,
-        "tenant_name": tenant_name,
-        "business_unit_id": business_unit_id,
-        "business_unit_name": business_unit_name,
-        "full_token_data": current_user
-    }
+
 
 @app.get("/api/v1/auth/user-business-units")
 async def get_user_business_units(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
