@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import jwtDecode from 'jwt-decode';
-import { login as apiLogin, signup as apiSignup, needsBusinessUnitSelection } from '../services/api';
+import { login as apiLogin, signup as apiSignup, needsBusinessUnitSelection as checkNeedsBusinessUnitSelection } from '../services/api';
 
 interface User {
   id: string;
@@ -131,7 +131,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Verificar se o usuário precisa selecionar uma BU
       try {
-        const needsSelection = await needsBusinessUnitSelection();
+        const needsSelection = await checkNeedsBusinessUnitSelection();
         setNeedsBusinessUnitSelection(needsSelection.needs_selection);
       } catch (error) {
         console.error('Erro ao verificar necessidade de seleção de BU:', error);
