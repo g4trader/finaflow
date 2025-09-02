@@ -66,7 +66,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     
       // Verificar se a página atual está no submenu de Configurações
   const configSubmenuPages = [
-    'Empresas', 'Business Units', 'Usuários', 'Contas', 
+    'Empresas', 'Business Units', 'Usuários', 'Plano de Contas',
     'Grupos', 'Subgrupos', 'Importar CSV', 'Permissões de Usuário'
   ];
     
@@ -115,13 +115,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       active: isItemActive('/transactions', 'Transações'),
       description: 'Registrar e visualizar transações'
     },
-    {
-      icon: <BookOpen className="w-5 h-5" />,
-      label: 'Plano de Contas',
-      href: '/chart-accounts',
-      active: isItemActive('/chart-accounts', 'Plano de Contas'),
-      description: 'Estrutura contábil da empresa'
-    },
+
     {
       icon: <TrendingUp className="w-5 h-5" />,
       label: 'Previsões',
@@ -165,26 +159,27 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           active: isItemActive('/users', 'Usuários'),
           description: 'Gerenciar usuários do sistema'
         },
+
         {
-          icon: <Wallet className="w-4 h-4" />,
-          label: 'Contas',
-          href: '/accounts',
-          active: isItemActive('/accounts', 'Contas'),
-          description: 'Gerenciar contas bancárias'
+          icon: <BookOpen className="w-4 h-4" />,
+          label: 'Plano de Contas',
+          href: '/chart-accounts',
+          active: isItemActive('/chart-accounts', 'Plano de Contas'),
+          description: 'Estrutura contábil da empresa'
         },
         {
           icon: <Layers className="w-4 h-4" />,
           label: 'Grupos',
           href: '/groups',
           active: isItemActive('/groups', 'Grupos'),
-          description: 'Organizar contas em grupos'
+          description: 'Gerenciar grupos do plano de contas'
         },
         {
           icon: <Layers3 className="w-4 h-4" />,
           label: 'Subgrupos',
           href: '/subgroups',
           active: isItemActive('/subgroups', 'Subgrupos'),
-          description: 'Subdivisões dos grupos'
+          description: 'Gerenciar subgrupos do plano de contas'
         },
         {
           icon: <Upload className="w-4 h-4" />,
