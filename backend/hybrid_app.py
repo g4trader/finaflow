@@ -439,12 +439,16 @@ async def login(
             UserBusinessUnitAccess.user_id == user.id
         ).all()
         
-        print(f"DEBUG: User {user.id} has {len(user_permissions)} BU permissions")
+        # Para super_admin, verificar quantas BUs existem no sistema
+        if user.role == "super_admin":
+            total_bus = db.query(BusinessUnit).count()
+            should_include_bu = total_bus <= 1
+            print(f"DEBUG: Super admin - Total BUs in system: {total_bus}, should_include_bu: {should_include_bu}")
+        else:
+            # Se tem múltiplas BUs, não incluir business_unit_id no token inicial
+            should_include_bu = len(user_permissions) <= 1
+            print(f"DEBUG: Regular user - BU permissions: {len(user_permissions)}, should_include_bu: {should_include_bu}")
         
-        # Se tem múltiplas BUs, não incluir business_unit_id no token inicial
-        should_include_bu = len(user_permissions) <= 1
-        
-        print(f"DEBUG: should_include_bu = {should_include_bu}")
         print(f"DEBUG: user.business_unit_id = {user.business_unit_id}")
         
         payload = {
