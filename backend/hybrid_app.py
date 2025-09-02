@@ -439,8 +439,13 @@ async def login(
             UserBusinessUnitAccess.user_id == user.id
         ).all()
         
+        print(f"DEBUG: User {user.id} has {len(user_permissions)} BU permissions")
+        
         # Se tem múltiplas BUs, não incluir business_unit_id no token inicial
         should_include_bu = len(user_permissions) <= 1
+        
+        print(f"DEBUG: should_include_bu = {should_include_bu}")
+        print(f"DEBUG: user.business_unit_id = {user.business_unit_id}")
         
         payload = {
             "sub": str(user.id),
@@ -453,6 +458,8 @@ async def login(
             "business_unit_id": str(user.business_unit_id) if should_include_bu and user.business_unit_id else None,
             "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         }
+        
+        print(f"DEBUG: Final payload business_unit_id = {payload.get('business_unit_id')}")
         
         # Usar uma chave secreta simples para teste
         secret_key = "finaflow-secret-key-2024"
