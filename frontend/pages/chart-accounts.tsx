@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Layout from '../components/layout/Layout';
 import { 
   PlusIcon, 
   Upload, 
@@ -160,46 +161,53 @@ const ChartAccountsPage: React.FC = () => {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 text-xl mb-4">🔒</div>
-          <p className="text-gray-600 mb-4">Usuário não autenticado</p>
-          <p className="text-gray-500 text-sm">Faça login para acessar esta página</p>
+      <Layout title="Plano de Contas">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-red-600 text-xl mb-4">🔒</div>
+            <p className="text-gray-600 mb-4">Usuário não autenticado</p>
+            <p className="text-gray-500 text-sm">Faça login para acessar esta página</p>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando plano de contas...</p>
+      <Layout title="Plano de Contas">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Carregando plano de contas...</p>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 text-xl mb-4">❌ Erro</div>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={loadChartAccounts}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Tentar Novamente
-          </button>
+      <Layout title="Plano de Contas">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-red-600 text-xl mb-4">❌ Erro</div>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <button
+              onClick={loadChartAccounts}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Tentar Novamente
+            </button>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <Layout title="Plano de Contas">
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -412,7 +420,8 @@ const ChartAccountsPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </Layout>
   );
 };
 
