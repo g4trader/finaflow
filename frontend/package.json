@@ -2,7 +2,7 @@
   "name": "finaflow-frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "Frontend do sistema FinaFlow - Sistema de gestão financeira - FORCE REDEPLOY",
+  "description": "Frontend do sistema FinaFlow - Sistema de gestão financeira - URGENTE: CORRIGIR URL BACKEND",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
