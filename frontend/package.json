@@ -2,6 +2,7 @@
   "name": "finaflow-frontend",
   "version": "0.1.0",
   "private": true,
+  "description": "Frontend do sistema FinaFlow - Sistema de gestão financeira - FORCE REDEPLOY",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
