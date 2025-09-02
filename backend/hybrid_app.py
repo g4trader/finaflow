@@ -385,8 +385,14 @@ async def recreate_chart_tables(
         if current_user.get("role") not in ["super_admin", "admin"]:
             raise HTTPException(status_code=403, detail="Sem permissão para recriar tabelas")
         
-        # Remover tabelas antigas
-        ChartBase.metadata.drop_all(bind=engine)
+        # Remover tabelas antigas com CASCADE
+        from sqlalchemy import text
+        
+        # Remover tabelas específicas do plano de contas
+        db.execute(text("DROP TABLE IF EXISTS chart_accounts CASCADE"))
+        db.execute(text("DROP TABLE IF EXISTS chart_account_subgroups CASCADE"))
+        db.execute(text("DROP TABLE IF EXISTS chart_account_groups CASCADE"))
+        db.execute(text("DROP TABLE IF EXISTS business_unit_chart_accounts CASCADE"))
         
         # Recriar tabelas
         ChartBase.metadata.create_all(bind=engine)
