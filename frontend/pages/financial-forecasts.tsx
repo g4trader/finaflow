@@ -47,7 +47,7 @@ interface ChartAccount {
 }
 
 const FinancialForecasts: React.FC = () => {
-  const { user, businessUnit } = useAuth();
+  const { user } = useAuth();
   const [forecasts, setForecasts] = useState<FinancialForecast[]>([]);
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [chartAccounts, setChartAccounts] = useState<ChartAccount[]>([]);
@@ -69,12 +69,12 @@ const FinancialForecasts: React.FC = () => {
   });
 
   useEffect(() => {
-    if (businessUnit?.id) {
-      setSelectedBusinessUnit(businessUnit.id);
-      loadForecasts(businessUnit.id);
-      loadChartAccounts(businessUnit.id);
+    if (user?.business_unit_id) {
+      setSelectedBusinessUnit(user.business_unit_id);
+      loadForecasts(user.business_unit_id);
+      loadChartAccounts(user.business_unit_id);
     }
-  }, [businessUnit]);
+  }, [user]);
 
   useEffect(() => {
     loadBusinessUnits();
