@@ -506,6 +506,33 @@ async def get_user_info(current_user: dict = Depends(get_current_user), db: Sess
         "business_unit_name": business_unit_name
     }
 
+@app.get("/api/v1/auth/needs-business-unit-selection")
+async def needs_business_unit_selection(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Verifica se o usuário precisa selecionar uma Business Unit"""
+    try:
+        user_id = current_user.get("sub")
+        user_role = current_user.get("role")
+        
+        # Se é super_admin, verificar quantas BUs tem acesso
+        if user_role == "super_admin":
+            business_units = db.query(BusinessUnit).all()
+            needs_selection = len(business_units) > 1
+        else:
+            # Buscar BUs disponíveis para o usuário
+            user_bus = db.query(UserBusinessUnitAccess).filter(
+                UserBusinessUnitAccess.user_id == user_id
+            ).all()
+            
+            # Se tem mais de uma BU, precisa selecionar
+            needs_selection = len(user_bus) > 1
+        
+        return {
+            "needs_selection": needs_selection,
+            "user_role": user_role
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao verificar necessidade de seleção de BU: {str(e)}")
+
 
 
 @app.get("/api/v1/auth/user-business-units")
