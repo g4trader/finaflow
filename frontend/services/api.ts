@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Build timestamp: 2025-09-01 19:00:00 - Updated backend URL
+// Build timestamp: 2025-09-02 04:00:00 - Added Chart of Accounts functionality
 const API_BASE_URL = 'https://finaflow-backend-6f3ckz7c7q-uc.a.run.app';
 
 // Configuração do axios
@@ -626,6 +626,119 @@ export const updateUserPermissions = async (userId: string, businessUnitId: stri
     permissions
   });
   return response.data;
+};
+
+// ============================================================================
+// FUNÇÕES DO PLANO DE CONTAS
+// ============================================================================
+
+// Função para obter hierarquia completa do plano de contas
+export const getChartAccountsHierarchy = async (token?: string) => {
+  try {
+    const headers: any = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/chart-accounts/hierarchy`,
+      { headers }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao buscar hierarquia do plano de contas');
+  }
+};
+
+// Função para obter grupos do plano de contas
+export const getChartAccountGroups = async (token?: string) => {
+  try {
+    const headers: any = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/chart-accounts/groups`,
+      { headers }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao buscar grupos');
+  }
+};
+
+// Função para obter subgrupos do plano de contas
+export const getChartAccountSubgroups = async (groupId?: string, token?: string) => {
+  try {
+    const headers: any = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const params: any = {};
+    if (groupId) {
+      params.group_id = groupId;
+    }
+
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/chart-accounts/subgroups`,
+      { headers, params }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao buscar subgrupos');
+  }
+};
+
+// Função para obter contas do plano de contas
+export const getChartAccounts = async (subgroupId?: string, groupId?: string, token?: string) => {
+  try {
+    const headers: any = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const params: any = {};
+    if (subgroupId) {
+      params.subgroup_id = subgroupId;
+    }
+    if (groupId) {
+      params.group_id = groupId;
+    }
+
+    const response = await axios.get(
+      `${API_BASE_URL}/api/v1/chart-accounts/accounts`,
+      { headers, params }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao buscar contas');
+  }
+};
+
+// Função para importar plano de contas do CSV
+export const importChartAccounts = async (file: File, token?: string) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: any = {
+      'Content-Type': 'multipart/form-data'
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await axios.post(
+      `${API_BASE_URL}/api/v1/chart-accounts/import`,
+      formData,
+      { headers }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao importar plano de contas');
+  }
 };
 
 export default api;
