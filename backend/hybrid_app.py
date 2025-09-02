@@ -374,6 +374,28 @@ async def debug_tables(db: Session = Depends(get_db)):
     except Exception as e:
         return {"error": str(e)}
 
+@app.post("/debug/recreate-chart-tables")
+async def recreate_chart_tables(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Recreia as tabelas do plano de contas"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para recriar tabelas")
+        
+        # Remover tabelas antigas
+        ChartBase.metadata.drop_all(bind=engine)
+        
+        # Recriar tabelas
+        ChartBase.metadata.create_all(bind=engine)
+        
+        return {"message": "Tabelas do plano de contas recriadas com sucesso"}
+        
+    except Exception as e:
+        return {"error": str(e)}
+
 from fastapi import Form
 
 @app.post("/api/v1/auth/login")
