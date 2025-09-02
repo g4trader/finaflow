@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion, type HTMLMotionProps } from 'framer-motion';
 
-type Variants = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
+type Variants = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost' | 'outline';
 type Sizes = 'sm' | 'md' | 'lg';
 
 /**
@@ -39,6 +39,7 @@ const Button: React.FC<ButtonProps> = ({
     success: 'btn-success',
     danger: 'btn-danger',
     ghost: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+    outline: 'btn-outline',
   };
 
   const sizeClasses: Record<Sizes, string> = {

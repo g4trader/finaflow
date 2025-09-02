@@ -124,6 +124,10 @@ a {
   @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm;
 }
 
+.btn-outline {
+  @apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-blue-500 shadow-sm;
+}
+
 .btn-sm {
   @apply px-3 py-1.5 text-sm;
 }
