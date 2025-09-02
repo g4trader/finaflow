@@ -440,9 +440,7 @@ async def login(
         ).all()
         
         # Se tem múltiplas BUs, não incluir business_unit_id no token inicial
-        should_include_bu = True
-        if len(user_permissions) > 1:
-            should_include_bu = False
+        should_include_bu = len(user_permissions) <= 1
         
         payload = {
             "sub": str(user.id),
@@ -452,7 +450,7 @@ async def login(
             "last_name": user.last_name,
             "role": user.role,
             "tenant_id": str(user.tenant_id),
-            "business_unit_id": str(user.business_unit_id) if user.business_unit_id and should_include_bu else None,
+            "business_unit_id": str(user.business_unit_id) if should_include_bu and user.business_unit_id else None,
             "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         }
         
