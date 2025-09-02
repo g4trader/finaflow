@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   PlusIcon, 
-  UploadIcon, 
-  ChevronDownIcon, 
-  ChevronRightIcon,
-  EyeIcon,
-  PencilIcon,
-  TrashIcon
-} from '@heroicons/react/outline';
+  Upload, 
+  ChevronDown, 
+  ChevronRight,
+  Eye,
+  Pencil,
+  Trash2
+} from 'lucide-react';
 import { 
   getChartAccountsHierarchy, 
   importChartAccounts 
@@ -194,7 +194,7 @@ const ChartAccountsPage: React.FC = () => {
                 onClick={() => setShowImportModal(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
               >
-                <UploadIcon className="h-5 w-5" />
+                <Upload className="h-5 w-5" />
                 <span>Importar CSV</span>
               </button>
               <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
@@ -244,9 +244,9 @@ const ChartAccountsPage: React.FC = () => {
                   onClick={() => toggleGroup(group.id)}
                 >
                   {expandedGroups.has(group.id) ? (
-                    <ChevronDownIcon className="h-5 w-5 text-gray-500 mr-3" />
+                    <ChevronDown className="h-5 w-5 text-gray-500 mr-3" />
                   ) : (
-                    <ChevronRightIcon className="h-5 w-5 text-gray-500 mr-3" />
+                    <ChevronRight className="h-5 w-5 text-gray-500 mr-3" />
                   )}
                   <div className="flex-1">
                     <div className="flex items-center space-x-3">
@@ -273,9 +273,9 @@ const ChartAccountsPage: React.FC = () => {
                           onClick={() => toggleSubgroup(subgroup.id)}
                         >
                           {expandedSubgroups.has(subgroup.id) ? (
-                            <ChevronDownIcon className="h-5 w-5 text-blue-500 mr-3" />
+                            <ChevronDown className="h-5 w-5 text-blue-500 mr-3" />
                           ) : (
-                            <ChevronRightIcon className="h-5 w-5 text-blue-500 mr-3" />
+                                                          <ChevronRight className="h-5 w-5 text-blue-500 mr-3" />
                           )}
                           <div className="flex-1">
                             <div className="flex items-center space-x-3">
@@ -312,15 +312,15 @@ const ChartAccountsPage: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="flex space-x-2">
-                                  <button className="p-1 text-gray-400 hover:text-blue-600">
-                                    <EyeIcon className="h-4 w-4" />
-                                  </button>
-                                  <button className="p-1 text-gray-400 hover:text-green-600">
-                                    <PencilIcon className="h-4 w-4" />
-                                  </button>
-                                  <button className="p-1 text-gray-400 hover:text-red-600">
-                                    <TrashIcon className="h-4 w-4" />
-                                  </button>
+                                                                  <button className="p-1 text-gray-400 hover:text-blue-600">
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button className="p-1 text-gray-400 hover:text-green-600">
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button className="p-1 text-gray-400 hover:text-red-600">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
                                 </div>
                               </div>
                             ))}
