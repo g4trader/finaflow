@@ -4,9 +4,11 @@ import uvicorn
 import os
 import jwt
 import datetime
+import uuid
 from typing import List, Optional
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, relationship
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Date, Numeric
 from fastapi.security import HTTPBearer
 
 # Importar configurações do banco de dados
@@ -14,6 +16,89 @@ from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount, BusinessUnitChartAccount, Base as ChartBase
 from app.models.financial_transactions import FinancialTransaction, TransactionType, TransactionStatus, Base as FinancialBase
+
+# Função para criar tabelas necessárias
+def create_required_tables():
+    """Cria tabelas necessárias que não estão nos modelos SQLAlchemy"""
+    try:
+        from sqlalchemy import text
+        
+        # Criar tabela financial_forecasts se não existir
+        create_forecasts_table = text("""
+            CREATE TABLE IF NOT EXISTS financial_forecasts (
+                id VARCHAR(255) PRIMARY KEY,
+                business_unit_id VARCHAR(255) NOT NULL,
+                chart_account_id VARCHAR(255) NOT NULL,
+                forecast_date DATE NOT NULL,
+                amount NUMERIC(15,2) NOT NULL,
+                description TEXT,
+                forecast_type VARCHAR(50) DEFAULT 'monthly',
+                is_active BOOLEAN DEFAULT true,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        
+        # Criar índices para performance
+        create_indexes = text("""
+            CREATE INDEX IF NOT EXISTS idx_financial_forecasts_bu_id ON financial_forecasts(business_unit_id);
+            CREATE INDEX IF NOT EXISTS idx_financial_forecasts_chart_account_id ON financial_forecasts(chart_account_id);
+            CREATE INDEX IF NOT EXISTS idx_financial_forecasts_date ON financial_forecasts(forecast_date);
+            CREATE INDEX IF NOT EXISTS idx_financial_forecasts_active ON financial_forecasts(is_active);
+        """)
+        
+        # Executar criação da tabela
+        with engine.connect() as conn:
+            conn.execute(create_forecasts_table)
+            conn.execute(create_indexes)
+            conn.commit()
+            
+        print("✅ Tabela financial_forecasts criada/verificada com sucesso!")
+        
+    except Exception as e:
+        print(f"❌ Erro ao criar tabela financial_forecasts: {e}")
+        # Não falhar a aplicação se a tabela não puder ser criada
+
+# Modelos para Previsões Financeiras
+# Modelo simplificado para previsões (sem SQLAlchemy por enquanto)
+class FinancialForecast:
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+class FinancialForecastCreate(BaseModel):
+    business_unit_id: str
+    chart_account_id: str
+    forecast_date: str  # YYYY-MM-DD
+    amount: float
+    description: Optional[str] = None
+    forecast_type: str = "monthly"
+
+class FinancialForecastUpdate(BaseModel):
+    chart_account_id: Optional[str] = None
+    forecast_date: Optional[str] = None
+    amount: Optional[float] = None
+    description: Optional[str] = None
+    forecast_type: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class FinancialForecastResponse(BaseModel):
+    id: str
+    business_unit_id: str
+    business_unit_name: str
+    chart_account_id: str
+    chart_account_name: str
+    chart_account_code: str
+    forecast_date: str
+    amount: float
+    description: Optional[str] = None
+    forecast_type: str
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
 from app.models.permissions import Permission, UserPermission, PermissionType
 from app.services.permissions import PermissionService
 import bcrypt
@@ -134,6 +219,19 @@ try:
     AuthBase.metadata.create_all(bind=engine)
     ChartBase.metadata.create_all(bind=engine)
     FinancialBase.metadata.create_all(bind=engine)
+    
+    # Criar tabela de previsões se não existir (comentado temporariamente)
+    # try:
+    #     from sqlalchemy import inspect
+    #     inspector = inspect(engine)
+    #     if "financial_forecasts" not in inspector.get_table_names():
+    #         FinancialForecast.__table__.create(bind=engine)
+    #         print("✅ Tabela de previsões criada com sucesso!")
+    #     else:
+    #         print("✅ Tabela de previsões já existe")
+    # except Exception as e:
+    #     print(f"⚠️ Aviso: Não foi possível criar tabela de previsões: {e}")
+    
     print("✅ Database tables created")
 except Exception as e:
     print(f"❌ Could not create database tables: {e}")
@@ -353,6 +451,136 @@ async def health_check():
 async def test_endpoint():
     return {"status": "ok", "message": "Test endpoint working"}
 
+@app.get("/debug/test-jwt")
+async def debug_test_jwt():
+    """Debug endpoint para testar JWT"""
+    try:
+        # Criar um token de teste
+        test_payload = {
+            "sub": "test-user-id",
+            "username": "test@example.com",
+            "role": "test",
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+        }
+        
+        # Gerar token
+        token = jwt.encode(test_payload, SECRET_KEY, algorithm=ALGORITHM)
+        
+        # Decodificar token
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        
+        # Testar com o token gerado
+        try:
+            test_decoded = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            test_success = True
+        except Exception as test_e:
+            test_success = False
+            test_error = str(test_e)
+        
+        return {
+            "secret_key": SECRET_KEY,
+            "algorithm": ALGORITHM,
+            "test_payload": test_payload,
+            "generated_token": token,
+            "decoded_payload": decoded,
+            "verification_success": True,
+            "test_decoded": test_decoded if test_success else None,
+            "test_success": test_success,
+            "test_error": test_error if not test_success else None
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "secret_key": SECRET_KEY,
+            "algorithm": ALGORITHM,
+            "verification_success": False
+        }
+
+@app.get("/debug/test-login-token")
+async def debug_test_login_token():
+    """Debug endpoint para testar token de login"""
+    try:
+        # Simular o mesmo payload do login
+        login_payload = {
+            "sub": "ebf7ed05-adad-4c89-912a-0a4d80dae44a",
+            "username": "admin@finaflow.com",
+            "email": "admin@finaflow.com",
+            "first_name": "Admin",
+            "last_name": "User",
+            "role": "super_admin",
+            "tenant_id": "21564896-889d-4b5c-b431-dfa7ef4f0387",
+            "business_unit_id": None,
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+        }
+        
+        # Gerar token
+        token = jwt.encode(login_payload, SECRET_KEY, algorithm=ALGORITHM)
+        
+        # Decodificar token
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        
+        # Testar a função get_current_user manualmente
+        try:
+            # Simular o que a função get_current_user faz
+            manual_decoded = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            manual_success = True
+            manual_error = None
+        except Exception as manual_e:
+            manual_success = False
+            manual_error = str(manual_e)
+        
+        return {
+            "login_payload": login_payload,
+            "generated_token": token,
+            "decoded_payload": decoded,
+            "verification_success": True,
+            "manual_decoded": manual_decoded if manual_success else None,
+            "manual_success": manual_success,
+            "manual_error": manual_error
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "verification_success": False
+        }
+
+@app.get("/debug/test-get-current-user")
+async def debug_test_get_current_user(token: str):
+    """Debug endpoint para testar get_current_user"""
+    try:
+        # Simular o que a função get_current_user faz
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("username")
+        if username is None:
+            return {"error": "Token inválido - username não encontrado"}
+        return {"success": True, "payload": payload}
+    except jwt.ExpiredSignatureError:
+        return {"error": "Token expirado"}
+    except jwt.InvalidTokenError as e:
+        return {"error": f"Token inválido: {str(e)}"}
+    except Exception as e:
+        return {"error": f"Erro na autenticação: {str(e)}"}
+
+@app.get("/debug/test-jwt-version")
+async def debug_test_jwt_version():
+    """Debug endpoint para testar versão do JWT"""
+    try:
+        import jwt
+        return {
+            "jwt_version": jwt.__version__,
+            "jwt_available": True,
+            "secret_key": SECRET_KEY,
+            "algorithm": ALGORITHM
+        }
+    except Exception as e:
+        return {
+            "jwt_version": "N/A",
+            "jwt_available": False,
+            "error": str(e),
+            "secret_key": SECRET_KEY,
+            "algorithm": ALGORITHM
+        }
+
 @app.get("/debug/tables")
 async def debug_tables(db: Session = Depends(get_db)):
     """Debug endpoint para verificar estrutura das tabelas"""
@@ -465,10 +693,7 @@ async def login(
         
         print(f"DEBUG: Final payload business_unit_id = {payload.get('business_unit_id')}")
         
-        # Usar uma chave secreta simples para teste
-        secret_key = "finaflow-secret-key-2024"
-        
-        access_token = jwt.encode(payload, secret_key, algorithm="HS256")
+        access_token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
         
         return {
             "access_token": access_token,
@@ -728,8 +953,7 @@ async def select_business_unit(request: dict, current_user: dict = Depends(get_c
             "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         }
         
-        secret_key = "finaflow-secret-key-2024"
-        new_access_token = jwt.encode(new_payload, secret_key, algorithm="HS256")
+        new_access_token = jwt.encode(new_payload, SECRET_KEY, algorithm=ALGORITHM)
         
         return {
             "access_token": new_access_token,
@@ -766,8 +990,7 @@ async def select_business_unit(request: dict, current_user: dict = Depends(get_c
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     }
     
-    secret_key = "finaflow-secret-key-2024"
-    new_access_token = jwt.encode(new_payload, secret_key, algorithm="HS256")
+    new_access_token = jwt.encode(new_payload, SECRET_KEY, algorithm=ALGORITHM)
     
     return {
         "access_token": new_access_token,
@@ -1188,11 +1411,417 @@ async def get_subgroups():
         {"id": 2, "name": "Salários", "group_id": 2}
     ]
 
+# Endpoints para Previsões Financeiras (comentados temporariamente)
+# @app.post("/api/v1/financial/forecasts")
+# async def create_forecast(
+#     forecast: FinancialForecastCreate,
+#     current_user: dict = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """Criar nova previsão financeira"""
+#     try:
+#         # Verificar se o usuário tem permissão para esta BU
+#         if current_user.get("business_unit_id") != forecast.business_unit_id:
+#             raise HTTPException(status_code=403, detail="Sem permissão para esta Business Unit")
+#         
+#         # Verificar se a conta existe
+#         chart_account = db.query(ChartAccount).filter(ChartAccount.id == forecast.chart_account_id).first()
+#         if not chart_account:
+#             raise HTTPException(status_code=404, detail="Conta não encontrada")
+#         
+#         # Criar previsão
+#         db_forecast = FinancialForecast(
+#             business_unit_id=forecast.business_unit_id,
+#             chart_account_id=forecast.chart_account_id,
+#             forecast_date=datetime.datetime.strptime(forecast.forecast_date, "%Y-%m-%d").date(),
+#             amount=forecast.amount,
+#             description=forecast.description,
+#             forecast_type=forecast.forecast_type
+#         )
+#         
+#         db.add(db_forecast)
+#         db.commit()
+#         db.refresh(db_forecast)
+#         
+#         return {"message": "Previsão criada com sucesso", "id": db_forecast.id}
+#         
+#     except Exception as e:
+#         db.rollback()
+#         raise HTTPException(status_code=500, detail=f"Erro ao criar previsão: {str(e)}")
+
 @app.get("/api/v1/financial/forecasts")
-async def get_forecasts():
-    return [
-        {"id": 1, "account_id": 1, "amount": 5000.00, "description": "Previsão de vendas"}
-    ]
+async def get_forecasts(
+    business_unit_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Listar previsões financeiras do banco de dados"""
+    try:
+        from sqlalchemy import text
+        
+        # Se não foi especificado business_unit_id, usar o do usuário
+        if not business_unit_id:
+            business_unit_id = current_user.get("business_unit_id")
+        
+        # Verificar permissões
+        if current_user.get("role") != "super_admin" and current_user.get("business_unit_id") != business_unit_id:
+            raise HTTPException(status_code=403, detail="Sem permissão para acessar esta Business Unit")
+        
+        # Query para buscar previsões com informações relacionadas
+        query = text("""
+            SELECT 
+                f.id,
+                f.business_unit_id,
+                f.chart_account_id,
+                f.forecast_date,
+                f.amount,
+                f.description,
+                f.forecast_type,
+                f.is_active,
+                f.created_at,
+                f.updated_at,
+                bu.name as business_unit_name,
+                ca.name as chart_account_name,
+                ca.code as chart_account_code
+            FROM financial_forecasts f
+            JOIN business_units bu ON f.business_unit_id = bu.id
+            JOIN chart_accounts ca ON f.chart_account_id = ca.id
+            WHERE f.is_active = true
+        """)
+        
+        params = {}
+        if business_unit_id:
+            query = text(str(query) + " AND f.business_unit_id = :business_unit_id")
+            params['business_unit_id'] = business_unit_id
+        
+        query = text(str(query) + " ORDER BY f.forecast_date DESC, f.created_at DESC")
+        
+        # Executar query
+        conn = engine.connect()
+        result = conn.execute(query, params)
+        forecasts = []
+        
+        for row in result:
+            forecasts.append({
+                "id": row.id,
+                "business_unit_id": row.business_unit_id,
+                "business_unit_name": row.business_unit_name,
+                "chart_account_id": row.chart_account_id,
+                "chart_account_name": row.chart_account_name,
+                "chart_account_code": row.chart_account_code,
+                "forecast_date": row.forecast_date.strftime("%Y-%m-%d"),
+                "amount": float(row.amount),
+                "description": row.description,
+                "forecast_type": row.forecast_type,
+                "is_active": row.is_active,
+                "created_at": row.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": row.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            })
+        
+        conn.close()
+        return forecasts
+        
+    except Exception as e:
+        print(f"❌ Erro ao buscar previsões: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar previsões: {str(e)}")
+
+@app.get("/api/v1/financial/forecasts/test")
+async def test_forecasts():
+    """Endpoint de teste para previsões"""
+    return {
+        "message": "Sistema de previsões funcionando",
+        "status": "ready",
+        "next_step": "Implementar modelos e importação CSV"
+    }
+
+@app.get("/api/v1/financial/forecasts/{forecast_id}")
+async def get_forecast(
+    forecast_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Buscar previsão específica"""
+    try:
+        forecast = db.query(FinancialForecast).filter(FinancialForecast.id == forecast_id).first()
+        if not forecast:
+            raise HTTPException(status_code=404, detail="Previsão não encontrada")
+        
+        # Verificar permissão
+        if current_user.get("role") != "super_admin" and current_user.get("business_unit_id") != forecast.business_unit_id:
+            raise HTTPException(status_code=403, detail="Sem permissão para acessar esta previsão")
+        
+        # Buscar informações relacionadas
+        bu = db.query(BusinessUnit).filter(BusinessUnit.id == forecast.business_unit_id).first()
+        account = db.query(ChartAccount).filter(ChartAccount.id == forecast.chart_account_id).first()
+        
+        return FinancialForecastResponse(
+            id=forecast.id,
+            business_unit_id=forecast.business_unit_id,
+            business_unit_name=bu.name if bu else "N/A",
+            chart_account_id=forecast.chart_account_id,
+            chart_account_name=account.name if account else "N/A",
+            chart_account_code=account.code if account else "N/A",
+            forecast_date=forecast.forecast_date.strftime("%Y-%m-%d"),
+            amount=float(forecast.amount),
+            description=forecast.description,
+            forecast_type=forecast.forecast_type,
+            is_active=forecast.is_active,
+            created_at=forecast.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            updated_at=forecast.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar previsão: {str(e)}")
+
+@app.put("/api/v1/financial/forecasts/{forecast_id}")
+async def update_forecast(
+    forecast_id: str,
+    forecast_update: FinancialForecastUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Atualizar previsão financeira"""
+    try:
+        forecast = db.query(FinancialForecast).filter(FinancialForecast.id == forecast_id).first()
+        if not forecast:
+            raise HTTPException(status_code=404, detail="Previsão não encontrada")
+        
+        # Verificar permissão
+        if current_user.get("role") != "super_admin" and current_user.get("business_unit_id") != forecast.business_unit_id:
+            raise HTTPException(status_code=403, detail="Sem permissão para modificar esta previsão")
+        
+        # Atualizar campos
+        if forecast_update.chart_account_id is not None:
+            forecast.chart_account_id = forecast_update.chart_account_id
+        if forecast_update.forecast_date is not None:
+            forecast.forecast_date = datetime.datetime.strptime(forecast_update.forecast_date, "%Y-%m-%d").date()
+        if forecast_update.amount is not None:
+            forecast.amount = forecast_update.amount
+        if forecast_update.description is not None:
+            forecast.description = forecast_update.description
+        if forecast_update.forecast_type is not None:
+            forecast.forecast_type = forecast_update.forecast_type
+        if forecast_update.is_active is not None:
+            forecast.is_active = forecast_update.is_active
+        
+        forecast.updated_at = datetime.datetime.utcnow()
+        
+        db.commit()
+        
+        return {"message": "Previsão atualizada com sucesso"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar previsão: {str(e)}")
+
+@app.delete("/api/v1/financial/forecasts/{forecast_id}")
+async def delete_forecast(
+    forecast_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Excluir previsão financeira (soft delete)"""
+    try:
+        forecast = db.query(FinancialForecast).filter(FinancialForecast.id == forecast_id).first()
+        if not forecast:
+            raise HTTPException(status_code=404, detail="Previsão não encontrada")
+        
+        # Verificar permissão
+        if current_user.get("role") != "super_admin" and current_user.get("business_unit_id") != forecast.business_unit_id:
+            raise HTTPException(status_code=403, detail="Sem permissão para excluir esta previsão")
+        
+        # Soft delete
+        forecast.is_active = False
+        forecast.updated_at = datetime.datetime.utcnow()
+        
+        db.commit()
+        
+        return {"message": "Previsão excluída com sucesso"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao excluir previsão: {str(e)}")
+
+@app.post("/api/v1/financial/forecasts/import-csv")
+async def import_forecasts_csv(
+    file: UploadFile = File(...),
+    business_unit_id: str = Form(...),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Importar previsões financeiras de arquivo CSV"""
+    try:
+        print(f"🔍 Iniciando importação CSV...")
+        print(f"📁 Arquivo: {file.filename}")
+        print(f"🏢 Business Unit ID: {business_unit_id}")
+        print(f"👤 Usuário: {current_user.get('username')}")
+        print(f"🔑 Dados do usuário: {current_user}")
+        
+        # Para super_admin, permitir acesso a qualquer BU
+        if current_user.get("role") == "super_admin":
+            print(f"✅ Usuário é super_admin, permitindo acesso")
+        else:
+            # Verificar se o usuário tem permissão para esta BU
+            if current_user.get("business_unit_id") != business_unit_id:
+                print(f"❌ Usuário não tem permissão para esta BU")
+                raise HTTPException(status_code=403, detail="Sem permissão para esta Business Unit")
+        
+        # Verificar se o arquivo é CSV
+        if not file.filename.endswith('.csv'):
+            print(f"❌ Arquivo não é CSV: {file.filename}")
+            raise HTTPException(status_code=400, detail="Arquivo deve ser CSV")
+        
+        # Ler conteúdo do arquivo
+        content = await file.read()
+        content_str = content.decode('utf-8')
+        print(f"📄 Conteúdo do arquivo lido: {len(content_str)} caracteres")
+        
+        # Processar CSV
+        import csv
+        from io import StringIO
+        
+        csv_data = StringIO(content_str)
+        reader = csv.DictReader(csv_data)
+        
+        # Contadores para relatório
+        processed = 0
+        errors = []
+        
+        print(f"📊 Processando linhas do CSV...")
+        
+        # Processar cada linha
+        for row_num, row in enumerate(reader, start=2):  # Começar do 2 pois linha 1 é cabeçalho
+            try:
+                print(f"🔍 Processando linha {row_num}: {row}")
+                
+                # Validar campos obrigatórios
+                if not row.get('Ano/Mês') or not row.get('Conta') or not row.get('Valor'):
+                    errors.append(f"Linha {row_num}: Campos obrigatórios faltando")
+                    continue
+                
+                # Processar data
+                date_str = row['Ano/Mês']
+                try:
+                    # Formato: 01/01/2025
+                    day, month, year = date_str.split('/')
+                    forecast_date = datetime.datetime(int(year), int(month), int(day)).date()
+                except:
+                    errors.append(f"Linha {row_num}: Data inválida '{date_str}'")
+                    continue
+                
+                # Processar valor
+                valor_str = row['Valor'].replace('R$', '').replace(' ', '').strip()
+                
+                # Tratar casos especiais como "1.981,8" -> "1981.8"
+                if ',' in valor_str and '.' in valor_str:
+                    # Formato: 1.981,8 -> 1981.8
+                    parts = valor_str.split(',')
+                    if len(parts) == 2:
+                        integer_part = parts[0].replace('.', '')  # Remove pontos dos milhares
+                        decimal_part = parts[1]
+                        valor_str = f"{integer_part}.{decimal_part}"
+                elif ',' in valor_str:
+                    # Formato: 80,0 -> 80.0
+                    valor_str = valor_str.replace(',', '.')
+                
+                try:
+                    amount = float(valor_str)
+                except:
+                    errors.append(f"Linha {row_num}: Valor inválido '{row['Valor']}' -> '{valor_str}'")
+                    continue
+                
+                # Buscar conta pelo nome
+                account_name = row['Conta'].strip()
+                chart_account = db.query(ChartAccount).filter(
+                    ChartAccount.name.ilike(f"%{account_name}%"),
+                    ChartAccount.is_active == True
+                ).first()
+                
+                if not chart_account:
+                    errors.append(f"Linha {row_num}: Conta '{account_name}' não encontrada")
+                    continue
+                
+                print(f"✅ Linha {row_num}: {account_name} - R$ {amount:.2f} - {forecast_date}")
+                
+                # Salvar previsão no banco de dados
+                try:
+                    from sqlalchemy import text
+                    
+                    # Gerar ID único
+                    forecast_id = str(uuid.uuid4())
+                    
+                    # Inserir previsão na tabela
+                    insert_query = text("""
+                        INSERT INTO financial_forecasts (
+                            id, business_unit_id, chart_account_id, forecast_date, 
+                            amount, description, forecast_type, is_active, 
+                            created_at, updated_at
+                        ) VALUES (
+                            :id, :business_unit_id, :chart_account_id, :forecast_date,
+                            :amount, :description, :forecast_type, :is_active,
+                            NOW(), NOW()
+                        )
+                    """)
+                    
+                    conn = engine.connect()
+                    conn.execute(insert_query, {
+                        'id': forecast_id,
+                        'business_unit_id': business_unit_id,
+                        'chart_account_id': str(chart_account.id),
+                        'forecast_date': forecast_date,
+                        'amount': amount,
+                        'description': row.get('Descrição', ''),
+                        'forecast_type': 'monthly',
+                        'is_active': True
+                    })
+                    conn.commit()
+                    conn.close()
+                    
+                    print(f"💾 Previsão salva no banco: {forecast_id}")
+                    processed += 1
+                    
+                except Exception as save_error:
+                    print(f"❌ Erro ao salvar previsão: {save_error}")
+                    errors.append(f"Linha {row_num}: Erro ao salvar no banco - {str(save_error)}")
+                    continue
+                
+            except Exception as e:
+                errors.append(f"Linha {row_num}: Erro inesperado - {str(e)}")
+                continue
+        
+        print(f"📈 Processamento concluído: {processed} processadas, {len(errors)} erros")
+        
+        # Commit das alterações no banco de dados
+        try:
+            db.commit()
+            print(f"💾 Dados salvos no banco com sucesso!")
+        except Exception as commit_error:
+            db.rollback()
+            print(f"❌ Erro ao salvar no banco: {commit_error}")
+            raise HTTPException(status_code=500, detail=f"Erro ao salvar dados: {str(commit_error)}")
+        
+        return {
+            "message": "Importação CSV concluída com sucesso!",
+            "summary": {
+                "processed": processed,
+                "errors": len(errors),
+                "total_rows": processed + len(errors)
+            },
+            "errors": errors[:10] if errors else [],  # Retornar apenas os primeiros 10 erros
+            "next_step": "Dados salvos no banco de dados"
+        }
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"❌ Erro detalhado: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Erro no processamento: {str(e)}")
 
 @app.get("/api/v1/financial/cash-flow")
 async def get_cash_flow():
@@ -1447,6 +2076,331 @@ async def get_chart_accounts(
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao buscar contas: {str(e)}")
+
+# ===== CRUD PARA GRUPOS =====
+
+@app.post("/api/v1/chart-accounts/groups")
+async def create_chart_account_group(
+    group_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Cria um novo grupo do plano de contas"""
+    try:
+        # Verificar se o usuário tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para criar grupos")
+        
+        # Validar dados obrigatórios
+        if not group_data.get("name") or not group_data.get("code"):
+            raise HTTPException(status_code=400, detail="Nome e código são obrigatórios")
+        
+        # Verificar se o código já existe
+        existing_group = db.query(ChartAccountGroup).filter(
+            ChartAccountGroup.code == group_data["code"]
+        ).first()
+        
+        if existing_group:
+            raise HTTPException(status_code=400, detail="Código de grupo já existe")
+        
+        # Criar novo grupo
+        new_group = ChartAccountGroup(
+            code=group_data["code"],
+            name=group_data["name"],
+            description=group_data.get("description"),
+            is_active=group_data.get("is_active", True)
+        )
+        
+        db.add(new_group)
+        db.commit()
+        db.refresh(new_group)
+        
+        return {
+            "id": new_group.id,
+            "code": new_group.code,
+            "name": new_group.name,
+            "description": new_group.description,
+            "is_active": new_group.is_active,
+            "created_at": new_group.created_at.isoformat(),
+            "updated_at": new_group.updated_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao criar grupo: {str(e)}")
+
+@app.put("/api/v1/chart-accounts/groups/{group_id}")
+async def update_chart_account_group(
+    group_id: str,
+    group_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Atualiza um grupo do plano de contas"""
+    try:
+        # Verificar se o usuário tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para atualizar grupos")
+        
+        # Buscar grupo existente
+        group = db.query(ChartAccountGroup).filter(ChartAccountGroup.id == group_id).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Grupo não encontrado")
+        
+        # Verificar se o código já existe (se foi alterado)
+        if group_data.get("code") and group_data["code"] != group.code:
+            existing_group = db.query(ChartAccountGroup).filter(
+                ChartAccountGroup.code == group_data["code"],
+                ChartAccountGroup.id != group_id
+            ).first()
+            
+            if existing_group:
+                raise HTTPException(status_code=400, detail="Código de grupo já existe")
+        
+        # Atualizar campos
+        if group_data.get("name"):
+            group.name = group_data["name"]
+        if group_data.get("code"):
+            group.code = group_data["code"]
+        if group_data.get("description") is not None:
+            group.description = group_data["description"]
+        if group_data.get("is_active") is not None:
+            group.is_active = group_data["is_active"]
+        
+        group.updated_at = datetime.datetime.utcnow()
+        db.commit()
+        db.refresh(group)
+        
+        return {
+            "id": group.id,
+            "code": group.code,
+            "name": group.name,
+            "description": group.description,
+            "is_active": group.is_active,
+            "created_at": group.created_at.isoformat(),
+            "updated_at": group.updated_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar grupo: {str(e)}")
+
+@app.delete("/api/v1/chart-accounts/groups/{group_id}")
+async def delete_chart_account_group(
+    group_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove um grupo do plano de contas"""
+    try:
+        # Verificar se o usuário tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para excluir grupos")
+        
+        # Buscar grupo
+        group = db.query(ChartAccountGroup).filter(ChartAccountGroup.id == group_id).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Grupo não encontrado")
+        
+        # Verificar se há subgrupos associados
+        subgroups_count = db.query(ChartAccountSubgroup).filter(
+            ChartAccountSubgroup.group_id == group_id
+        ).count()
+        
+        if subgroups_count > 0:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Não é possível excluir grupo com {subgroups_count} subgrupo(s) associado(s)"
+            )
+        
+        # Excluir grupo
+        db.delete(group)
+        db.commit()
+        
+        return {"message": "Grupo excluído com sucesso"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao excluir grupo: {str(e)}")
+
+# ===== CRUD PARA SUBGRUPOS =====
+
+@app.post("/api/v1/chart-accounts/subgroups")
+async def create_chart_account_subgroup(
+    subgroup_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Cria um novo subgrupo do plano de contas"""
+    try:
+        # Verificar se o usuário tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para criar subgrupos")
+        
+        # Validar dados obrigatórios
+        if not subgroup_data.get("name") or not subgroup_data.get("code") or not subgroup_data.get("group_id"):
+            raise HTTPException(status_code=400, detail="Nome, código e grupo são obrigatórios")
+        
+        # Verificar se o grupo existe
+        group = db.query(ChartAccountGroup).filter(ChartAccountGroup.id == subgroup_data["group_id"]).first()
+        if not group:
+            raise HTTPException(status_code=400, detail="Grupo não encontrado")
+        
+        # Verificar se o código já existe
+        existing_subgroup = db.query(ChartAccountSubgroup).filter(
+            ChartAccountSubgroup.code == subgroup_data["code"]
+        ).first()
+        
+        if existing_subgroup:
+            raise HTTPException(status_code=400, detail="Código de subgrupo já existe")
+        
+        # Criar novo subgrupo
+        new_subgroup = ChartAccountSubgroup(
+            code=subgroup_data["code"],
+            name=subgroup_data["name"],
+            description=subgroup_data.get("description"),
+            group_id=subgroup_data["group_id"],
+            is_active=subgroup_data.get("is_active", True)
+        )
+        
+        db.add(new_subgroup)
+        db.commit()
+        db.refresh(new_subgroup)
+        
+        return {
+            "id": new_subgroup.id,
+            "code": new_subgroup.code,
+            "name": new_subgroup.name,
+            "description": new_subgroup.description,
+            "group_id": new_subgroup.group_id,
+            "group_name": group.name,
+            "is_active": new_subgroup.is_active,
+            "created_at": new_subgroup.created_at.isoformat(),
+            "updated_at": new_subgroup.updated_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao criar subgrupo: {str(e)}")
+
+@app.put("/api/v1/chart-accounts/subgroups/{subgroup_id}")
+async def update_chart_account_subgroup(
+    subgroup_id: str,
+    subgroup_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Atualiza um subgrupo do plano de contas"""
+    try:
+        # Verificar se o usuário tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para atualizar subgrupos")
+        
+        # Buscar subgrupo existente
+        subgroup = db.query(ChartAccountSubgroup).filter(ChartAccountSubgroup.id == subgroup_id).first()
+        if not subgroup:
+            raise HTTPException(status_code=404, detail="Subgrupo não encontrado")
+        
+        # Verificar se o código já existe (se foi alterado)
+        if subgroup_data.get("code") and subgroup_data["code"] != subgroup.code:
+            existing_subgroup = db.query(ChartAccountSubgroup).filter(
+                ChartAccountSubgroup.code == subgroup_data["code"],
+                ChartAccountSubgroup.id != subgroup_id
+            ).first()
+            
+            if existing_subgroup:
+                raise HTTPException(status_code=400, detail="Código de subgrupo já existe")
+        
+        # Verificar se o grupo existe (se foi alterado)
+        if subgroup_data.get("group_id") and subgroup_data["group_id"] != subgroup.group_id:
+            group = db.query(ChartAccountGroup).filter(ChartAccountGroup.id == subgroup_data["group_id"]).first()
+            if not group:
+                raise HTTPException(status_code=400, detail="Grupo não encontrado")
+        
+        # Atualizar campos
+        if subgroup_data.get("name"):
+            subgroup.name = subgroup_data["name"]
+        if subgroup_data.get("code"):
+            subgroup.code = subgroup_data["code"]
+        if subgroup_data.get("description") is not None:
+            subgroup.description = subgroup_data["description"]
+        if subgroup_data.get("group_id"):
+            subgroup.group_id = subgroup_data["group_id"]
+        if subgroup_data.get("is_active") is not None:
+            subgroup.is_active = subgroup_data["is_active"]
+        
+        subgroup.updated_at = datetime.datetime.utcnow()
+        db.commit()
+        db.refresh(subgroup)
+        
+        # Buscar nome do grupo para retorno
+        group = db.query(ChartAccountGroup).filter(ChartAccountGroup.id == subgroup.group_id).first()
+        
+        return {
+            "id": subgroup.id,
+            "code": subgroup.code,
+            "name": subgroup.name,
+            "description": subgroup.description,
+            "group_id": subgroup.group_id,
+            "group_name": group.name if group else "N/A",
+            "is_active": subgroup.is_active,
+            "created_at": subgroup.created_at.isoformat(),
+            "updated_at": subgroup.updated_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar subgrupo: {str(e)}")
+
+@app.delete("/api/v1/chart-accounts/subgroups/{subgroup_id}")
+async def delete_chart_account_subgroup(
+    subgroup_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove um subgrupo do plano de contas"""
+    try:
+        # Verificar se o usuário tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para excluir subgrupos")
+        
+        # Buscar subgrupo
+        subgroup = db.query(ChartAccountSubgroup).filter(ChartAccountSubgroup.id == subgroup_id).first()
+        if not subgroup:
+            raise HTTPException(status_code=404, detail="Subgrupo não encontrado")
+        
+        # Verificar se há contas associadas
+        accounts_count = db.query(ChartAccount).filter(
+            ChartAccount.subgroup_id == subgroup_id
+        ).count()
+        
+        if accounts_count > 0:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Não é possível excluir subgrupo com {accounts_count} conta(s) associada(s)"
+            )
+        
+        # Excluir subgrupo
+        db.delete(subgroup)
+        db.commit()
+        
+        return {"message": "Subgrupo excluído com sucesso"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao excluir subgrupo: {str(e)}")
 
 @app.get("/api/v1/chart-accounts/hierarchy")
 async def get_chart_accounts_hierarchy(
@@ -1969,6 +2923,18 @@ async def get_chart_accounts_tree_dashboard(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao buscar árvore do plano de contas: {str(e)}")
+
+# ============================================================================
+# INICIALIZAÇÃO DA APLICAÇÃO
+# ============================================================================
+
+# Criar tabelas necessárias na inicialização
+@app.on_event("startup")
+async def startup_event():
+    """Evento executado na inicialização da aplicação"""
+    print("🚀 Iniciando FinaFlow Backend...")
+    create_required_tables()
+    print("✅ FinaFlow Backend iniciado com sucesso!")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
