@@ -194,6 +194,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           href: '/user-permissions',
           active: isItemActive('/user-permissions', 'Permissões de Usuário'),
           description: 'Gerenciar permissões de usuário por empresa/BU'
+        },
+        {
+          icon: <TrendingUp className="w-4 h-4" />,
+          label: 'Previsões Financeiras',
+          href: '/financial-forecasts',
+          active: isItemActive('/financial-forecasts', 'Previsões Financeiras'),
+          description: 'Gerenciar previsões financeiras e importar CSV'
         }
       ]
     },
