@@ -2,13 +2,21 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  // Removendo configurações experimentais problemáticas
-  // experimental: {
-  //   appDir: false,
-  // },
-  // env: {
-  //   CUSTOM_KEY: process.env.CUSTOM_KEY,
-  // },
+  experimental: {
+    appDir: false,
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/:path*',
+        destination: '/',
+      },
+    ];
+  },
+  // Configurações para Vercel
+  output: 'standalone',
+  poweredByHeader: false,
+  generateEtags: false,
 }
 
 module.exports = nextConfig
