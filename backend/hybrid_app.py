@@ -39,21 +39,55 @@ def create_required_tables():
             );
         """)
         
+        # Criar tabela financial_transactions se não existir
+        create_transactions_table = text("""
+            CREATE TABLE IF NOT EXISTS financial_transactions (
+                id VARCHAR(255) PRIMARY KEY,
+                reference VARCHAR(100) NOT NULL,
+                description TEXT NOT NULL,
+                amount NUMERIC(15,2) NOT NULL,
+                transaction_date TIMESTAMP NOT NULL,
+                transaction_type VARCHAR(50) NOT NULL,
+                status VARCHAR(50) DEFAULT 'pendente',
+                chart_account_id VARCHAR(255) NOT NULL,
+                tenant_id VARCHAR(255) NOT NULL,
+                business_unit_id VARCHAR(255) NOT NULL,
+                created_by VARCHAR(255) NOT NULL,
+                approved_by VARCHAR(255),
+                is_active BOOLEAN DEFAULT true,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_at TIMESTAMP
+            );
+        """)
+        
         # Criar índices para performance
-        create_indexes = text("""
+        create_forecasts_indexes = text("""
             CREATE INDEX IF NOT EXISTS idx_financial_forecasts_bu_id ON financial_forecasts(business_unit_id);
             CREATE INDEX IF NOT EXISTS idx_financial_forecasts_chart_account_id ON financial_forecasts(chart_account_id);
             CREATE INDEX IF NOT EXISTS idx_financial_forecasts_date ON financial_forecasts(forecast_date);
             CREATE INDEX IF NOT EXISTS idx_financial_forecasts_active ON financial_forecasts(is_active);
         """)
         
-        # Executar criação da tabela
+        create_transactions_indexes = text("""
+            CREATE INDEX IF NOT EXISTS idx_financial_transactions_bu_id ON financial_transactions(business_unit_id);
+            CREATE INDEX IF NOT EXISTS idx_financial_transactions_chart_account_id ON financial_transactions(chart_account_id);
+            CREATE INDEX IF NOT EXISTS idx_financial_transactions_date ON financial_transactions(transaction_date);
+            CREATE INDEX IF NOT EXISTS idx_financial_transactions_type ON financial_transactions(transaction_type);
+            CREATE INDEX IF NOT EXISTS idx_financial_transactions_status ON financial_transactions(status);
+            CREATE INDEX IF NOT EXISTS idx_financial_transactions_active ON financial_transactions(is_active);
+        """)
+        
+        # Executar criação das tabelas
         with engine.connect() as conn:
             conn.execute(create_forecasts_table)
-            conn.execute(create_indexes)
+            conn.execute(create_transactions_table)
+            conn.execute(create_forecasts_indexes)
+            conn.execute(create_transactions_indexes)
             conn.commit()
             
-        print("✅ Tabela financial_forecasts criada/verificada com sucesso!")
+        print("✅ Tabelas financial_forecasts e financial_transactions criadas/verificadas com sucesso!")
         
     except Exception as e:
         print(f"❌ Erro ao criar tabela financial_forecasts: {e}")
@@ -1663,6 +1697,189 @@ async def delete_forecast(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Erro ao excluir previsão: {str(e)}")
 
+@app.post("/api/v1/financial/transactions/import-csv")
+async def import_transactions_csv(
+    file: UploadFile = File(...),
+    business_unit_id: str = Form(...),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Importar transações financeiras de arquivo CSV"""
+    try:
+        print(f"🔍 Iniciando importação CSV de transações...")
+        print(f"📁 Arquivo: {file.filename}")
+        print(f"🏢 Business Unit ID: {business_unit_id}")
+        print(f"👤 Usuário: {current_user.get('username')}")
+        
+        # Para super_admin, permitir acesso a qualquer BU
+        if current_user.get("role") == "super_admin":
+            print(f"✅ Usuário é super_admin, permitindo acesso")
+        else:
+            # Verificar se o usuário tem permissão para esta BU
+            if current_user.get("business_unit_id") != business_unit_id:
+                print(f"❌ Usuário não tem permissão para esta BU")
+                raise HTTPException(status_code=403, detail="Sem permissão para esta Business Unit")
+        
+        # Verificar se o arquivo é CSV
+        if not file.filename.endswith('.csv'):
+            print(f"❌ Arquivo não é CSV: {file.filename}")
+            raise HTTPException(status_code=400, detail="Arquivo deve ser CSV")
+        
+        # Ler conteúdo do arquivo
+        content = await file.read()
+        content_str = content.decode('utf-8')
+        print(f"📄 Conteúdo do arquivo lido: {len(content_str)} caracteres")
+        
+        # Processar CSV
+        import csv
+        from io import StringIO
+        
+        csv_data = StringIO(content_str)
+        reader = csv.DictReader(csv_data)
+        
+        # Contadores para relatório
+        processed = 0
+        errors = []
+        
+        print(f"📊 Processando linhas do CSV de transações...")
+        
+        # Processar cada linha
+        for row_num, row in enumerate(reader, start=2):  # Começar do 2 pois linha 1 é cabeçalho
+            try:
+                print(f"🔍 Processando linha {row_num}: {row}")
+                
+                # Validar campos obrigatórios (ajustar conforme estrutura do CSV)
+                if not row.get('Data') or not row.get('Conta') or not row.get('Valor'):
+                    errors.append(f"Linha {row_num}: Campos obrigatórios faltando")
+                    continue
+                
+                # Processar data
+                date_str = row['Data']
+                try:
+                    # Formato: DD/MM/AAAA
+                    day, month, year = date_str.split('/')
+                    transaction_date = datetime.datetime(int(year), int(month), int(day))
+                except:
+                    errors.append(f"Linha {row_num}: Data inválida '{date_str}'")
+                    continue
+                
+                # Processar valor
+                valor_str = row['Valor'].replace('R$', '').replace(' ', '').strip()
+                
+                # Tratar casos especiais como "1.981,8" -> "1981.8"
+                if ',' in valor_str and '.' in valor_str:
+                    # Formato: 1.981,8 -> 1981.8
+                    parts = valor_str.split(',')
+                    if len(parts) == 2:
+                        integer_part = parts[0].replace('.', '')  # Remove pontos dos milhares
+                        decimal_part = parts[1]
+                        valor_str = f"{integer_part}.{decimal_part}"
+                elif ',' in valor_str:
+                    # Formato: 80,0 -> 80.0
+                    valor_str = valor_str.replace(',', '.')
+                
+                try:
+                    amount = float(valor_str)
+                except:
+                    errors.append(f"Linha {row_num}: Valor inválido '{row['Valor']}' -> '{valor_str}'")
+                    continue
+                
+                # Determinar tipo de transação baseado no valor
+                transaction_type = "receita" if amount > 0 else "despesa"
+                if amount < 0:
+                    amount = abs(amount)  # Converter para positivo para armazenamento
+                
+                # Buscar conta pelo nome
+                account_name = row['Conta'].strip()
+                chart_account = db.query(ChartAccount).filter(
+                    ChartAccount.name.ilike(f"%{account_name}%"),
+                    ChartAccount.is_active == True
+                ).first()
+                
+                if not chart_account:
+                    errors.append(f"Linha {row_num}: Conta '{account_name}' não encontrada")
+                    continue
+                
+                # Buscar tenant_id da BU
+                business_unit = db.query(BusinessUnit).filter(BusinessUnit.id == business_unit_id).first()
+                if not business_unit:
+                    errors.append(f"Linha {row_num}: Business Unit não encontrada")
+                    continue
+                
+                print(f"✅ Linha {row_num}: {account_name} - R$ {amount:.2f} - {transaction_date} - {transaction_type}")
+                
+                # Salvar transação no banco de dados
+                try:
+                    from sqlalchemy import text
+                    
+                    # Gerar ID único e referência
+                    transaction_id = str(uuid.uuid4())
+                    reference = f"TXN-{datetime.datetime.now().strftime('%Y%m%d')}-{row_num:04d}"
+                    
+                    # Inserir transação na tabela
+                    insert_query = text("""
+                        INSERT INTO financial_transactions (
+                            id, reference, description, amount, transaction_date, 
+                            transaction_type, status, chart_account_id, tenant_id,
+                            business_unit_id, created_by, is_active, 
+                            created_at, updated_at
+                        ) VALUES (
+                            :id, :reference, :description, :amount, :transaction_date,
+                            :transaction_type, :status, :chart_account_id, :tenant_id,
+                            :business_unit_id, :created_by, :is_active,
+                            NOW(), NOW()
+                        )
+                    """)
+                    
+                    conn = engine.connect()
+                    conn.execute(insert_query, {
+                        'id': transaction_id,
+                        'reference': reference,
+                        'description': row.get('Descrição', f"Transação {account_name}"),
+                        'amount': amount,
+                        'transaction_date': transaction_date,
+                        'transaction_type': transaction_type,
+                        'status': 'pendente',
+                        'chart_account_id': chart_account.id,
+                        'tenant_id': business_unit.tenant_id,
+                        'business_unit_id': business_unit_id,
+                        'created_by': current_user.get('sub'),
+                        'is_active': True
+                    })
+                    conn.commit()
+                    conn.close()
+                    
+                    print(f"💾 Transação salva no banco: {transaction_id}")
+                    processed += 1
+                    
+                except Exception as save_error:
+                    print(f"❌ Erro ao salvar transação: {save_error}")
+                    errors.append(f"Linha {row_num}: Erro ao salvar no banco - {str(save_error)}")
+                    continue
+                
+            except Exception as e:
+                errors.append(f"Linha {row_num}: Erro inesperado - {str(e)}")
+                continue
+        
+        print(f"📈 Processamento de transações concluído: {processed} processadas, {len(errors)} erros")
+        
+        return {
+            "message": "Importação CSV de transações concluída com sucesso!",
+            "summary": {
+                "processed": processed,
+                "errors": len(errors),
+                "total_rows": processed + len(errors)
+            },
+            "errors": errors[:10] if errors else [],  # Retornar apenas os primeiros 10 erros
+            "next_step": f"{processed} transações salvas no banco de dados"
+        }
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"❌ Erro detalhado na importação de transações: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Erro no processamento: {str(e)}")
+
 @app.post("/api/v1/financial/forecasts/import-csv")
 async def import_forecasts_csv(
     file: UploadFile = File(...),
@@ -2517,93 +2734,92 @@ async def create_financial_transaction(
 
 @app.get("/api/v1/financial/transactions")
 async def get_financial_transactions(
-    page: int = 1,
-    limit: int = 50,
-    transaction_type: Optional[str] = None,
-    status: Optional[str] = None,
-    chart_account_id: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    amount_min: Optional[float] = None,
-    amount_max: Optional[float] = None,
-    search: Optional[str] = None,
+    business_unit_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Lista transações financeiras com filtros e paginação"""
+    """Lista transações financeiras do banco de dados"""
     try:
-        # Verificar se o usuário atual tem permissão
-        if current_user.get("role") not in ["super_admin", "admin", "user"]:
-            raise HTTPException(status_code=403, detail="Sem permissão para visualizar transações")
+        from sqlalchemy import text
         
-        # Importar serviço
-        from app.services.financial_service import FinancialService
+        # Se não foi especificado business_unit_id, usar o do usuário
+        if not business_unit_id:
+            business_unit_id = current_user.get("business_unit_id")
         
-        # Preparar filtros
-        filters = {}
-        if transaction_type:
-            filters['transaction_type'] = transaction_type
-        if status:
-            filters['status'] = status
-        if chart_account_id:
-            filters['chart_account_id'] = chart_account_id
-        if start_date:
-            filters['start_date'] = start_date
-        if end_date:
-            filters['end_date'] = end_date
-        if amount_min:
-            filters['amount_min'] = amount_min
-        if amount_max:
-            filters['amount_max'] = amount_max
-        if search:
-            filters['search'] = search
+        # Verificar permissões
+        if current_user.get("role") != "super_admin" and current_user.get("business_unit_id") != business_unit_id:
+            raise HTTPException(status_code=403, detail="Sem permissão para acessar esta Business Unit")
         
-        # Buscar transações
-        transactions, total = FinancialService.get_transactions(
-            db=db,
-            tenant_id=current_user.get("tenant_id"),
-            business_unit_id=current_user.get("business_unit_id"),
-            filters=filters,
-            page=page,
-            limit=limit
-        )
+        # Query para buscar transações com informações relacionadas
+        query = text("""
+            SELECT 
+                t.id,
+                t.reference,
+                t.description,
+                t.amount,
+                t.transaction_date,
+                t.transaction_type,
+                t.status,
+                t.chart_account_id,
+                t.tenant_id,
+                t.business_unit_id,
+                t.created_by,
+                t.approved_by,
+                t.is_active,
+                t.notes,
+                t.created_at,
+                t.updated_at,
+                t.approved_at,
+                bu.name as business_unit_name,
+                ca.name as chart_account_name,
+                ca.code as chart_account_code
+            FROM financial_transactions t
+            JOIN business_units bu ON t.business_unit_id = bu.id
+            JOIN chart_accounts ca ON t.chart_account_id = ca.id
+            WHERE t.is_active = true
+        """)
         
-        # Formatar resposta
-        transactions_data = []
-        for transaction in transactions:
-            transactions_data.append({
-                "id": transaction.id,
-                "reference": transaction.reference,
-                "description": transaction.description,
-                "amount": str(transaction.amount),
-                "transaction_date": transaction.transaction_date.isoformat(),
-                "transaction_type": transaction.transaction_type.value,
-                "status": transaction.status.value,
-                "chart_account_id": transaction.chart_account_id,
-                "chart_account_name": transaction.chart_account.name,
-                "chart_account_code": transaction.chart_account.code,
-                "tenant_id": transaction.tenant_id,
-                "business_unit_id": transaction.business_unit_id,
-                "created_by": transaction.created_by,
-                "approved_by": transaction.approved_by,
-                "is_active": transaction.is_active,
-                "notes": transaction.notes,
-                "created_at": transaction.created_at.isoformat(),
-                "updated_at": transaction.updated_at.isoformat(),
-                "approved_at": transaction.approved_at.isoformat() if transaction.approved_at else None
+        params = {}
+        if business_unit_id:
+            query = text(str(query) + " AND t.business_unit_id = :business_unit_id")
+            params['business_unit_id'] = business_unit_id
+        
+        query = text(str(query) + " ORDER BY t.transaction_date DESC, t.created_at DESC")
+        
+        # Executar query
+        conn = engine.connect()
+        result = conn.execute(query, params)
+        transactions = []
+        
+        for row in result:
+            transactions.append({
+                "id": row.id,
+                "reference": row.reference,
+                "description": row.description,
+                "amount": float(row.amount),
+                "transaction_date": row.transaction_date.strftime("%Y-%m-%d %H:%M:%S"),
+                "transaction_type": row.transaction_type,
+                "status": row.status,
+                "chart_account_id": row.chart_account_id,
+                "chart_account_name": row.chart_account_name,
+                "chart_account_code": row.chart_account_code,
+                "tenant_id": row.tenant_id,
+                "business_unit_id": row.business_unit_id,
+                "business_unit_name": row.business_unit_name,
+                "created_by": row.created_by,
+                "approved_by": row.approved_by,
+                "is_active": row.is_active,
+                "notes": row.notes,
+                "created_at": row.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": row.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "approved_at": row.approved_at.strftime("%Y-%m-%d %H:%M:%S") if row.approved_at else None
             })
         
-        return {
-            "transactions": transactions_data,
-            "pagination": {
-                "page": page,
-                "limit": limit,
-                "total": total,
-                "pages": (total + limit - 1) // limit
-            }
-        }
+        conn.close()
+        return transactions
         
     except Exception as e:
+        print(f"❌ Erro ao buscar transações: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao buscar transações: {str(e)}")
 
 @app.get("/api/v1/financial/transactions/{transaction_id}")
