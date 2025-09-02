@@ -394,8 +394,14 @@ async def recreate_chart_tables(
         db.execute(text("DROP TABLE IF EXISTS chart_account_groups CASCADE"))
         db.execute(text("DROP TABLE IF EXISTS business_unit_chart_accounts CASCADE"))
         
+        # Commit para garantir que as tabelas foram removidas
+        db.commit()
+        
         # Recriar tabelas
         ChartBase.metadata.create_all(bind=engine)
+        
+        # Commit para garantir que as tabelas foram criadas
+        db.commit()
         
         return {"message": "Tabelas do plano de contas recriadas com sucesso"}
         
