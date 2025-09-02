@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import Layout from '../components/layout/Layout';
 import { 
   Upload, 
   FileText, 
@@ -88,7 +89,7 @@ const FinancialForecasts: React.FC = () => {
   const loadForecasts = async (buId: string) => {
     setLoading(true);
     try {
-      const response = await api.get(`/financial/forecasts?business_unit_id=${buId}`);
+      const response = await api.get(`/api/v1/financial/forecasts?business_unit_id=${buId}`);
       setForecasts(response.data);
     } catch (error) {
       console.error('Erro ao carregar previsões:', error);
@@ -99,7 +100,7 @@ const FinancialForecasts: React.FC = () => {
 
   const loadChartAccounts = async (buId: string) => {
     try {
-      const response = await api.get(`/chart-accounts/hierarchy?business_unit_id=${buId}`);
+      const response = await api.get(`/api/v1/chart-accounts/hierarchy?business_unit_id=${buId}`);
       const accounts = response.data.accounts || [];
       setChartAccounts(accounts);
     } catch (error) {
@@ -128,7 +129,7 @@ const FinancialForecasts: React.FC = () => {
     formData.append('business_unit_id', user.business_unit_id);
 
     try {
-      const response = await api.post('/financial/forecasts/import-csv', formData, {
+      const response = await api.post('/api/v1/financial/forecasts/import-csv', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -162,7 +163,7 @@ const FinancialForecasts: React.FC = () => {
     }
 
     try {
-      await api.post('/financial/forecasts', {
+              await api.post('/api/v1/financial/forecasts', {
         ...formData,
         business_unit_id: user.business_unit_id,
         amount: parseFloat(formData.amount)
@@ -186,7 +187,7 @@ const FinancialForecasts: React.FC = () => {
     if (!editingForecast) return;
 
     try {
-      await api.put(`/financial/forecasts/${editingForecast.id}`, {
+              await api.put(`/api/v1/financial/forecasts/${editingForecast.id}`, {
         ...formData,
         amount: parseFloat(formData.amount)
       });
@@ -209,7 +210,7 @@ const FinancialForecasts: React.FC = () => {
     if (!confirm('Tem certeza que deseja excluir esta previsão?')) return;
 
     try {
-      await api.delete(`/financial/forecasts/${id}`);
+              await api.delete(`/api/v1/financial/forecasts/${id}`);
       loadForecasts(user.business_unit_id);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Erro ao excluir previsão');
@@ -240,8 +241,9 @@ const FinancialForecasts: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <Layout>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between">
@@ -599,8 +601,11 @@ const FinancialForecasts: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 };
 
 export default FinancialForecasts;
+
+
