@@ -13,6 +13,7 @@ from fastapi.security import HTTPBearer
 from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount, BusinessUnitChartAccount, Base as ChartBase
+from app.models.financial_transactions import FinancialTransaction, TransactionType, TransactionStatus, Base as FinancialBase
 from app.models.permissions import Permission, UserPermission, PermissionType
 from app.services.permissions import PermissionService
 import bcrypt
@@ -132,6 +133,7 @@ app.add_middleware(
 try:
     AuthBase.metadata.create_all(bind=engine)
     ChartBase.metadata.create_all(bind=engine)
+    FinancialBase.metadata.create_all(bind=engine)
     print("✅ Database tables created")
 except Exception as e:
     print(f"❌ Could not create database tables: {e}")
@@ -1468,6 +1470,412 @@ async def get_chart_accounts_hierarchy(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao buscar hierarquia: {str(e)}")
+
+# ENDPOINTS DE TRANSAÇÕES FINANCEIRAS
+# ============================================================================
+
+@app.post("/api/v1/financial/transactions")
+async def create_financial_transaction(
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Cria uma nova transação financeira"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin", "user"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para criar transações")
+        
+        # Importar serviço
+        from app.services.financial_service import FinancialService
+        
+        # Criar transação
+        transaction = FinancialService.create_transaction(
+            db=db,
+            data=request,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id"),
+            created_by=current_user.get("sub")
+        )
+        
+        return {
+            "success": True,
+            "message": "Transação criada com sucesso",
+            "transaction_id": transaction.id,
+            "reference": transaction.reference
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao criar transação: {str(e)}")
+
+@app.get("/api/v1/financial/transactions")
+async def get_financial_transactions(
+    page: int = 1,
+    limit: int = 50,
+    transaction_type: Optional[str] = None,
+    status: Optional[str] = None,
+    chart_account_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    amount_min: Optional[float] = None,
+    amount_max: Optional[float] = None,
+    search: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Lista transações financeiras com filtros e paginação"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin", "user"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para visualizar transações")
+        
+        # Importar serviço
+        from app.services.financial_service import FinancialService
+        
+        # Preparar filtros
+        filters = {}
+        if transaction_type:
+            filters['transaction_type'] = transaction_type
+        if status:
+            filters['status'] = status
+        if chart_account_id:
+            filters['chart_account_id'] = chart_account_id
+        if start_date:
+            filters['start_date'] = start_date
+        if end_date:
+            filters['end_date'] = end_date
+        if amount_min:
+            filters['amount_min'] = amount_min
+        if amount_max:
+            filters['amount_max'] = amount_max
+        if search:
+            filters['search'] = search
+        
+        # Buscar transações
+        transactions, total = FinancialService.get_transactions(
+            db=db,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id"),
+            filters=filters,
+            page=page,
+            limit=limit
+        )
+        
+        # Formatar resposta
+        transactions_data = []
+        for transaction in transactions:
+            transactions_data.append({
+                "id": transaction.id,
+                "reference": transaction.reference,
+                "description": transaction.description,
+                "amount": str(transaction.amount),
+                "transaction_date": transaction.transaction_date.isoformat(),
+                "transaction_type": transaction.transaction_type.value,
+                "status": transaction.status.value,
+                "chart_account_id": transaction.chart_account_id,
+                "chart_account_name": transaction.chart_account.name,
+                "chart_account_code": transaction.chart_account.code,
+                "tenant_id": transaction.tenant_id,
+                "business_unit_id": transaction.business_unit_id,
+                "created_by": transaction.created_by,
+                "approved_by": transaction.approved_by,
+                "is_active": transaction.is_active,
+                "notes": transaction.notes,
+                "created_at": transaction.created_at.isoformat(),
+                "updated_at": transaction.updated_at.isoformat(),
+                "approved_at": transaction.approved_at.isoformat() if transaction.approved_at else None
+            })
+        
+        return {
+            "transactions": transactions_data,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total,
+                "pages": (total + limit - 1) // limit
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar transações: {str(e)}")
+
+@app.get("/api/v1/financial/transactions/{transaction_id}")
+async def get_financial_transaction(
+    transaction_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obtém uma transação financeira específica"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin", "user"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para visualizar transações")
+        
+        # Importar serviço
+        from app.services.financial_service import FinancialService
+        
+        # Buscar transação
+        transaction = FinancialService.get_transaction_by_id(
+            db=db,
+            transaction_id=transaction_id,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id")
+        )
+        
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transação não encontrada")
+        
+        # Formatar resposta
+        return {
+            "id": transaction.id,
+            "reference": transaction.reference,
+            "description": transaction.description,
+            "amount": str(transaction.amount),
+            "transaction_date": transaction.transaction_date.isoformat(),
+            "transaction_type": transaction.transaction_type.value,
+            "status": transaction.status.value,
+            "chart_account_id": transaction.chart_account_id,
+            "chart_account_name": transaction.chart_account.name,
+            "chart_account_code": transaction.chart_account.code,
+            "tenant_id": transaction.tenant_id,
+            "business_unit_id": transaction.business_unit_id,
+            "created_by": transaction.created_by,
+            "approved_by": transaction.approved_by,
+            "is_active": transaction.is_active,
+            "notes": transaction.notes,
+            "created_at": transaction.created_at.isoformat(),
+            "updated_at": transaction.updated_at.isoformat(),
+            "approved_at": transaction.approved_at.isoformat() if transaction.approved_at else None
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar transação: {str(e)}")
+
+@app.put("/api/v1/financial/transactions/{transaction_id}")
+async def update_financial_transaction(
+    transaction_id: str,
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Atualiza uma transação financeira"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para editar transações")
+        
+        # Importar serviço
+        from app.services.financial_service import FinancialService
+        
+        # Atualizar transação
+        transaction = FinancialService.update_transaction(
+            db=db,
+            transaction_id=transaction_id,
+            data=request,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id")
+        )
+        
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transação não encontrada")
+        
+        return {
+            "success": True,
+            "message": "Transação atualizada com sucesso"
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar transação: {str(e)}")
+
+@app.delete("/api/v1/financial/transactions/{transaction_id}")
+async def delete_financial_transaction(
+    transaction_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove uma transação financeira"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para remover transações")
+        
+        # Importar serviço
+        from app.services.financial_service import FinancialService
+        
+        # Remover transação
+        success = FinancialService.delete_transaction(
+            db=db,
+            transaction_id=transaction_id,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id")
+        )
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Transação não encontrada")
+        
+        return {
+            "success": True,
+            "message": "Transação removida com sucesso"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao remover transação: {str(e)}")
+
+@app.post("/api/v1/financial/transactions/{transaction_id}/approve")
+async def approve_financial_transaction(
+    transaction_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Aprova uma transação financeira"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para aprovar transações")
+        
+        # Importar serviço
+        from app.services.financial_service import FinancialService
+        
+        # Aprovar transação
+        transaction = FinancialService.approve_transaction(
+            db=db,
+            transaction_id=transaction_id,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id"),
+            approved_by=current_user.get("sub")
+        )
+        
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transação não encontrada")
+        
+        return {
+            "success": True,
+            "message": "Transação aprovada com sucesso"
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao aprovar transação: {str(e)}")
+
+@app.post("/api/v1/financial/transactions/{transaction_id}/reject")
+async def reject_financial_transaction(
+    transaction_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Rejeita uma transação financeira"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para rejeitar transações")
+        
+        # Importar serviço
+        from app.services.financial_service import FinancialService
+        
+        # Rejeitar transação
+        transaction = FinancialService.reject_transaction(
+            db=db,
+            transaction_id=transaction_id,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id"),
+            rejected_by=current_user.get("sub")
+        )
+        
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transação não encontrada")
+        
+        return {
+            "success": True,
+            "message": "Transação rejeitada com sucesso"
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao rejeitar transação: {str(e)}")
+
+@app.get("/api/v1/financial/summary")
+async def get_financial_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obtém resumo financeiro"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin", "user"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para visualizar resumo financeiro")
+        
+        # Importar serviço
+        from app.services.financial_service import FinancialService
+        
+        # Preparar datas
+        start_dt = None
+        end_dt = None
+        
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date)
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date)
+        
+        # Buscar resumo
+        summary = FinancialService.get_financial_summary(
+            db=db,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id"),
+            start_date=start_dt,
+            end_date=end_dt
+        )
+        
+        return summary
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar resumo financeiro: {str(e)}")
+
+@app.get("/api/v1/financial/chart-accounts-summary")
+async def get_chart_accounts_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obtém resumo por conta contábil"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin", "user"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para visualizar resumo por conta")
+        
+        # Importar serviço
+        from app.services.financial_service import FinancialService
+        
+        # Preparar datas
+        start_dt = None
+        end_dt = None
+        
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date)
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date)
+        
+        # Buscar resumo
+        summary = FinancialService.get_chart_account_summary(
+            db=db,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id"),
+            start_date=start_dt,
+            end_date=end_dt
+        )
+        
+        return summary
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar resumo por conta: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
