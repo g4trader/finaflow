@@ -8,6 +8,7 @@ import {
   Pencil,
   Trash2
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { 
   getChartAccountsHierarchy, 
   importChartAccounts 
@@ -57,6 +58,7 @@ interface ChartAccountsHierarchy {
 }
 
 const ChartAccountsPage: React.FC = () => {
+  const { token, user } = useAuth();
   const [hierarchy, setHierarchy] = useState<ChartAccountsHierarchy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +70,13 @@ const ChartAccountsPage: React.FC = () => {
   const [importResult, setImportResult] = useState<any>(null);
 
   useEffect(() => {
-    loadChartAccounts();
-  }, []);
+    if (token) {
+      loadChartAccounts();
+    } else {
+      setError('Usuário não autenticado');
+      setLoading(false);
+    }
+  }, [token]);
 
   const loadChartAccounts = async () => {
     try {
@@ -150,6 +157,18 @@ const ChartAccountsPage: React.FC = () => {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-xl mb-4">🔒</div>
+          <p className="text-gray-600 mb-4">Usuário não autenticado</p>
+          <p className="text-gray-500 text-sm">Faça login para acessar esta página</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
