@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Build timestamp: 2025-09-02 04:00:00 - Added Chart of Accounts functionality
+// Build timestamp: 2025-09-02 11:00:00 - Fixed menu and BU selection issues
 const API_BASE_URL = 'https://finaflow-backend-6f3ckz7c7q-uc.a.run.app';
 
 // Configuração do axios
