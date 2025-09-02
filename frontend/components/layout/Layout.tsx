@@ -19,7 +19,8 @@ import {
   ChevronDown,
   Building2,
   GitBranch,
-  Shield
+  Shield,
+  BookOpen
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -113,6 +114,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       href: '/transactions',
       active: isItemActive('/transactions', 'Transações'),
       description: 'Registrar e visualizar transações'
+    },
+    {
+      icon: <BookOpen className="w-5 h-5" />,
+      label: 'Plano de Contas',
+      href: '/chart-accounts',
+      active: isItemActive('/chart-accounts', 'Plano de Contas'),
+      description: 'Estrutura contábil da empresa'
     },
     {
       icon: <TrendingUp className="w-5 h-5" />,
