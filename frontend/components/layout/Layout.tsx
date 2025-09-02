@@ -118,10 +118,10 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
 
     {
       icon: <TrendingUp className="w-5 h-5" />,
-      label: 'Previsões',
-      href: '/forecast',
-      active: isItemActive('/forecast', 'Previsões'),
-      description: 'Análise e previsões financeiras'
+      label: 'Previsões Financeiras',
+      href: '/financial-forecasts',
+      active: isItemActive('/financial-forecasts', 'Previsões Financeiras'),
+      description: 'Gerenciar previsões financeiras e importar CSV'
     },
     {
       icon: <BarChart3 className="w-5 h-5" />,
@@ -195,13 +195,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           active: isItemActive('/user-permissions', 'Permissões de Usuário'),
           description: 'Gerenciar permissões de usuário por empresa/BU'
         },
-        {
-          icon: <TrendingUp className="w-4 h-4" />,
-          label: 'Previsões Financeiras',
-          href: '/financial-forecasts',
-          active: isItemActive('/financial-forecasts', 'Previsões Financeiras'),
-          description: 'Gerenciar previsões financeiras e importar CSV'
-        }
+
       ]
     },
   ];

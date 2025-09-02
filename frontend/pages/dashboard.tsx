@@ -28,7 +28,7 @@ interface TransactionData {
 }
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, needsBusinessUnitSelection } = useAuth();
   const [cashFlowData, setCashFlowData] = useState<CashFlowData[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<TransactionData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,8 +42,20 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
+    // Se o usuário precisa selecionar uma BU, redirecionar
+    if (needsBusinessUnitSelection) {
+      window.location.href = '/select-business-unit';
+      return;
+    }
+    
+    // Se não tem BU selecionada, redirecionar
+    if (!user?.business_unit_id) {
+      window.location.href = '/select-business-unit';
+      return;
+    }
+
     loadDashboardData();
-  }, []);
+  }, [needsBusinessUnitSelection, user]);
 
   const loadDashboardData = async () => {
     try {
