@@ -131,6 +131,7 @@ app.add_middleware(
 # Criar tabelas no banco de dados
 try:
     AuthBase.metadata.create_all(bind=engine)
+    ChartBase.metadata.create_all(bind=engine)
     print("✅ Database tables created")
 except Exception as e:
     print(f"❌ Could not create database tables: {e}")
