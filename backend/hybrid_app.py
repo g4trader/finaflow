@@ -351,6 +351,29 @@ async def health_check():
 async def test_endpoint():
     return {"status": "ok", "message": "Test endpoint working"}
 
+@app.get("/debug/tables")
+async def debug_tables(db: Session = Depends(get_db)):
+    """Debug endpoint para verificar estrutura das tabelas"""
+    try:
+        # Verificar se as tabelas existem
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        
+        tables = inspector.get_table_names()
+        table_info = {}
+        
+        for table in tables:
+            if table.startswith('chart_account'):
+                columns = inspector.get_columns(table)
+                table_info[table] = [col['name'] for col in columns]
+        
+        return {
+            "tables": tables,
+            "chart_account_tables": table_info
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 from fastapi import Form
 
 @app.post("/api/v1/auth/login")
