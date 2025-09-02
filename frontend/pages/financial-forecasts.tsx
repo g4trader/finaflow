@@ -51,7 +51,6 @@ const FinancialForecasts: React.FC = () => {
   const [forecasts, setForecasts] = useState<FinancialForecast[]>([]);
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [chartAccounts, setChartAccounts] = useState<ChartAccount[]>([]);
-  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -70,19 +69,16 @@ const FinancialForecasts: React.FC = () => {
 
   useEffect(() => {
     if (user?.business_unit_id) {
-      setSelectedBusinessUnit(user.business_unit_id);
       loadForecasts(user.business_unit_id);
       loadChartAccounts(user.business_unit_id);
     }
   }, [user]);
 
-  useEffect(() => {
-    loadBusinessUnits();
-  }, []);
+
 
   const loadBusinessUnits = async () => {
     try {
-      const response = await api.get('/permissions/business-units');
+      const response = await api.get('/api/v1/auth/user-business-units');
       setBusinessUnits(response.data);
     } catch (error) {
       console.error('Erro ao carregar BUs:', error);
@@ -121,7 +117,7 @@ const FinancialForecasts: React.FC = () => {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !selectedBusinessUnit) return;
+    if (!selectedFile || !user?.business_unit_id) return;
 
     setUploading(true);
     setUploadProgress(0);
@@ -129,7 +125,7 @@ const FinancialForecasts: React.FC = () => {
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('business_unit_id', selectedBusinessUnit);
+    formData.append('business_unit_id', user.business_unit_id);
 
     try {
       const response = await api.post('/financial/forecasts/import-csv', formData, {
@@ -146,7 +142,7 @@ const FinancialForecasts: React.FC = () => {
 
       setUploadResult(response.data);
       if (response.data.summary.processed > 0) {
-        loadForecasts(selectedBusinessUnit);
+        loadForecasts(user.business_unit_id);
       }
     } catch (error: any) {
       setUploadResult({
