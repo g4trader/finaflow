@@ -156,7 +156,7 @@ const FinancialForecasts: React.FC = () => {
   };
 
   const handleCreateForecast = async () => {
-    if (!selectedBusinessUnit || !formData.chart_account_id || !formData.forecast_date || !formData.amount) {
+    if (!user?.business_unit_id || !formData.chart_account_id || !formData.forecast_date || !formData.amount) {
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
@@ -164,7 +164,7 @@ const FinancialForecasts: React.FC = () => {
     try {
       await api.post('/financial/forecasts', {
         ...formData,
-        business_unit_id: selectedBusinessUnit,
+        business_unit_id: user.business_unit_id,
         amount: parseFloat(formData.amount)
       });
 
@@ -176,7 +176,7 @@ const FinancialForecasts: React.FC = () => {
         description: '',
         forecast_type: 'monthly'
       });
-      loadForecasts(selectedBusinessUnit);
+      loadForecasts(user.business_unit_id);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Erro ao criar previsão');
     }
@@ -199,7 +199,7 @@ const FinancialForecasts: React.FC = () => {
         description: '',
         forecast_type: 'monthly'
       });
-      loadForecasts(selectedBusinessUnit);
+      loadForecasts(user.business_unit_id);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Erro ao atualizar previsão');
     }
@@ -210,7 +210,7 @@ const FinancialForecasts: React.FC = () => {
 
     try {
       await api.delete(`/financial/forecasts/${id}`);
-      loadForecasts(selectedBusinessUnit);
+      loadForecasts(user.business_unit_id);
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Erro ao excluir previsão');
     }
@@ -270,33 +270,10 @@ const FinancialForecasts: React.FC = () => {
           </div>
         </div>
 
-        {/* Business Unit Selector */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Unidade de Negócio
-          </label>
-          <select
-            value={selectedBusinessUnit}
-            onChange={(e) => {
-              setSelectedBusinessUnit(e.target.value);
-              if (e.target.value) {
-                loadForecasts(e.target.value);
-                loadChartAccounts(e.target.value);
-              }
-            }}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Selecione uma BU</option>
-            {businessUnits.map((bu) => (
-              <option key={bu.id} value={bu.id}>
-                {bu.name}
-              </option>
-            ))}
-          </select>
-        </div>
+
 
         {/* Forecasts List */}
-        {selectedBusinessUnit && (
+        {user?.business_unit_id && (
           <div className="bg-white rounded-lg shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">
