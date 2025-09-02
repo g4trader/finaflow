@@ -1411,43 +1411,58 @@ async def get_subgroups():
         {"id": 2, "name": "Salários", "group_id": 2}
     ]
 
-# Endpoints para Previsões Financeiras (comentados temporariamente)
-# @app.post("/api/v1/financial/forecasts")
-# async def create_forecast(
-#     forecast: FinancialForecastCreate,
-#     current_user: dict = Depends(get_current_user),
-#     db: Session = Depends(get_db)
-# ):
-#     """Criar nova previsão financeira"""
-#     try:
-#         # Verificar se o usuário tem permissão para esta BU
-#         if current_user.get("business_unit_id") != forecast.business_unit_id:
-#             raise HTTPException(status_code=403, detail="Sem permissão para esta Business Unit")
-#         
-#         # Verificar se a conta existe
-#         chart_account = db.query(ChartAccount).filter(ChartAccount.id == forecast.chart_account_id).first()
-#         if not chart_account:
-#             raise HTTPException(status_code=404, detail="Conta não encontrada")
-#         
-#         # Criar previsão
-#         db_forecast = FinancialForecast(
-#             business_unit_id=forecast.business_unit_id,
-#             chart_account_id=forecast.chart_account_id,
-#             forecast_date=datetime.datetime.strptime(forecast.forecast_date, "%Y-%m-%d").date(),
-#             amount=forecast.amount,
-#             description=forecast.description,
-#             forecast_type=forecast.forecast_type
-#         )
-#         
-#         db.add(db_forecast)
-#         db.commit()
-#         db.refresh(db_forecast)
-#         
-#         return {"message": "Previsão criada com sucesso", "id": db_forecast.id}
-#         
-#     except Exception as e:
-#         db.rollback()
-#         raise HTTPException(status_code=500, detail=f"Erro ao criar previsão: {str(e)}")
+@app.post("/api/v1/financial/forecasts")
+async def create_forecast(
+    forecast: FinancialForecastCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Criar nova previsão financeira"""
+    try:
+        # Verificar se o usuário tem permissão para esta BU
+        if current_user.get("business_unit_id") != forecast.business_unit_id:
+            raise HTTPException(status_code=403, detail="Sem permissão para esta Business Unit")
+        
+        # Verificar se a conta existe
+        chart_account = db.query(ChartAccount).filter(ChartAccount.id == forecast.chart_account_id).first()
+        if not chart_account:
+            raise HTTPException(status_code=404, detail="Conta não encontrada")
+        
+        # Salvar previsão na tabela real
+        from sqlalchemy import text
+        
+        forecast_id = str(uuid.uuid4())
+        insert_query = text("""
+            INSERT INTO financial_forecasts (
+                id, business_unit_id, chart_account_id, forecast_date, 
+                amount, description, forecast_type, is_active, 
+                created_at, updated_at
+            ) VALUES (
+                :id, :business_unit_id, :chart_account_id, :forecast_date,
+                :amount, :description, :forecast_type, :is_active,
+                NOW(), NOW()
+            )
+        """)
+        
+        conn = engine.connect()
+        conn.execute(insert_query, {
+            'id': forecast_id,
+            'business_unit_id': forecast.business_unit_id,
+            'chart_account_id': forecast.chart_account_id,
+            'forecast_date': datetime.datetime.strptime(forecast.forecast_date, "%Y-%m-%d").date(),
+            'amount': forecast.amount,
+            'description': forecast.description,
+            'forecast_type': forecast.forecast_type,
+            'is_active': True
+        })
+        conn.commit()
+        conn.close()
+        
+        return {"message": "Previsão criada com sucesso", "id": forecast_id}
+        
+    except Exception as e:
+        print(f"❌ Erro ao criar previsão: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao criar previsão: {str(e)}")
 
 @app.get("/api/v1/financial/forecasts")
 async def get_forecasts(
