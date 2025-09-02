@@ -1,3 +1,18 @@
 {
-  "version": 2
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://finaflow-backend-609095880025.us-central1.run.app"
+  }
 }
