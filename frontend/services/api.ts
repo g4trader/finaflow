@@ -635,15 +635,7 @@ export const updateUserPermissions = async (userId: string, businessUnitId: stri
 // Função para obter hierarquia completa do plano de contas
 export const getChartAccountsHierarchy = async (token?: string) => {
   try {
-    const headers: any = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v1/chart-accounts/hierarchy`,
-      { headers }
-    );
+    const response = await api.get('/api/v1/chart-accounts/hierarchy');
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || 'Erro ao buscar hierarquia do plano de contas');
@@ -653,15 +645,7 @@ export const getChartAccountsHierarchy = async (token?: string) => {
 // Função para obter grupos do plano de contas
 export const getChartAccountGroups = async (token?: string) => {
   try {
-    const headers: any = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v1/chart-accounts/groups`,
-      { headers }
-    );
+    const response = await api.get('/api/v1/chart-accounts/groups');
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || 'Erro ao buscar grupos');
@@ -671,20 +655,12 @@ export const getChartAccountGroups = async (token?: string) => {
 // Função para obter subgrupos do plano de contas
 export const getChartAccountSubgroups = async (groupId?: string, token?: string) => {
   try {
-    const headers: any = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const params: any = {};
     if (groupId) {
       params.group_id = groupId;
     }
 
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v1/chart-accounts/subgroups`,
-      { headers, params }
-    );
+    const response = await api.get('/api/v1/chart-accounts/subgroups', { params });
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || 'Erro ao buscar subgrupos');
@@ -694,11 +670,6 @@ export const getChartAccountSubgroups = async (groupId?: string, token?: string)
 // Função para obter contas do plano de contas
 export const getChartAccounts = async (subgroupId?: string, groupId?: string, token?: string) => {
   try {
-    const headers: any = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const params: any = {};
     if (subgroupId) {
       params.subgroup_id = subgroupId;
@@ -707,10 +678,7 @@ export const getChartAccounts = async (subgroupId?: string, groupId?: string, to
       params.group_id = groupId;
     }
 
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v1/chart-accounts/accounts`,
-      { headers, params }
-    );
+    const response = await api.get('/api/v1/chart-accounts/accounts', { params });
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || 'Erro ao buscar contas');
