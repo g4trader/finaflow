@@ -1877,5 +1877,62 @@ async def get_chart_accounts_summary(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao buscar resumo por conta: {str(e)}")
 
+# ENDPOINT DO DASHBOARD INTEGRADO
+# ============================================================================
+
+@app.get("/api/v1/dashboard/financial")
+async def get_financial_dashboard(
+    period: str = "month",
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obtém dados completos do dashboard financeiro"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin", "user"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para visualizar dashboard")
+        
+        # Importar serviço
+        from app.services.dashboard_service import DashboardService
+        
+        # Buscar dados do dashboard
+        dashboard_data = DashboardService.get_dashboard_data(
+            db=db,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id"),
+            period=period
+        )
+        
+        return dashboard_data
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar dados do dashboard: {str(e)}")
+
+@app.get("/api/v1/dashboard/chart-accounts-tree")
+async def get_chart_accounts_tree_dashboard(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obtém árvore do plano de contas com resumos financeiros para o dashboard"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin", "user"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para visualizar plano de contas")
+        
+        # Importar serviço
+        from app.services.dashboard_service import DashboardService
+        
+        # Buscar árvore com resumos
+        tree_data = DashboardService.get_chart_accounts_tree(
+            db=db,
+            tenant_id=current_user.get("tenant_id"),
+            business_unit_id=current_user.get("business_unit_id")
+        )
+        
+        return tree_data
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar árvore do plano de contas: {str(e)}")
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
