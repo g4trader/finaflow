@@ -1,81 +1,203 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint
+from datetime import datetime
+from uuid import uuid4
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
 from app.database import Base
-import uuid
 
-class AccountGroup(Base):
-    """Grupo de contas contábeis (ex: Receita, Custos, Despesas Operacionais)"""
-    __tablename__ = "account_groups"
+class ChartAccountGroup(Base):
+    """Grupo do Plano de Contas (1º nível)"""
+    __tablename__ = "chart_account_groups"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String(255), nullable=False)
-    code = Column(String(50), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    code = Column(String(10), nullable=False, unique=True)
+    name = Column(String(100), nullable=False)
     description = Column(Text)
-    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
-    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=False)
-    status = Column(String(50), default="active")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relacionamentos
-    tenant = relationship("Tenant", back_populates="account_groups")
-    business_unit = relationship("BusinessUnit", back_populates="account_groups")
-    subgroups = relationship("AccountSubgroup", back_populates="group", cascade="all, delete-orphan")
-    
-    # Constraints
-    __table_args__ = (
-        UniqueConstraint('name', 'tenant_id', 'business_unit_id', name='uq_group_name_per_tenant_bu'),
-    )
+    subgroups = relationship("ChartAccountSubgroup", back_populates="group", cascade="all, delete-orphan")
 
-class AccountSubgroup(Base):
-    """Subgrupo de contas contábeis (ex: Receita, Custos com Serviços Prestados)"""
-    __tablename__ = "account_subgroups"
+class ChartAccountSubgroup(Base):
+    """Subgrupo do Plano de Contas (2º nível)"""
+    __tablename__ = "chart_account_subgroups"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String(255), nullable=False)
-    code = Column(String(50), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    code = Column(String(10), nullable=False)
+    name = Column(String(100), nullable=False)
     description = Column(Text)
-    group_id = Column(String(36), ForeignKey("account_groups.id"), nullable=False)
-    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
-    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=False)
-    status = Column(String(50), default="active")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    group_id = Column(String(36), ForeignKey("chart_account_groups.id"), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relacionamentos
-    group = relationship("AccountGroup", back_populates="subgroups")
-    tenant = relationship("Tenant")
-    business_unit = relationship("BusinessUnit")
+    group = relationship("ChartAccountGroup", back_populates="subgroups")
     accounts = relationship("ChartAccount", back_populates="subgroup", cascade="all, delete-orphan")
     
     # Constraints
     __table_args__ = (
-        UniqueConstraint('name', 'group_id', 'tenant_id', 'business_unit_id', name='uq_subgroup_name_per_group_tenant_bu'),
+        UniqueConstraint('code', 'group_id', name='uq_subgroup_code_group'),
     )
 
 class ChartAccount(Base):
-    """Conta contábil individual"""
+    """Conta do Plano de Contas (3º nível)"""
     __tablename__ = "chart_accounts"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String(255), nullable=False)
-    code = Column(String(50), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    code = Column(String(10), nullable=False)
+    name = Column(String(100), nullable=False)
     description = Column(Text)
-    subgroup_id = Column(String(36), ForeignKey("account_subgroups.id"), nullable=False)
-    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
-    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=False)
+    subgroup_id = Column(String(36), ForeignKey("chart_account_subgroups.id"), nullable=False)
+    account_type = Column(String(20), nullable=False)  # Ativo, Passivo, Receita, Despesa
     is_active = Column(Boolean, default=True)
-    status = Column(String(50), default="active")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relacionamentos
-    subgroup = relationship("AccountSubgroup", back_populates="accounts")
-    tenant = relationship("Tenant")
-    business_unit = relationship("BusinessUnit")
+    subgroup = relationship("ChartAccountSubgroup", back_populates="accounts")
     
     # Constraints
     __table_args__ = (
-        UniqueConstraint('name', 'subgroup_id', 'tenant_id', 'business_unit_id', name='uq_account_name_per_subgroup_tenant_bu'),
+        UniqueConstraint('code', 'subgroup_id', name='uq_account_code_subgroup'),
     )
+
+class BusinessUnitChartAccount(Base):
+    """Relacionamento entre BU e Plano de Contas (para customizações)"""
+    __tablename__ = "business_unit_chart_accounts"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=False)
+    chart_account_id = Column(String(36), ForeignKey("chart_accounts.id"), nullable=False)
+    is_custom = Column(Boolean, default=False)  # Se é uma conta customizada da BU
+    custom_code = Column(String(10))  # Código customizado se diferente
+    custom_name = Column(String(100))  # Nome customizado se diferente
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint('business_unit_id', 'chart_account_id', name='uq_bu_chart_account'),
+    )
+
+# Modelos Pydantic para APIs
+from pydantic import BaseModel
+from typing import Optional, List
+
+class ChartAccountGroupCreate(BaseModel):
+    code: str
+    name: str
+    description: Optional[str] = None
+
+class ChartAccountGroupUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ChartAccountGroupResponse(BaseModel):
+    id: str
+    code: str
+    name: str
+    description: Optional[str] = None
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+class ChartAccountSubgroupCreate(BaseModel):
+    code: str
+    name: str
+    description: Optional[str] = None
+    group_id: str
+
+class ChartAccountSubgroupUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    group_id: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ChartAccountSubgroupResponse(BaseModel):
+    id: str
+    code: str
+    name: str
+    description: Optional[str] = None
+    group_id: str
+    group_name: str
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+class ChartAccountCreate(BaseModel):
+    code: str
+    name: str
+    description: Optional[str] = None
+    subgroup_id: str
+    account_type: str  # Ativo, Passivo, Receita, Despesa
+
+class ChartAccountUpdate(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    subgroup_id: Optional[str] = None
+    account_type: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ChartAccountResponse(BaseModel):
+    id: str
+    code: str
+    name: str
+    description: Optional[str] = None
+    subgroup_id: str
+    subgroup_name: str
+    group_id: str
+    group_name: str
+    account_type: str
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+class BusinessUnitChartAccountCreate(BaseModel):
+    business_unit_id: str
+    chart_account_id: str
+    is_custom: bool = False
+    custom_code: Optional[str] = None
+    custom_name: Optional[str] = None
+
+class BusinessUnitChartAccountUpdate(BaseModel):
+    is_custom: Optional[bool] = None
+    custom_code: Optional[str] = None
+    custom_name: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class BusinessUnitChartAccountResponse(BaseModel):
+    id: str
+    business_unit_id: str
+    chart_account_id: str
+    chart_account_name: str
+    chart_account_code: str
+    is_custom: bool
+    custom_code: Optional[str] = None
+    custom_name: Optional[str] = None
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+class ChartAccountHierarchyResponse(BaseModel):
+    groups: List[ChartAccountGroupResponse]
+    subgroups: List[ChartAccountSubgroupResponse]
+    accounts: List[ChartAccountResponse]

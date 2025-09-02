@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
@@ -12,7 +12,7 @@ from fastapi.security import HTTPBearer
 # Importar configurações do banco de dados
 from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
-from app.models.chart_of_accounts import AccountGroup, AccountSubgroup, ChartAccount, Base as ChartBase
+from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount, BusinessUnitChartAccount, Base as ChartBase
 from app.models.permissions import Permission, UserPermission, PermissionType
 from app.services.permissions import PermissionService
 import bcrypt
@@ -1226,8 +1226,190 @@ async def update_user_permissions(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao atualizar permissões: {str(e)}")
 
+# ENDPOINTS DO PLANO DE CONTAS
+# ============================================================================
 
+@app.post("/api/v1/chart-accounts/import")
+async def import_chart_accounts(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Importa plano de contas do CSV"""
+    try:
+        # Verificar se o usuário atual tem permissão
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Sem permissão para importar plano de contas")
+        
+        # Verificar se é um arquivo CSV
+        if not file.filename.endswith('.csv'):
+            raise HTTPException(status_code=400, detail="Arquivo deve ser CSV")
+        
+        # Ler conteúdo do arquivo
+        csv_content = await file.read()
+        csv_content = csv_content.decode('utf-8')
+        
+        # Importar usando o serviço
+        from app.services.chart_accounts_importer import ChartAccountsImporter
+        result = ChartAccountsImporter.import_chart_accounts(db, csv_content)
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao importar plano de contas: {str(e)}")
 
+@app.get("/api/v1/chart-accounts/groups")
+async def get_chart_account_groups(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Lista todos os grupos do plano de contas"""
+    try:
+        groups = db.query(ChartAccountGroup).filter(ChartAccountGroup.is_active == True).all()
+        return [
+            {
+                "id": group.id,
+                "code": group.code,
+                "name": group.name,
+                "description": group.description,
+                "is_active": group.is_active,
+                "created_at": group.created_at.isoformat(),
+                "updated_at": group.updated_at.isoformat()
+            }
+            for group in groups
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar grupos: {str(e)}")
+
+@app.get("/api/v1/chart-accounts/subgroups")
+async def get_chart_account_subgroups(
+    group_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Lista subgrupos do plano de contas"""
+    try:
+        query = db.query(ChartAccountSubgroup).filter(ChartAccountSubgroup.is_active == True)
+        
+        if group_id:
+            query = query.filter(ChartAccountSubgroup.group_id == group_id)
+        
+        subgroups = query.all()
+        return [
+            {
+                "id": subgroup.id,
+                "code": subgroup.code,
+                "name": subgroup.name,
+                "description": subgroup.description,
+                "group_id": subgroup.group_id,
+                "group_name": subgroup.group.name,
+                "is_active": subgroup.is_active,
+                "created_at": subgroup.created_at.isoformat(),
+                "updated_at": subgroup.updated_at.isoformat()
+            }
+            for subgroup in subgroups
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar subgrupos: {str(e)}")
+
+@app.get("/api/v1/chart-accounts/accounts")
+async def get_chart_accounts(
+    subgroup_id: Optional[str] = None,
+    group_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Lista contas do plano de contas"""
+    try:
+        query = db.query(ChartAccount).filter(ChartAccount.is_active == True)
+        
+        if subgroup_id:
+            query = query.filter(ChartAccount.subgroup_id == subgroup_id)
+        elif group_id:
+            query = query.join(ChartAccountSubgroup).filter(ChartAccountSubgroup.group_id == group_id)
+        
+        accounts = query.all()
+        return [
+            {
+                "id": account.id,
+                "code": account.code,
+                "name": account.name,
+                "description": account.description,
+                "subgroup_id": account.subgroup_id,
+                "subgroup_name": account.subgroup.name,
+                "group_id": account.subgroup.group.id,
+                "group_name": account.subgroup.group.name,
+                "account_type": account.account_type,
+                "is_active": account.is_active,
+                "created_at": account.created_at.isoformat(),
+                "updated_at": account.updated_at.isoformat()
+            }
+            for account in accounts
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar contas: {str(e)}")
+
+@app.get("/api/v1/chart-accounts/hierarchy")
+async def get_chart_accounts_hierarchy(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retorna a hierarquia completa do plano de contas"""
+    try:
+        groups = db.query(ChartAccountGroup).filter(ChartAccountGroup.is_active == True).all()
+        subgroups = db.query(ChartAccountSubgroup).filter(ChartAccountSubgroup.is_active == True).all()
+        accounts = db.query(ChartAccount).filter(ChartAccount.is_active == True).all()
+        
+        return {
+            "groups": [
+                {
+                    "id": group.id,
+                    "code": group.code,
+                    "name": group.name,
+                    "description": group.description,
+                    "is_active": group.is_active,
+                    "created_at": group.created_at.isoformat(),
+                    "updated_at": group.updated_at.isoformat()
+                }
+                for group in groups
+            ],
+            "subgroups": [
+                {
+                    "id": subgroup.id,
+                    "code": subgroup.code,
+                    "name": subgroup.name,
+                    "description": subgroup.description,
+                    "group_id": subgroup.group_id,
+                    "group_name": subgroup.group.name,
+                    "is_active": subgroup.is_active,
+                    "created_at": subgroup.created_at.isoformat(),
+                    "updated_at": subgroup.updated_at.isoformat()
+                }
+                for subgroup in subgroups
+            ],
+            "accounts": [
+                {
+                    "id": account.id,
+                    "code": account.code,
+                    "name": account.name,
+                    "description": account.description,
+                    "subgroup_id": account.subgroup_id,
+                    "subgroup_name": account.subgroup.name,
+                    "group_id": account.subgroup.group.id,
+                    "group_name": account.subgroup.group.name,
+                    "account_type": account.account_type,
+                    "is_active": account.is_active,
+                    "created_at": account.created_at.isoformat(),
+                    "updated_at": account.updated_at.isoformat()
+                }
+                for account in accounts
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar hierarquia: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
