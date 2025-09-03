@@ -23,7 +23,7 @@ steps:
       - 'managed'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'DATABASE_URL=sqlite:///./finaflow.db'
+      - 'DATABASE_URL=postgresql://finaflow_user:finaflow_password@34.70.102.98:5432/finaflow_db'
 
 images:
   - 'gcr.io/$PROJECT_ID/finaflow-backend'
