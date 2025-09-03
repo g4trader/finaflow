@@ -360,22 +360,22 @@ const Transactions: React.FC = () => {
                         <tr key={transaction.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
-                              {transaction.reference}
+                              {transaction.reference || 'N/A'}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
                               <div className="text-sm font-medium text-gray-900">
-                                {transaction.chart_account_name}
+                                {transaction.chart_account_name || 'N/A'}
                               </div>
                               <div className="text-sm text-gray-500">
-                                {transaction.chart_account_code}
+                                {transaction.chart_account_code || 'N/A'}
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="text-sm text-gray-900 max-w-xs truncate">
-                              {transaction.description}
+                              {transaction.description || 'N/A'}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -396,7 +396,7 @@ const Transactions: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(transaction.status)}`}>
-                              {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                              {transaction.status ? transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1) : 'N/A'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
