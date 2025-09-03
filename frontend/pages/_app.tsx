@@ -14,7 +14,7 @@ function RouteProtection({ children }: { children: React.ReactNode }) {
   const protectedRoutes = [
     '/dashboard',
     '/accounts',
-    '/transactions',
+    // '/transactions',  // Temporariamente removido para teste
     '/groups',
     '/subgroups',
     '/users',
