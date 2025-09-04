@@ -6,14 +6,17 @@ import os
 from typing import Generator
 
 # Configuração do banco de dados - APENAS PostgreSQL
+# Forçar uso do PostgreSQL tanto local quanto no Cloud Run
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "postgresql://finaflow_user:finaflow_password@34.70.102.98:5432/finaflow_db"  # PostgreSQL padrão
+    "postgresql://finaflow_user:finaflow_password@34.70.102.98:5432/finaflow_db"
 )
 
-# Verificar se está usando PostgreSQL
+# Garantir que use PostgreSQL
 if not DATABASE_URL.startswith("postgresql"):
-    raise ValueError("APENAS PostgreSQL é suportado. Configure DATABASE_URL para PostgreSQL.")
+    print(f"⚠️  DATABASE_URL inválida: {DATABASE_URL}")
+    print("🔄 Forçando uso do PostgreSQL...")
+    DATABASE_URL = "postgresql://finaflow_user:finaflow_password@34.70.102.98:5432/finaflow_db"
 
 print(f"🔗 Conectando ao banco: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'PostgreSQL'}")
 
