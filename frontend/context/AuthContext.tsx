@@ -106,16 +106,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (username: string, password: string) => {
     try {
+      console.log('🔐 [AuthContext] Iniciando login...', { username });
+      
       // Limpar tokens antigos antes do login
       localStorage.removeItem('token');
       removeCookie('auth-token');
       
+      console.log('📡 [AuthContext] Chamando API de login...');
       const data = await apiLogin(username, password);
+      console.log('✅ [AuthContext] API retornou:', { 
+        has_token: !!data.access_token,
+        token_type: data.token_type,
+        expires_in: data.expires_in
+      });
+      
       setToken(data.access_token);
       localStorage.setItem('token', data.access_token);
       setCookie('auth-token', data.access_token, 7);
       
+      console.log('🔓 [AuthContext] Decodificando token...');
       const decoded: any = jwtDecode(data.access_token);
+      console.log('✅ [AuthContext] Token decodificado:', {
+        username: decoded.username,
+        role: decoded.role,
+        tenant_id: decoded.tenant_id,
+        business_unit_id: decoded.business_unit_id
+      });
+      
       const userData = {
         id: decoded.sub,
         username: decoded.username,
@@ -128,18 +145,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         department_id: decoded.department_id
       };
       setUser(userData);
+      console.log('👤 [AuthContext] Usuário configurado');
       
       // Verificar se o usuário precisa selecionar uma BU
       try {
+        console.log('🔍 [AuthContext] Verificando necessidade de seleção de BU...');
         const needsSelection = await checkNeedsBusinessUnitSelection();
+        console.log('📋 [AuthContext] Resposta da verificação de BU:', needsSelection);
         setNeedsBusinessUnitSelection(needsSelection.needs_selection);
       } catch (error) {
-        console.error('Erro ao verificar necessidade de seleção de BU:', error);
+        console.error('⚠️ [AuthContext] Erro ao verificar necessidade de seleção de BU:', error);
         // Fallback: verificar se tem business_unit_id no token
-        setNeedsBusinessUnitSelection(!decoded.business_unit_id);
+        const needsBU = !decoded.business_unit_id;
+        console.log(`📋 [AuthContext] Fallback - Precisa BU: ${needsBU}`);
+        setNeedsBusinessUnitSelection(needsBU);
       }
+      
+      console.log('✅ [AuthContext] Login completo!');
     } catch (error) {
-      console.error('Erro no login:', error);
+      console.error('❌ [AuthContext] Erro no login:', error);
       throw error;
     }
   };

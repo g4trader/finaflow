@@ -1,7 +1,13 @@
 import axios from 'axios';
 
 // Build timestamp: 2025-09-02 12:00:00 - Fixed backend URL
-const API_BASE_URL = 'https://finaflow-backend-609095880025.us-central1.run.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
+// Log da URL da API (para debug)
+if (typeof window !== 'undefined') {
+  console.log('🔧 [API Config] API Base URL:', API_BASE_URL);
+  console.log('🔧 [API Config] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+}
 
 // Configuração do axios
 const api = axios.create({
@@ -55,9 +61,13 @@ api.interceptors.response.use(
 
 // Autenticação
 export const login = async (username: string, password: string) => {
+  console.log('📡 [API] Preparando login...', { username, api_url: API_BASE_URL });
+  
   const formData = new FormData();
   formData.append('username', username);
   formData.append('password', password);
+  
+  console.log('📤 [API] Enviando requisição para /api/v1/auth/login');
   
   const response = await api.post('/api/v1/auth/login', formData, {
     headers: {
@@ -65,9 +75,16 @@ export const login = async (username: string, password: string) => {
     },
   });
   
+  console.log('📥 [API] Resposta recebida:', { 
+    status: response.status,
+    has_access_token: !!response.data.access_token,
+    has_refresh_token: !!response.data.refresh_token
+  });
+  
   // Salvar refresh token
   if (response.data.refresh_token) {
     localStorage.setItem('refresh-token', response.data.refresh_token);
+    console.log('💾 [API] Refresh token salvo');
   }
   
   return response.data;
@@ -707,6 +724,57 @@ export const importChartAccounts = async (file: File, token?: string) => {
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || 'Erro ao importar plano de contas');
   }
+};
+
+// ============================================================================
+// IMPORTAÇÃO GOOGLE SHEETS
+// ============================================================================
+
+// Informações da planilha de exemplo
+export const getSampleSpreadsheetInfo = async (token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get('/api/v1/import/google-sheets/sample', { headers });
+  return response.data;
+};
+
+// Validar estrutura de dados de uma planilha Google Sheets
+export const validateGoogleSheetsData = async (spreadsheetId: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/import/google-sheets/validate', null, {
+    params: { spreadsheet_id: spreadsheetId },
+    headers
+  });
+  return response.data;
+};
+
+// Importar dados de uma planilha Google Sheets
+export const importFromGoogleSheets = async (data: {
+  spreadsheet_id: string;
+  import_type?: string;
+  validate_only?: boolean;
+}, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.post('/api/v1/import/google-sheets', data, { headers });
+  return response.data;
+};
+
+// Obter status de uma importação
+export const getImportStatus = async (importId: string, token?: string) => {
+  const headers: any = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get(`/api/v1/import/status/${importId}`, { headers });
+  return response.data;
 };
 
 export default api;

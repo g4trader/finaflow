@@ -11,7 +11,7 @@ import jwtDecode from 'jwt-decode';
 
 export default function Login() {
   const { login, needsBusinessUnitSelection } = useContext(AuthContext);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -23,16 +23,22 @@ export default function Login() {
     setError('');
 
     try {
-      await login(email, password);
+      console.log('🔐 Iniciando login...', { username });
+      await login(username, password);
+      console.log('✅ Login bem-sucedido!');
       
       // Verificar se precisa selecionar BU
       if (needsBusinessUnitSelection) {
+        console.log('📋 Redirecionando para seleção de BU');
         window.location.href = '/select-business-unit';
       } else {
+        console.log('📊 Redirecionando para dashboard');
         window.location.href = '/dashboard';
       }
-    } catch {
-      setError('Email ou senha incorretos. Tente novamente.');
+    } catch (err: any) {
+      console.error('❌ Erro no login:', err);
+      const message = err?.response?.data?.detail || err?.message || 'Username ou senha incorretos. Tente novamente.';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -94,8 +100,8 @@ export default function Login() {
                     name="username"
                     label="Username ou Email"
                     placeholder="admin ou seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     fullWidth
                     required
                     className="pl-10"
