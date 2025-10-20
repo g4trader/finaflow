@@ -2710,7 +2710,7 @@ async def delete_lancamento_diario(
         
         # Soft delete
         lancamento.is_active = False
-        lancamento.updated_at = datetime.utcnow()
+        lancamento.updated_at = datetime.now()
         
         db.commit()
         
