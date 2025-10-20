@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../services/api';
+import api from '../services/api';
 
 interface PlanoContas {
   grupos: Array<{ id: string; code: string; name: string; }>;
@@ -370,7 +370,7 @@ const Transactions: React.FC = () => {
                           </td>
                       <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
                         {lancamento.observacoes || '-'}
-                      </td>
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                               <button

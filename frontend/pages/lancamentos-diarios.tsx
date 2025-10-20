@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../services/api';
+import api from '../services/api';
 
 interface PlanoContas {
   grupos: Array<{ id: string; code: string; name: string; }>;
