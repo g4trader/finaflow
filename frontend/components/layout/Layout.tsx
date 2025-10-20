@@ -20,7 +20,8 @@ import {
   Building2,
   GitBranch,
   Shield,
-  BookOpen
+  BookOpen,
+  FileSpreadsheet
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -67,7 +68,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       // Verificar se a página atual está no submenu de Configurações
   const configSubmenuPages = [
     'Empresas', 'Business Units', 'Usuários', 'Plano de Contas',
-    'Grupos', 'Subgrupos', 'Importar CSV', 'Permissões de Usuário'
+    'Grupos', 'Subgrupos', 'Importar CSV', 'Importar Google Sheets', 'Permissões de Usuário'
   ];
     
     if (title && configSubmenuPages.includes(title)) {
@@ -110,10 +111,17 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     },
     {
       icon: <CreditCard className="w-5 h-5" />,
-      label: 'Transações',
+      label: 'Lançamentos Diários',
+      href: '/lancamentos-diarios',
+      active: isItemActive('/lancamentos-diarios', 'Lançamentos Diários'),
+      description: 'Lançamentos diários espelhando a planilha (Conta, Subgrupo, Grupo)'
+    },
+    {
+      icon: <Wallet className="w-5 h-5" />,
+      label: 'Transações (Legado)',
       href: '/transactions',
       active: isItemActive('/transactions', 'Transações'),
-      description: 'Registrar e visualizar transações'
+      description: 'Sistema antigo de transações'
     },
 
     {
@@ -187,6 +195,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           href: '/csv-import',
           active: isItemActive('/csv-import', 'Importar CSV'),
           description: 'Importar dados via arquivo CSV'
+        },
+        {
+          icon: <FileSpreadsheet className="w-4 h-4" />,
+          label: 'Importar Google Sheets',
+          href: '/google-sheets-import',
+          active: isItemActive('/google-sheets-import', 'Importar Google Sheets'),
+          description: 'Importar dados da metodologia Ana Paula via Google Sheets'
         },
         {
           icon: <Shield className="w-4 h-4" />,
