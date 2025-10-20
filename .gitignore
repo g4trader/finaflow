@@ -8,3 +8,9 @@ __pycache__/
 coverage/
 dist/
 .vercel
+
+# Google Credentials
+google_credentials.json
+**/google_credentials.json
+backend/google_credentials.json
+
