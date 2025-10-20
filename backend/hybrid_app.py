@@ -2146,6 +2146,8 @@ async def get_cash_flow(
                 daily_data[date_key]["revenue"] += float(lancamento.valor)
             elif "DESPESA" in transaction_type:
                 daily_data[date_key]["expenses"] += float(lancamento.valor)
+            elif "CUSTO" in transaction_type:
+                daily_data[date_key]["costs"] += float(lancamento.valor)
         
         # Calcular fluxo de caixa
         cash_flows = []
@@ -2523,14 +2525,30 @@ async def create_lancamento_diario(
         if not grupo:
             return {"success": False, "message": "Grupo não encontrado"}
         
-        # Determinar tipo de transação baseado no nome do grupo
+        # Determinar tipo de transação baseado no grupo e subgrupo
         grupo_lower = grupo.name.lower()
-        if any(keyword in grupo_lower for keyword in ['receita', 'venda', 'renda']):
+        subgrupo_lower = ""
+        
+        # Buscar subgrupo para análise mais precisa
+        subgrupo = db.query(ChartAccountSubgroup).filter(
+            ChartAccountSubgroup.id == lancamento_data['subgrupo_id']
+        ).first()
+        if subgrupo:
+            subgrupo_lower = subgrupo.name.lower()
+        
+        # Lógica melhorada de classificação
+        if any(keyword in grupo_lower for keyword in ['receita', 'venda', 'renda', 'faturamento', 'vendas']):
             transaction_type = "RECEITA"
-        elif any(keyword in grupo_lower for keyword in ['despesa', 'custo', 'gasto']):
+        elif any(keyword in grupo_lower for keyword in ['custo', 'custos']) or any(keyword in subgrupo_lower for keyword in ['custo', 'custos', 'mercadoria', 'produto']):
+            transaction_type = "CUSTO"
+        elif any(keyword in grupo_lower for keyword in ['despesa', 'gasto', 'operacional', 'administrativa']) or any(keyword in subgrupo_lower for keyword in ['despesa', 'gasto', 'marketing', 'administrativa']):
             transaction_type = "DESPESA"
         else:
-            transaction_type = "DESPESA"  # Default
+            # Default baseado em palavras-chave mais específicas
+            if any(keyword in grupo_lower for keyword in ['ativo', 'passivo', 'patrimonio']):
+                transaction_type = "DESPESA"  # Contas patrimoniais geralmente são despesas
+            else:
+                transaction_type = "DESPESA"  # Default conservador
         
         # Criar lançamento usando o modelo LancamentoDiario
         from app.models.lancamento_diario import LancamentoDiario

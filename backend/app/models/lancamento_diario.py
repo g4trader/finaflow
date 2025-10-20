@@ -6,9 +6,10 @@ from app.database import Base
 import enum
 
 class TransactionType(str, enum.Enum):
-    """Tipos de transação baseados no Grupo"""
+    """Tipos de transação baseados no Grupo e Subgrupo"""
     RECEITA = "RECEITA"
     DESPESA = "DESPESA"
+    CUSTO = "CUSTO"
     ATIVO = "ATIVO"
     PASSIVO = "PASSIVO"
     PATRIMONIO_LIQUIDO = "PATRIMONIO_LIQUIDO"
