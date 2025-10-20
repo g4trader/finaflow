@@ -1,0 +1,22 @@
+{
+  "start_time": "2025-10-18T13:55:55.108051",
+  "tests": [],
+  "screenshots": [
+    "e2e_screenshots/01_login_page_135615.png",
+    "e2e_screenshots/02_login_filled_135618.png",
+    "e2e_screenshots/03_login_result_135623.png"
+  ],
+  "errors": [],
+  "end_time": "2025-10-18T13:56:24.276126",
+  "test_results": [
+    [
+      "Login",
+      false
+    ]
+  ],
+  "summary": {
+    "total_tests": 1,
+    "passed": 0,
+    "failed": 1
+  }
+}

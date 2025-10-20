@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-10-15T16:15:36.813425",
+  "frontend_url": "https://finaflow.vercel.app",
+  "backend_url": "https://finaflow-backend-642830139828.us-central1.run.app",
+  "tests": [],
+  "summary": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "errors": []
+  }
+}

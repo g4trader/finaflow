@@ -27,14 +27,14 @@ export default function Login() {
       await login(username, password);
       console.log('✅ Login bem-sucedido!');
       
-      // Verificar se precisa selecionar BU
-      if (needsBusinessUnitSelection) {
-        console.log('📋 Redirecionando para seleção de BU');
-        window.location.href = '/select-business-unit';
-      } else {
-        console.log('📊 Redirecionando para dashboard');
-        window.location.href = '/dashboard';
-      }
+      // Sempre redirecionar para seleção de empresa após login
+      // O usuário pode ter acesso a múltiplas empresas
+      console.log('📋 Redirecionando para seleção de empresa');
+      
+      // Pequeno delay para garantir que o token foi persistido
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      window.location.href = '/select-business-unit';
     } catch (err: any) {
       console.error('❌ Erro no login:', err);
       const message = err?.response?.data?.detail || err?.message || 'Username ou senha incorretos. Tente novamente.';

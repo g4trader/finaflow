@@ -44,11 +44,11 @@ def main():
     print("=" * 60)
     print("""
 -- Delete o usuário existente (se houver)
-DELETE FROM `automatizar-452311.finaflow.Users` 
+DELETE FROM `trivihair.finaflow.Users` 
 WHERE username = 'admin';
 
 -- Insira o usuário com hash correto
-INSERT INTO `automatizar-452311.finaflow.Users` 
+INSERT INTO `trivihair.finaflow.Users` 
 (id, username, email, hashed_password, role, tenant_id, created_at)
 VALUES 
 (

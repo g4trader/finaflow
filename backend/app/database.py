@@ -6,19 +6,23 @@ import os
 from typing import Generator
 
 # Configuração do banco de dados - APENAS PostgreSQL
-# Forçar uso do PostgreSQL tanto local quanto no Cloud Run
+# Suporta tanto Unix Socket (Cloud Run) quanto TCP (desenvolvimento local)
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "postgresql://finaflow_user:finaflow_password@34.70.102.98:5432/finaflow_db"
+    "postgresql://finaflow_user:finaflow_password@34.41.169.224:5432/finaflow_db"
 )
 
 # Garantir que use PostgreSQL
 if not DATABASE_URL.startswith("postgresql"):
     print(f"⚠️  DATABASE_URL inválida: {DATABASE_URL}")
     print("🔄 Forçando uso do PostgreSQL...")
-    DATABASE_URL = "postgresql://finaflow_user:finaflow_password@34.70.102.98:5432/finaflow_db"
+    DATABASE_URL = "postgresql://finaflow_user:finaflow_password@34.41.169.224:5432/finaflow_db"
 
-print(f"🔗 Conectando ao banco: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'PostgreSQL'}")
+# Detectar se está usando Unix Socket (Cloud Run) ou TCP (local)
+if "/cloudsql/" in DATABASE_URL:
+    print(f"🔗 Conectando ao banco via Unix Socket (Cloud Run): Cloud SQL Proxy")
+else:
+    print(f"🔗 Conectando ao banco via TCP: {DATABASE_URL.split('@')[1].split('/')[0] if '@' in DATABASE_URL else 'PostgreSQL'}")
 
 # Configuração para PostgreSQL
 engine = create_engine(
@@ -49,6 +53,12 @@ def get_db() -> Generator:
     db = SessionLocal()
     try:
         yield db
+        # Se chegou aqui sem exceção, fazer commit
+        # (não fazer mais rollback automático)
+    except Exception:
+        # Em caso de erro, fazer rollback
+        db.rollback()
+        raise
     finally:
         db.close()
 

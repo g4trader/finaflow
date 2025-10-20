@@ -2,11 +2,11 @@
 -- Execute esta query no BigQuery
 
 -- Primeiro, delete o usuário existente (se houver)
-DELETE FROM `automatizar-452311.finaflow.Users` 
+DELETE FROM `trivihair.finaflow.Users` 
 WHERE username = 'admin';
 
 -- Depois, insira o usuário com hash correto
-INSERT INTO `automatizar-452311.finaflow.Users` 
+INSERT INTO `trivihair.finaflow.Users` 
 (id, username, email, hashed_password, role, tenant_id, created_at)
 VALUES 
 (
@@ -21,5 +21,5 @@ VALUES
 
 -- Verifique se foi criado corretamente
 SELECT username, email, role, created_at 
-FROM `automatizar-452311.finaflow.Users` 
+FROM `trivihair.finaflow.Users` 
 WHERE username = 'admin';

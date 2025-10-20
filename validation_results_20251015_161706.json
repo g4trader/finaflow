@@ -1,0 +1,58 @@
+{
+  "timestamp": "2025-10-15T16:17:04.126608",
+  "tests": [
+    {
+      "name": "Backend Health",
+      "status": "PASSED",
+      "message": "Status 200",
+      "timestamp": "2025-10-15T16:17:04.626823"
+    },
+    {
+      "name": "OpenAPI Schema",
+      "status": "PASSED",
+      "message": "53 endpoints documentados",
+      "timestamp": "2025-10-15T16:17:05.061405"
+    },
+    {
+      "name": "Frontend Accessible",
+      "status": "PASSED",
+      "message": "HTML carregado",
+      "timestamp": "2025-10-15T16:17:05.248720"
+    },
+    {
+      "name": "CORS Configuration",
+      "status": "PASSED",
+      "message": "CORS: https://finaflow.vercel.app",
+      "timestamp": "2025-10-15T16:17:05.590464"
+    },
+    {
+      "name": "Database Connection",
+      "status": "PASSED",
+      "message": "Backend respondeu (banco provavelmente OK)",
+      "timestamp": "2025-10-15T16:17:05.915458"
+    },
+    {
+      "name": "Login Endpoint",
+      "status": "FAILED",
+      "message": "Endpoint n\u00e3o encontrado - pode estar em outra rota",
+      "timestamp": "2025-10-15T16:17:06.266849"
+    },
+    {
+      "name": "Authenticated Request",
+      "status": "SKIPPED",
+      "message": "Sem token (login falhou)",
+      "timestamp": "2025-10-15T16:17:06.271194"
+    },
+    {
+      "name": "Frontend Environment",
+      "status": "WARNING",
+      "message": "N\u00e3o foi poss\u00edvel verificar",
+      "timestamp": "2025-10-15T16:17:06.962327"
+    }
+  ],
+  "summary": {
+    "total": 8,
+    "passed": 5,
+    "failed": 3
+  }
+}

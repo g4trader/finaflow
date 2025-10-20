@@ -111,17 +111,10 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     },
     {
       icon: <CreditCard className="w-5 h-5" />,
-      label: 'Lançamentos Diários',
-      href: '/lancamentos-diarios',
-      active: isItemActive('/lancamentos-diarios', 'Lançamentos Diários'),
-      description: 'Lançamentos diários espelhando a planilha (Conta, Subgrupo, Grupo)'
-    },
-    {
-      icon: <Wallet className="w-5 h-5" />,
-      label: 'Transações (Legado)',
+      label: 'Lançamentos Financeiros',
       href: '/transactions',
-      active: isItemActive('/transactions', 'Transações'),
-      description: 'Sistema antigo de transações'
+      active: isItemActive('/transactions', 'Lançamentos Financeiros'),
+      description: 'Lançamentos diários com estrutura da planilha (Grupo, Subgrupo, Conta)'
     },
 
     {

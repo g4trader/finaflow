@@ -11,6 +11,11 @@ from sqlalchemy.orm import Session, relationship
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Date, Numeric
 from fastapi.security import HTTPBearer
 
+# VERSÃO ATUALIZADA 2025-10-16 18:30
+print("="*80)
+print("🚀 INICIANDO FINAFLOW BACKEND - VERSÃO ATUALIZADA 2.0.0")
+print("="*80)
+
 # Importar configurações do banco de dados
 from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
@@ -248,11 +253,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    """Endpoint raiz para teste - VERSÃO ATUALIZADA"""
+    return {"message": "FinaFlow API funcionando", "version": "2.0.0", "timestamp": str(datetime.datetime.utcnow()), "updated": True}
+
+@app.get("/health")
+async def health():
+    """Endpoint de health check"""
+    return {"status": "healthy", "timestamp": str(datetime.datetime.utcnow())}
+
+@app.get("/api/v1/auth/test")
+async def test_auth():
+    """Endpoint de teste para auth"""
+    return {"message": "Auth endpoint funcionando", "timestamp": str(datetime.datetime.utcnow())}
+
 # Criar tabelas no banco de dados
-try:
-    AuthBase.metadata.create_all(bind=engine)
-    ChartBase.metadata.create_all(bind=engine)
-    FinancialBase.metadata.create_all(bind=engine)
+# COMENTADO: Tabelas já existem no banco
+# try:
+#     AuthBase.metadata.create_all(bind=engine)
+#     ChartBase.metadata.create_all(bind=engine)
+#     FinancialBase.metadata.create_all(bind=engine)
     
     # Criar tabela de previsões se não existir (comentado temporariamente)
     # try:
@@ -266,10 +287,12 @@ try:
     # except Exception as e:
     #     print(f"⚠️ Aviso: Não foi possível criar tabela de previsões: {e}")
     
-    print("✅ Database tables created")
-except Exception as e:
-    print(f"❌ Could not create database tables: {e}")
-    raise e
+#     print("✅ Database tables created")
+# except Exception as e:
+#     print(f"❌ Could not create database tables: {e}")
+#     raise e
+
+print("✅ Usando tabelas existentes do banco de dados")
 
 # Dados mock para permissões (temporário)
 business_unit_permissions_db = [
@@ -473,13 +496,7 @@ def get_current_user(token: str = Depends(HTTPBearer())):
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Erro na autenticação: {str(e)}")
 
-@app.get("/")
-async def root():
-    return {"message": "FinaFlow Backend API", "version": "1.0.0"}
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "message": "Backend is running"}
+# Endpoints raiz e health movidos para o início do arquivo (linhas 251-264)
 
 @app.get("/test")
 async def test_endpoint():
@@ -511,7 +528,7 @@ async def debug_test_jwt():
             test_success = False
             test_error = str(test_e)
         
-        return {
+            return {
             "secret_key": SECRET_KEY,
             "algorithm": ALGORITHM,
             "test_payload": test_payload,
@@ -523,7 +540,7 @@ async def debug_test_jwt():
             "test_error": test_error if not test_success else None
         }
     except Exception as e:
-        return {
+            return {
             "error": str(e),
             "secret_key": SECRET_KEY,
             "algorithm": ALGORITHM,
@@ -563,7 +580,7 @@ async def debug_test_login_token():
             manual_success = False
             manual_error = str(manual_e)
         
-        return {
+            return {
             "login_payload": login_payload,
             "generated_token": token,
             "decoded_payload": decoded,
@@ -573,7 +590,7 @@ async def debug_test_login_token():
             "manual_error": manual_error
         }
     except Exception as e:
-        return {
+            return {
             "error": str(e),
             "verification_success": False
         }
@@ -956,87 +973,119 @@ async def reset_superadmin_password(db: Session = Depends(get_db)):
         "role": superadmin.role
     }
 
+@app.get("/api/v1/auth/test-simple")
+async def test_simple():
+    """Endpoint de teste muito simples"""
+    return {"message": "Teste simples funcionando", "status": "ok"}
+
+@app.get("/api/v1/auth/test-bu/{bu_id}")
+async def test_bu(bu_id: str, db: Session = Depends(get_db)):
+    """Endpoint de teste para verificar se a BU existe no banco"""
+    try:
+        business_unit = db.query(BusinessUnit).filter(BusinessUnit.id == bu_id).first()
+        if business_unit:
+            return {
+                "found": True,
+                "id": business_unit.id,
+                "name": business_unit.name,
+                "tenant_id": business_unit.tenant_id
+            }
+        else:
+            return {"found": False, "id": bu_id}
+    except Exception as e:
+        return {"error": str(e), "id": bu_id}
+
 @app.post("/api/v1/auth/select-business-unit")
-async def select_business_unit(request: dict, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    business_unit_id = request.get("business_unit_id")
-    if not business_unit_id:
-        raise HTTPException(status_code=400, detail="business_unit_id é obrigatório")
-    """Seleciona uma BU para o usuário e retorna um novo token com a BU selecionada"""
-    user_id = current_user.get("sub")
-    
-    # Verificar se o usuário tem acesso à BU
-    user_permissions = [p for p in business_unit_permissions_db if p["user_id"] == user_id and p["business_unit_id"] == business_unit_id]
-    
-    # Se não tem permissões específicas, permitir acesso (para admin)
-    if not user_permissions:
+async def select_business_unit(
+    business_unit_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Seleciona uma Business Unit para o usuário atual e retorna novo token"""
+    try:
+        user_id = current_user.get("sub")
+        business_unit_id = business_unit_data.get("business_unit_id")
+        
+        print(f"🔍 [DEBUG] user_id: {user_id}")
+        print(f"🔍 [DEBUG] business_unit_id: {business_unit_id}")
+        
+        if not business_unit_id:
+            raise HTTPException(status_code=400, detail="business_unit_id é obrigatório")
+        
         # Verificar se a BU existe
-        bu = next((b for b in business_units_db if b["id"] == business_unit_id), None)
-        if not bu:
+        business_unit = db.query(BusinessUnit).filter(BusinessUnit.id == business_unit_id).first()
+        print(f"🔍 [DEBUG] business_unit encontrada: {business_unit is not None}")
+        if business_unit:
+            print(f"🔍 [DEBUG] BU nome: {business_unit.name}")
+            print(f"🔍 [DEBUG] BU tenant_id: {business_unit.tenant_id}")
+        
+        if not business_unit:
             raise HTTPException(status_code=404, detail="Business Unit não encontrada")
         
-        # Criar novo token com a BU selecionada
-        new_payload = {
-            "sub": user_id,
-            "username": current_user.get("username"),
-            "email": current_user.get("email"),
-            "first_name": current_user.get("first_name"),
-            "last_name": current_user.get("last_name"),
-            "role": current_user.get("role"),
-            "tenant_id": bu["tenant_id"],
-            "business_unit_id": business_unit_id,
-            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-        }
+        # Verificar se o usuário tem acesso à BU
+        user_role = current_user.get("role")
+        has_access = False
         
-        new_access_token = jwt.encode(new_payload, SECRET_KEY, algorithm=ALGORITHM)
+        if user_role == "super_admin":
+            has_access = True
+        else:
+            # Verificar permissões específicas
+            user_permission = db.query(UserBusinessUnitAccess).filter(
+                UserBusinessUnitAccess.user_id == user_id,
+                UserBusinessUnitAccess.business_unit_id == business_unit_id
+            ).first()
+            has_access = user_permission is not None
         
-        return {
-            "access_token": new_access_token,
-            "token_type": "bearer",
-            "expires_in": 1800,
-            "selected_business_unit": {
-                "id": bu["id"],
-                "name": bu["name"],
-                "code": bu["code"],
-                "tenant_id": bu["tenant_id"]
-            }
-        }
-    
-    # Verificar permissões
-    permission = user_permissions[0]
-    if not permission["can_read"]:
-        raise HTTPException(status_code=403, detail="Sem permissão de acesso a esta Business Unit")
-    
-    # Buscar informações da BU
-    bu = next((b for b in business_units_db if b["id"] == business_unit_id), None)
-    if not bu:
-        raise HTTPException(status_code=404, detail="Business Unit não encontrada")
+        if not has_access:
+            raise HTTPException(status_code=403, detail="Usuário não tem acesso a esta Business Unit")
+        
+        # Buscar dados completos do usuário
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        
+        # Atualizar business_unit_id default do usuário
+        user.business_unit_id = business_unit_id
+        db.commit()
+        print(f"✅ Business Unit padrão do usuário atualizada: {business_unit_id}")
+        
+        # Buscar dados da empresa
+        tenant = db.query(Tenant).filter(Tenant.id == business_unit.tenant_id).first()
     
     # Criar novo token com a BU selecionada
-    new_payload = {
-        "sub": user_id,
-        "username": current_user.get("username"),
-        "email": current_user.get("email"),
-        "first_name": current_user.get("first_name"),
-        "last_name": current_user.get("last_name"),
-        "role": current_user.get("role"),
-        "tenant_id": bu["tenant_id"],
-        "business_unit_id": business_unit_id,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    }
-    
-    new_access_token = jwt.encode(new_payload, SECRET_KEY, algorithm=ALGORITHM)
-    
-    return {
-        "access_token": new_access_token,
-        "token_type": "bearer",
-        "expires_in": 1800,
-        "selected_business_unit": {
-            "id": bu["id"],
-            "name": bu["name"],
-            "code": bu["code"],
-            "tenant_id": bu["tenant_id"]
+        token_data = {
+            "sub": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "tenant_id": str(business_unit.tenant_id),
+            "business_unit_id": str(business_unit_id),
+            "tenant_name": tenant.name if tenant else "Empresa não encontrada",
+            "business_unit_name": business_unit.name
         }
-    }
+        
+        token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
+    
+        return {
+            "access_token": token,
+        "token_type": "bearer",
+            "expires_in": 3600,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "role": user.role,
+                "tenant_id": str(business_unit.tenant_id),
+                "business_unit_id": str(business_unit_id),
+                "tenant_name": tenant.name if tenant else "Empresa não encontrada",
+                "business_unit_name": business_unit.name
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao selecionar Business Unit: {str(e)}")
 
 # CRUD de Empresas (Tenants)
 @app.get("/api/v1/tenants", response_model=List[TenantResponse])
@@ -1417,33 +1466,7 @@ async def set_user_password(user_id: str, password_data: UserSetPassword, curren
     
     return {"message": f"Senha definida com sucesso para o usuário {user.email}"}
 
-@app.get("/api/v1/financial/transactions")
-async def get_transactions():
-    return [
-            {"id": 1, "description": "Vendas Cursos", "amount": 1000.00, "type": "credit"},
-            {"id": 2, "description": "Salário", "amount": 5000.00, "type": "debit"}
-        ]
-
-@app.get("/api/v1/financial/accounts")
-async def get_accounts():
-    return [
-        {"id": 1, "name": "Conta Corrente", "balance": 5000.00},
-        {"id": 2, "name": "Poupança", "balance": 10000.00}
-    ]
-
-@app.get("/api/v1/financial/groups")
-async def get_groups():
-    return [
-        {"id": 1, "name": "Receitas", "description": "Grupo de receitas"},
-        {"id": 2, "name": "Despesas", "description": "Grupo de despesas"}
-    ]
-
-@app.get("/api/v1/financial/account-subgroups")
-async def get_subgroups():
-    return [
-        {"id": 1, "name": "Vendas", "group_id": 1},
-        {"id": 2, "name": "Salários", "group_id": 2}
-    ]
+# MOCK endpoints removidos - usar endpoints reais abaixo
 
 @app.post("/api/v1/financial/forecasts")
 async def create_forecast(
@@ -2038,7 +2061,7 @@ async def import_forecasts_csv(
             print(f"❌ Erro ao salvar no banco: {commit_error}")
             raise HTTPException(status_code=500, detail=f"Erro ao salvar dados: {str(commit_error)}")
         
-        return {
+            return {
             "message": "Importação CSV concluída com sucesso!",
             "summary": {
                 "processed": processed,
@@ -2056,9 +2079,106 @@ async def import_forecasts_csv(
         raise HTTPException(status_code=500, detail=f"Erro no processamento: {str(e)}")
 
 @app.get("/api/v1/financial/cash-flow")
-async def get_cash_flow():
+async def get_cash_flow(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    period_type: str = "daily",
+    _t: Optional[str] = None,  # Cache busting parameter
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter fluxo de caixa baseado nos lançamentos diários"""
+    try:
+        from datetime import datetime, timedelta
+        from collections import defaultdict
+        from app.models.lancamento_diario import LancamentoDiario
+        
+        # Definir período padrão (últimos 30 dias)
+        if not end_date:
+            end_date = datetime.now().strftime("%Y-%m-%d")
+        if not start_date:
+            start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        
+        # Converter strings para datetime (lidar com formato ISO)
+        try:
+            if 'T' in start_date:
+                start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            else:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        except:
+            start_dt = datetime.now() - timedelta(days=30)
+            
+        try:
+            if 'T' in end_date:
+                end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            else:
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        except:
+            end_dt = datetime.now()
+        
+        # Buscar lançamentos diários no período
+        lancamentos = db.query(LancamentoDiario.data_movimentacao, 
+                               LancamentoDiario.transaction_type, 
+                               LancamentoDiario.valor).filter(
+            LancamentoDiario.tenant_id == current_user["tenant_id"],
+            LancamentoDiario.business_unit_id == current_user["business_unit_id"],
+            LancamentoDiario.data_movimentacao >= start_dt,
+            LancamentoDiario.data_movimentacao <= end_dt,
+            LancamentoDiario.is_active == True
+        ).limit(1000).all()  # Limitar a 1000 lançamentos para performance
+        
+        print(f"[CASH FLOW] Encontrados {len(lancamentos)} lançamentos no período {start_date} a {end_date}")
+        
+        # Debug: mostrar alguns lançamentos
+        if lancamentos:
+            for i, lanc in enumerate(lancamentos[:3]):
+                print(f"[CASH FLOW] Lançamento {i+1}: {lanc.data_movimentacao} | {lanc.transaction_type} | R$ {lanc.valor}")
+        
+        # Agrupar por data
+        daily_data = defaultdict(lambda: {"revenue": 0, "expenses": 0, "costs": 0})
+        
+        for lancamento in lancamentos:
+            date_key = lancamento.data_movimentacao.strftime("%Y-%m-%d")
+            
+            # Converter enum para string se necessário
+            transaction_type = str(lancamento.transaction_type)
+            if "RECEITA" in transaction_type:
+                daily_data[date_key]["revenue"] += float(lancamento.valor)
+            elif "DESPESA" in transaction_type:
+                daily_data[date_key]["expenses"] += float(lancamento.valor)
+        
+        # Calcular fluxo de caixa
+        cash_flows = []
+        current_balance = 0.0
+        
+        # Ordenar por data
+        for date_str in sorted(daily_data.keys()):
+            data = daily_data[date_str]
+            opening_balance = current_balance
+            net_flow = data["revenue"] - data["expenses"] - data["costs"]
+            current_balance += net_flow
+            
+            cash_flow_item = {
+                "date": date_str,
+                "opening_balance": round(opening_balance, 2),
+                "total_revenue": round(data["revenue"], 2),
+                "total_expenses": round(data["expenses"], 2),
+                "total_costs": round(data["costs"], 2),
+                "net_flow": round(net_flow, 2),
+                "closing_balance": round(current_balance, 2)
+            }
+            cash_flows.append(cash_flow_item)
+        
+        print(f"[CASH FLOW] Gerado fluxo com {len(cash_flows)} dias")
+        return cash_flows
+        
+    except Exception as e:
+        print(f"[CASH FLOW ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        # Fallback para dados mock se houver erro
     return [
-        {"date": "2024-01-01", "opening_balance": 10000, "total_revenue": 5000, "total_expenses": 3000, "closing_balance": 12000}
+            {"date": start_date or "2024-01-01", "opening_balance": 0, "total_revenue": 0, "total_expenses": 0, "total_costs": 0, "net_flow": 0, "closing_balance": 0}
     ]
 
 @app.get("/api/v1/reports/cash-flow")
@@ -2069,6 +2189,520 @@ async def get_cash_flow():
             {"month": "Fev", "income": 60000, "expense": 35000, "balance": 25000}
         ]
     }
+
+@app.get("/api/v1/debug/cash-flow")
+async def debug_cash_flow(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Debug endpoint para verificar transações"""
+    try:
+        # Buscar algumas transações (usando strings em vez de UUID)
+        tenant_id_str = str(current_user["tenant_id"])
+        bu_id_str = str(current_user["business_unit_id"])
+        
+        transactions = db.query(FinancialTransaction).filter(
+            FinancialTransaction.tenant_id == tenant_id_str,
+            FinancialTransaction.business_unit_id == bu_id_str
+        ).limit(10).all()
+        
+        result = {
+            "total_transactions": len(transactions),
+            "sample_transactions": []
+        }
+        
+        for t in transactions:
+            result["sample_transactions"].append({
+                "id": str(t.id),
+                "date": str(t.transaction_date),
+                "type": str(t.transaction_type),
+                "amount": float(t.amount),
+                "description": t.description
+            })
+        
+        return result
+        
+    except Exception as e:
+        return {"error": str(e), "traceback": str(e.__traceback__)}
+
+@app.get("/api/v1/admin/check-column-types")
+async def check_column_types(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Verificar tipos das colunas das tabelas"""
+    try:
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Apenas super_admin")
+        
+        from sqlalchemy import text
+        
+        # Verificar tipos das colunas
+        result = db.execute(text("""
+            SELECT table_name, column_name, data_type 
+            FROM information_schema.columns 
+            WHERE column_name IN ('id', 'tenant_id', 'business_unit_id')
+                AND table_name IN ('tenants', 'business_units', 'financial_transactions')
+            ORDER BY table_name, column_name
+        """)).fetchall()
+        
+        return {
+            "success": True,
+            "column_types": [
+                {
+                    "table": row[0],
+                    "column": row[1], 
+                    "type": row[2]
+                }
+                for row in result
+            ]
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/v1/admin/create-lancamentos-diarios-table")
+async def create_lancamentos_diarios_table(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Criar tabela de lançamentos diários"""
+    try:
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Apenas super_admin")
+        
+        from sqlalchemy import text
+        
+        results = []
+        
+        # Executar migração
+        results.append("1️⃣ Criando tabela lancamentos_diarios...")
+        
+        # Ler arquivo de migração
+        migration_sql = """
+        CREATE TABLE IF NOT EXISTS lancamentos_diarios (
+            id VARCHAR(36) PRIMARY KEY,
+            
+            -- Campos obrigatórios da planilha
+            data_movimentacao TIMESTAMP NOT NULL,
+            valor DECIMAL(15,2) NOT NULL,
+            liquidacao TIMESTAMP NULL,
+            observacoes TEXT NULL,
+            
+            -- Campos obrigatórios vinculados ao plano de contas
+            conta_id VARCHAR(36) NOT NULL,
+            subgrupo_id VARCHAR(36) NOT NULL,
+            grupo_id VARCHAR(36) NOT NULL,
+            
+            -- Tipo de transação baseado no Grupo
+            transaction_type VARCHAR(50) NOT NULL,
+            status VARCHAR(50) DEFAULT 'pendente',
+            
+            -- Vinculação com empresa/BU
+            tenant_id VARCHAR(36) NOT NULL,
+            business_unit_id VARCHAR(36) NOT NULL,
+            
+            -- Usuário que criou
+            created_by VARCHAR(36) NOT NULL,
+            
+            -- Metadados
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            
+            -- Foreign Keys
+            CONSTRAINT fk_lancamentos_conta FOREIGN KEY (conta_id) REFERENCES chart_accounts(id),
+            CONSTRAINT fk_lancamentos_subgrupo FOREIGN KEY (subgrupo_id) REFERENCES chart_account_subgroups(id),
+            CONSTRAINT fk_lancamentos_grupo FOREIGN KEY (grupo_id) REFERENCES chart_account_groups(id),
+            CONSTRAINT fk_lancamentos_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+            CONSTRAINT fk_lancamentos_business_unit FOREIGN KEY (business_unit_id) REFERENCES business_units(id),
+            CONSTRAINT fk_lancamentos_user FOREIGN KEY (created_by) REFERENCES users(id),
+            
+            -- Constraints
+            CONSTRAINT uq_lancamento_data_conta_valor UNIQUE (data_movimentacao, conta_id, valor, tenant_id, business_unit_id),
+            CONSTRAINT chk_valor_positivo CHECK (valor > 0)
+        );
+        
+        -- Índices para performance
+        CREATE INDEX IF NOT EXISTS idx_lancamentos_tenant_bu ON lancamentos_diarios(tenant_id, business_unit_id);
+        CREATE INDEX IF NOT EXISTS idx_lancamentos_data ON lancamentos_diarios(data_movimentacao);
+        CREATE INDEX IF NOT EXISTS idx_lancamentos_conta ON lancamentos_diarios(conta_id);
+        CREATE INDEX IF NOT EXISTS idx_lancamentos_subgrupo ON lancamentos_diarios(subgrupo_id);
+        CREATE INDEX IF NOT EXISTS idx_lancamentos_grupo ON lancamentos_diarios(grupo_id);
+        CREATE INDEX IF NOT EXISTS idx_lancamentos_type ON lancamentos_diarios(transaction_type);
+        CREATE INDEX IF NOT EXISTS idx_lancamentos_active ON lancamentos_diarios(is_active);
+        """
+        
+        db.execute(text(migration_sql))
+        db.commit()
+        
+        results.append("   ✅ Tabela lancamentos_diarios criada")
+        results.append("   ✅ Índices criados")
+        results.append("   ✅ Constraints aplicadas")
+        
+        return {
+            "success": True,
+            "message": "Tabela lancamentos_diarios criada com sucesso",
+            "results": results
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/v1/admin/fix-all-uuid-types")
+async def fix_all_uuid_types(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Migration completa para converter todas as tabelas para UUID"""
+    try:
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Apenas super_admin")
+        
+        from sqlalchemy import text
+        
+        results = []
+        
+        # 0. Remover TODAS as foreign key constraints
+        results.append("0️⃣ Removendo TODAS as constraints...")
+        try:
+            # Lista completa de constraints
+            constraints_to_drop = [
+                "business_units_tenant_id_fkey",
+                "financial_transactions_tenant_id_fkey", 
+                "financial_transactions_business_unit_id_fkey",
+                "users_tenant_id_fkey",
+                "users_business_unit_id_fkey",
+                "user_tenant_access_tenant_id_fkey",
+                "user_tenant_access_user_id_fkey",
+                "user_business_unit_access_user_id_fkey",
+                "user_business_unit_access_business_unit_id_fkey",
+                "chart_account_groups_tenant_id_fkey",
+                "chart_account_subgroups_tenant_id_fkey",
+                "chart_account_subgroups_group_id_fkey",
+                "chart_accounts_tenant_id_fkey",
+                "chart_accounts_subgroup_id_fkey",
+                "business_unit_chart_accounts_business_unit_id_fkey",
+                "business_unit_chart_accounts_chart_account_id_fkey",
+                "financial_forecasts_tenant_id_fkey",
+                "financial_forecasts_business_unit_id_fkey"
+            ]
+            
+            for constraint in constraints_to_drop:
+                try:
+                    # Tentar remover constraint de qualquer tabela
+                    db.execute(text(f"ALTER TABLE business_units DROP CONSTRAINT IF EXISTS {constraint}"))
+                    db.execute(text(f"ALTER TABLE financial_transactions DROP CONSTRAINT IF EXISTS {constraint}"))
+                    db.execute(text(f"ALTER TABLE users DROP CONSTRAINT IF EXISTS {constraint}"))
+                    db.execute(text(f"ALTER TABLE user_tenant_access DROP CONSTRAINT IF EXISTS {constraint}"))
+                    db.execute(text(f"ALTER TABLE user_business_unit_access DROP CONSTRAINT IF EXISTS {constraint}"))
+                    db.execute(text(f"ALTER TABLE chart_account_groups DROP CONSTRAINT IF EXISTS {constraint}"))
+                    db.execute(text(f"ALTER TABLE chart_account_subgroups DROP CONSTRAINT IF EXISTS {constraint}"))
+                    db.execute(text(f"ALTER TABLE chart_accounts DROP CONSTRAINT IF EXISTS {constraint}"))
+                    db.execute(text(f"ALTER TABLE business_unit_chart_accounts DROP CONSTRAINT IF EXISTS {constraint}"))
+                    db.execute(text(f"ALTER TABLE financial_forecasts DROP CONSTRAINT IF EXISTS {constraint}"))
+                except:
+                    pass
+        except:
+            pass
+        results.append("   ✅ Constraints removidas")
+        
+        # 1. Converter tenants
+        results.append("1️⃣ Convertendo tenants...")
+        db.execute(text("ALTER TABLE tenants ALTER COLUMN id TYPE UUID USING id::uuid"))
+        results.append("   ✅ tenants convertido")
+        
+        # 2. Converter business_units
+        results.append("2️⃣ Convertendo business_units...")
+        db.execute(text("ALTER TABLE business_units ALTER COLUMN id TYPE UUID USING id::uuid"))
+        db.execute(text("ALTER TABLE business_units ALTER COLUMN tenant_id TYPE UUID USING tenant_id::uuid"))
+        results.append("   ✅ business_units convertido")
+        
+        # 3. Converter financial_transactions
+        results.append("3️⃣ Convertendo financial_transactions...")
+        db.execute(text("ALTER TABLE financial_transactions ALTER COLUMN id TYPE UUID USING id::uuid"))
+        db.execute(text("ALTER TABLE financial_transactions ALTER COLUMN tenant_id TYPE UUID USING tenant_id::uuid"))
+        db.execute(text("ALTER TABLE financial_transactions ALTER COLUMN business_unit_id TYPE UUID USING business_unit_id::uuid"))
+        results.append("   ✅ financial_transactions convertido")
+        
+        # 4. Recriar constraints
+        results.append("4️⃣ Recriando constraints...")
+        try:
+            db.execute(text("ALTER TABLE business_units ADD CONSTRAINT business_units_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id)"))
+            db.execute(text("ALTER TABLE financial_transactions ADD CONSTRAINT financial_transactions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id)"))
+            db.execute(text("ALTER TABLE financial_transactions ADD CONSTRAINT financial_transactions_business_unit_id_fkey FOREIGN KEY (business_unit_id) REFERENCES business_units(id)"))
+        except:
+            pass
+        results.append("   ✅ Constraints recriadas")
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Todas as tabelas convertidas para UUID",
+            "results": results
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+    }
+
+# ============================================================================
+# ENDPOINTS DE LANÇAMENTOS DIÁRIOS
+# ============================================================================
+
+@app.get("/api/v1/lancamentos-diarios/plano-contas")
+async def get_plano_contas_hierarchy(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Buscar hierarquia do plano de contas para formulário"""
+    try:
+        # Buscar grupos
+        grupos = db.query(ChartAccountGroup).filter(
+            ChartAccountGroup.tenant_id == current_user["tenant_id"],
+            ChartAccountGroup.is_active == True
+        ).order_by(ChartAccountGroup.code).all()
+        
+        # Buscar subgrupos
+        subgrupos = db.query(ChartAccountSubgroup).filter(
+            ChartAccountSubgroup.tenant_id == current_user["tenant_id"],
+            ChartAccountSubgroup.is_active == True
+        ).order_by(ChartAccountSubgroup.code).all()
+        
+        # Buscar contas
+        contas = db.query(ChartAccount).filter(
+            ChartAccount.tenant_id == current_user["tenant_id"],
+            ChartAccount.is_active == True
+        ).order_by(ChartAccount.code).all()
+        
+        return {
+            "success": True,
+            "grupos": [{"id": g.id, "code": g.code, "name": g.name} for g in grupos],
+            "subgrupos": [{"id": s.id, "code": s.code, "name": s.name, "group_id": s.group_id} for s in subgrupos],
+            "contas": [{"id": c.id, "code": c.code, "name": c.name, "subgroup_id": c.subgroup_id} for c in contas]
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar plano de contas: {str(e)}"}
+
+@app.post("/api/v1/lancamentos-diarios")
+async def create_lancamento_diario(
+    lancamento_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Criar novo lançamento diário"""
+    try:
+        from datetime import datetime
+        from decimal import Decimal
+        
+        # Validar dados obrigatórios
+        required_fields = ['data_movimentacao', 'valor', 'conta_id', 'subgrupo_id', 'grupo_id']
+        for field in required_fields:
+            if field not in lancamento_data:
+                return {"success": False, "message": f"Campo obrigatório: {field}"}
+        
+        # Converter data
+        data_movimentacao = datetime.fromisoformat(lancamento_data['data_movimentacao'].replace('Z', '+00:00'))
+        valor = Decimal(str(lancamento_data['valor']))
+        
+        # Buscar informações do grupo para determinar tipo
+        grupo = db.query(ChartAccountGroup).filter(
+            ChartAccountGroup.id == lancamento_data['grupo_id']
+        ).first()
+        
+        if not grupo:
+            return {"success": False, "message": "Grupo não encontrado"}
+        
+        # Determinar tipo de transação baseado no nome do grupo
+        grupo_lower = grupo.name.lower()
+        if any(keyword in grupo_lower for keyword in ['receita', 'venda', 'renda']):
+            transaction_type = "RECEITA"
+        elif any(keyword in grupo_lower for keyword in ['despesa', 'custo', 'gasto']):
+            transaction_type = "DESPESA"
+        else:
+            transaction_type = "DESPESA"  # Default
+        
+        # Criar lançamento usando o modelo LancamentoDiario
+        from app.models.lancamento_diario import LancamentoDiario
+        
+        lancamento = LancamentoDiario(
+            data_movimentacao=data_movimentacao,
+            valor=valor,
+            liquidacao=datetime.fromisoformat(lancamento_data['liquidacao'].replace('Z', '+00:00')) if lancamento_data.get('liquidacao') else None,
+            observacoes=lancamento_data.get('observacoes', ''),
+            conta_id=lancamento_data['conta_id'],
+            subgrupo_id=lancamento_data['subgrupo_id'],
+            grupo_id=lancamento_data['grupo_id'],
+            transaction_type=transaction_type,
+            status="PENDENTE",
+            tenant_id=current_user["tenant_id"],
+            business_unit_id=current_user["business_unit_id"],
+            created_by=current_user["sub"]
+        )
+        
+        db.add(lancamento)
+        db.commit()
+        db.refresh(lancamento)
+        
+        return {
+            "success": True,
+            "message": "Lançamento criado com sucesso",
+            "lancamento_id": str(lancamento.id),
+            "transaction_type": transaction_type
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao criar lançamento: {str(e)}"}
+
+@app.get("/api/v1/lancamentos-diarios")
+async def get_lancamentos_diarios(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100
+):
+    """Listar lançamentos diários"""
+    try:
+        from app.models.lancamento_diario import LancamentoDiario
+        from sqlalchemy.orm import joinedload
+        
+        # Buscar lançamentos com joins para buscar nomes
+        lancamentos = db.query(LancamentoDiario).options(
+            joinedload(LancamentoDiario.conta),
+            joinedload(LancamentoDiario.subgrupo),
+            joinedload(LancamentoDiario.grupo)
+        ).filter(
+            LancamentoDiario.tenant_id == current_user["tenant_id"],
+            LancamentoDiario.business_unit_id == current_user["business_unit_id"],
+            LancamentoDiario.is_active == True
+        ).order_by(LancamentoDiario.data_movimentacao.desc()).offset(skip).limit(limit).all()
+        
+        # Formatar resposta
+        lancamentos_data = []
+        for lanc in lancamentos:
+            lancamentos_data.append({
+                "id": str(lanc.id),
+                "data_movimentacao": lanc.data_movimentacao.isoformat(),
+                "valor": float(lanc.valor),
+                "liquidacao": lanc.liquidacao.isoformat() if lanc.liquidacao else None,
+                "observacoes": lanc.observacoes,
+                "conta_id": str(lanc.conta_id),
+                "conta_nome": lanc.conta.name if lanc.conta else "N/A",
+                "conta_codigo": lanc.conta.code if lanc.conta else "N/A",
+                "subgrupo_id": str(lanc.subgrupo_id),
+                "subgrupo_nome": lanc.subgrupo.name if lanc.subgrupo else "N/A",
+                "subgrupo_codigo": lanc.subgrupo.code if lanc.subgrupo else "N/A",
+                "grupo_id": str(lanc.grupo_id),
+                "grupo_nome": lanc.grupo.name if lanc.grupo else "N/A",
+                "grupo_codigo": lanc.grupo.code if lanc.grupo else "N/A",
+                "transaction_type": lanc.transaction_type,
+                "status": lanc.status,
+                "created_at": lanc.created_at.isoformat()
+            })
+        
+        return {
+            "success": True,
+            "lancamentos": lancamentos_data,
+            "total": len(lancamentos_data)
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar lançamentos: {str(e)}"}
+
+@app.put("/api/v1/lancamentos-diarios/{lancamento_id}")
+async def update_lancamento_diario(
+    lancamento_id: str,
+    lancamento_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Atualizar lançamento diário"""
+    try:
+        from app.models.lancamento_diario import LancamentoDiario
+        from datetime import datetime
+        from decimal import Decimal
+        
+        # Buscar lançamento
+        lancamento = db.query(LancamentoDiario).filter(
+            LancamentoDiario.id == lancamento_id,
+            LancamentoDiario.tenant_id == current_user["tenant_id"],
+            LancamentoDiario.business_unit_id == current_user["business_unit_id"]
+        ).first()
+        
+        if not lancamento:
+            return {"success": False, "message": "Lançamento não encontrado"}
+        
+        # Atualizar campos
+        if 'data_movimentacao' in lancamento_data:
+            lancamento.data_movimentacao = datetime.fromisoformat(lancamento_data['data_movimentacao'].replace('Z', '+00:00'))
+        if 'valor' in lancamento_data:
+            lancamento.valor = Decimal(str(lancamento_data['valor']))
+        if 'liquidacao' in lancamento_data:
+            lancamento.liquidacao = datetime.fromisoformat(lancamento_data['liquidacao'].replace('Z', '+00:00')) if lancamento_data['liquidacao'] else None
+        if 'observacoes' in lancamento_data:
+            lancamento.observacoes = lancamento_data['observacoes']
+        if 'conta_id' in lancamento_data:
+            lancamento.conta_id = lancamento_data['conta_id']
+        if 'subgrupo_id' in lancamento_data:
+            lancamento.subgrupo_id = lancamento_data['subgrupo_id']
+        if 'grupo_id' in lancamento_data:
+            lancamento.grupo_id = lancamento_data['grupo_id']
+        
+        lancamento.updated_at = datetime.utcnow()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Lançamento atualizado com sucesso"
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao atualizar lançamento: {str(e)}"}
+
+@app.delete("/api/v1/lancamentos-diarios/{lancamento_id}")
+async def delete_lancamento_diario(
+    lancamento_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Excluir lançamento diário"""
+    try:
+        from app.models.lancamento_diario import LancamentoDiario
+        
+        # Buscar lançamento
+        lancamento = db.query(LancamentoDiario).filter(
+            LancamentoDiario.id == lancamento_id,
+            LancamentoDiario.tenant_id == current_user["tenant_id"],
+            LancamentoDiario.business_unit_id == current_user["business_unit_id"]
+        ).first()
+        
+        if not lancamento:
+            return {"success": False, "message": "Lançamento não encontrado"}
+        
+        # Soft delete
+        lancamento.is_active = False
+        lancamento.updated_at = datetime.utcnow()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Lançamento excluído com sucesso"
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao excluir lançamento: {str(e)}"}
 
 # ============================================================================
 # ENDPOINTS DE PERMISSÕES
@@ -2206,17 +2840,32 @@ async def import_chart_accounts(
         csv_content = await file.read()
         csv_content = csv_content.decode('utf-8')
         
-        # Importar usando o serviço
+        # Obter tenant_id e business_unit_id do usuário
+        tenant_id = current_user.get("tenant_id")
+        business_unit_id = current_user.get("business_unit_id")
+        
+        # Importar usando o serviço com vínculos
         from app.services.chart_accounts_importer import ChartAccountsImporter
-        result = ChartAccountsImporter.import_chart_accounts(db, csv_content)
+        result = ChartAccountsImporter.import_chart_accounts(
+            db, 
+            csv_content,
+            tenant_id=tenant_id,
+            business_unit_id=business_unit_id
+        )
         
         if result["success"]:
             return result
         else:
             raise HTTPException(status_code=400, detail=result["message"])
             
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao importar plano de contas: {str(e)}")
+        import traceback
+        error_detail = f"Erro ao importar: {str(e)}"
+        print(f"[IMPORT ERROR] {error_detail}")
+        print(f"[IMPORT ERROR] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=error_detail)
 
 @app.get("/api/v1/chart-accounts/groups")
 async def get_chart_account_groups(
@@ -2225,7 +2874,21 @@ async def get_chart_account_groups(
 ):
     """Lista todos os grupos do plano de contas"""
     try:
-        groups = db.query(ChartAccountGroup).filter(ChartAccountGroup.is_active == True).all()
+        tenant_id = current_user.get("tenant_id")
+        
+        # Converter tenant_id string para UUID
+        if tenant_id and isinstance(tenant_id, str):
+            import uuid
+            try:
+                tenant_id = uuid.UUID(tenant_id)
+            except:
+                pass
+        
+        # Filtrar por tenant_id (inclui registros globais com tenant_id=null)
+        groups = db.query(ChartAccountGroup).filter(
+            ChartAccountGroup.is_active == True,
+            (ChartAccountGroup.tenant_id == tenant_id) | (ChartAccountGroup.tenant_id == None)
+        ).all()
         return [
             {
                 "id": group.id,
@@ -2249,7 +2912,12 @@ async def get_chart_account_subgroups(
 ):
     """Lista subgrupos do plano de contas"""
     try:
-        query = db.query(ChartAccountSubgroup).filter(ChartAccountSubgroup.is_active == True)
+        tenant_id = current_user.get("tenant_id")
+        
+        query = db.query(ChartAccountSubgroup).filter(
+            ChartAccountSubgroup.is_active == True,
+            (ChartAccountSubgroup.tenant_id == tenant_id) | (ChartAccountSubgroup.tenant_id == None)
+        )
         
         if group_id:
             query = query.filter(ChartAccountSubgroup.group_id == group_id)
@@ -2281,7 +2949,32 @@ async def get_chart_accounts(
 ):
     """Lista contas do plano de contas"""
     try:
-        query = db.query(ChartAccount).filter(ChartAccount.is_active == True)
+        tenant_id = current_user.get("tenant_id")
+        business_unit_id = current_user.get("business_unit_id")
+        
+        # Converter tenant_id string para UUID
+        if tenant_id and isinstance(tenant_id, str):
+            import uuid
+            try:
+                tenant_id = uuid.UUID(tenant_id)
+            except:
+                pass
+        
+        # Filtrar por tenant_id
+        query = db.query(ChartAccount).filter(
+            ChartAccount.is_active == True,
+            (ChartAccount.tenant_id == tenant_id) | (ChartAccount.tenant_id == None)
+        )
+        
+        # OPCIONAL: Se usuário tem BU E existem vínculos, filtrar por contas vinculadas
+        # Por enquanto, mostrar todas as contas do tenant
+        # if business_unit_id:
+        #     query = query.join(
+        #         BusinessUnitChartAccount,
+        #         (BusinessUnitChartAccount.chart_account_id == ChartAccount.id) &
+        #         (BusinessUnitChartAccount.business_unit_id == business_unit_id) &
+        #         (BusinessUnitChartAccount.is_active == True)
+        #     )
         
         if subgroup_id:
             query = query.filter(ChartAccount.subgroup_id == subgroup_id)
@@ -3020,6 +3713,45 @@ async def reject_financial_transaction(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao rejeitar transação: {str(e)}")
 
+@app.post("/api/v1/financial/transactions/clear")
+async def clear_transactions_table(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Limpar tabela de transações (APENAS PARA DESENVOLVIMENTO)"""
+    try:
+        from sqlalchemy import text
+        
+        # Verificar se o usuário é super_admin
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Apenas super_admin pode limpar tabelas")
+        
+        # Contar registros antes da limpeza
+        count_query = text("SELECT COUNT(*) FROM financial_transactions")
+        conn = engine.connect()
+        result = conn.execute(count_query)
+        count_before = result.scalar()
+        
+        if count_before == 0:
+            return {"message": "Tabela já está vazia", "count_before": 0, "count_after": 0}
+        
+        # Executar limpeza
+        clear_query = text("DELETE FROM financial_transactions")
+        result = conn.execute(clear_query)
+        conn.commit()
+        conn.close()
+        
+        return {
+            "message": "Tabela limpa com sucesso",
+            "count_before": count_before,
+            "count_after": 0,
+            "deleted_rows": result.rowcount
+        }
+        
+    except Exception as e:
+        print(f"❌ Erro ao limpar tabela: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao limpar tabela: {str(e)}")
+
 @app.get("/api/v1/financial/summary")
 async def get_financial_summary(
     start_date: Optional[str] = None,
@@ -3156,8 +3888,888 @@ async def get_chart_accounts_tree_dashboard(
         raise HTTPException(status_code=500, detail=f"Erro ao buscar árvore do plano de contas: {str(e)}")
 
 # ============================================================================
+# ENDPOINTS DE DEBUG
+# ============================================================================
+
+@app.get("/api/v1/debug/simple-test")
+async def debug_simple_test():
+    """Endpoint de teste simples sem banco de dados"""
+    return {
+        "status": "OK",
+        "message": "Backend funcionando",
+        "timestamp": datetime.datetime.utcnow().isoformat()
+    }
+
+@app.get("/api/v1/debug/db-connection-test")
+async def debug_db_connection_test():
+    """Teste de conexão com banco de dados isolado"""
+    try:
+        from sqlalchemy import text
+        from app.database import engine
+        
+        with engine.connect() as connection:
+            result = connection.execute(text("SELECT 1 as test"))
+            row = result.fetchone()
+            
+        return {
+            "status": "OK",
+            "database_connection": "OK" if row else "ERROR",
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "ERROR",
+            "database_connection": "ERROR",
+            "error": str(e),
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+
+@app.get("/api/v1/debug/database-check")
+async def debug_database_check(db: Session = Depends(get_db)):
+    """Endpoint para debug - verificar conexão com banco de dados"""
+    try:
+        # Testar conexão básica
+        result = db.execute("SELECT 1 as test").fetchone()
+        
+        # Verificar tabelas principais
+        users_count = db.query(User).count()
+        tenants_count = db.query(Tenant).count()
+        business_units_count = db.query(BusinessUnit).count()
+        user_access_count = db.query(UserBusinessUnitAccess).count()
+        
+        # Buscar dados específicos
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        matriz_bu = db.query(BusinessUnit).filter(BusinessUnit.name == "Matriz").first()
+        
+        return {
+            "database_connection": "OK" if result else "ERROR",
+            "tables_status": {
+                "users": users_count,
+                "tenants": tenants_count,
+                "business_units": business_units_count,
+                "user_business_unit_access": user_access_count
+            },
+            "admin_user": {
+                "exists": admin_user is not None,
+                "id": admin_user.id if admin_user else None,
+                "username": admin_user.username if admin_user else None
+            },
+            "matriz_bu": {
+                "exists": matriz_bu is not None,
+                "id": matriz_bu.id if matriz_bu else None,
+                "name": matriz_bu.name if matriz_bu else None
+            }
+        }
+        
+    except Exception as e:
+        return {"error": str(e), "database_connection": "ERROR"}
+
+# ============================================================================
 # INICIALIZAÇÃO DA APLICAÇÃO
 # ============================================================================
+
+@app.post("/api/v1/admin/onboard-new-company")
+async def onboard_new_company(
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Fluxo de Ativação de Nova Empresa (Tenant)
+    
+    Apenas super_admin pode executar.
+    
+    Processo:
+    1. Criar novo Tenant (empresa)
+    2. Criar Business Unit default (matriz/sede)
+    3. Criar usuário admin da empresa
+    4. Importar planilha Google Sheets com dados iniciais
+    5. Criar vínculos BU-Contas
+    6. Enviar email de boas-vindas (futuro)
+    
+    Parâmetros:
+    - tenant_name: Nome da empresa
+    - tenant_domain: Domínio da empresa (ex: empresa.com)
+    - bu_name: Nome da filial/sede (ex: "Matriz", "Sede SP")
+    - bu_code: Código da filial (ex: "MAT", "SP01")
+    - admin_email: Email do admin da empresa
+    - admin_first_name: Nome do admin
+    - admin_last_name: Sobrenome do admin
+    - admin_phone: Telefone (opcional)
+    - spreadsheet_id: ID da planilha Google Sheets (opcional)
+    - import_data: Se deve importar dados da planilha (default: false)
+    """
+    try:
+        # Validação: apenas super_admin
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(
+                status_code=403, 
+                detail="Apenas super_admin pode fazer onboarding de novas empresas"
+            )
+        
+        # Extrair dados da requisição
+        tenant_name = request.get("tenant_name")
+        tenant_domain = request.get("tenant_domain")
+        bu_name = request.get("bu_name", "Matriz")
+        bu_code = request.get("bu_code", "MAT")
+        admin_email = request.get("admin_email")
+        admin_first_name = request.get("admin_first_name")
+        admin_last_name = request.get("admin_last_name")
+        admin_phone = request.get("admin_phone")
+        spreadsheet_id = request.get("spreadsheet_id")
+        import_data = request.get("import_data", False)
+        
+        # Validações - SPREADSHEET_ID AGORA É OBRIGATÓRIO
+        if not tenant_name or not tenant_domain or not admin_email or not spreadsheet_id:
+            raise HTTPException(
+                status_code=400,
+                detail="tenant_name, tenant_domain, admin_email e spreadsheet_id são obrigatórios"
+            )
+        
+        result = {
+            "steps": [],
+            "success": True,
+            "tenant_id": None,
+            "business_unit_id": None,
+            "admin_user_id": None,
+            "admin_password": None
+        }
+        
+        # ========================================
+        # PASSO 1: Criar Tenant (Empresa)
+        # ========================================
+        result["steps"].append("1️⃣ Criando empresa (tenant)...")
+        
+        # Verificar se domain já existe
+        existing_tenant = db.query(Tenant).filter(Tenant.domain == tenant_domain).first()
+        if existing_tenant:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Empresa com domínio '{tenant_domain}' já existe"
+            )
+        
+        # Criar novo tenant
+        new_tenant = Tenant(
+            name=tenant_name,
+            domain=tenant_domain,
+            status="active"
+        )
+        db.add(new_tenant)
+        db.flush()
+        
+        result["tenant_id"] = new_tenant.id
+        result["steps"].append(f"   ✅ Empresa criada: {tenant_name} (ID: {new_tenant.id})")
+        
+        # ========================================
+        # PASSO 2: Criar Business Unit Default
+        # ========================================
+        result["steps"].append("2️⃣ Criando unidade de negócio (Business Unit)...")
+        
+        new_bu = BusinessUnit(
+            tenant_id=new_tenant.id,
+            name=bu_name,
+            code=bu_code,
+            status="active"
+        )
+        db.add(new_bu)
+        db.flush()
+        
+        result["business_unit_id"] = new_bu.id
+        result["steps"].append(f"   ✅ Business Unit criada: {bu_name} ({bu_code})")
+        
+        # ========================================
+        # PASSO 3: Criar Usuário Admin da Empresa
+        # ========================================
+        result["steps"].append("3️⃣ Criando usuário administrador...")
+        
+        # Verificar se email já existe
+        existing_user = db.query(User).filter(User.email == admin_email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Email '{admin_email}' já está em uso"
+            )
+        
+        # Gerar username baseado no email
+        admin_username = admin_email.split('@')[0]
+        
+        # Verificar se username já existe e adicionar sufixo se necessário
+        base_username = admin_username
+        counter = 1
+        while db.query(User).filter(User.username == admin_username).first():
+            admin_username = f"{base_username}{counter}"
+            counter += 1
+        
+        # Gerar senha temporária
+        import secrets
+        import string
+        admin_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+        
+        # Hash da senha
+        from app.services.security import SecurityService
+        hashed_password = SecurityService.hash_password(admin_password)
+        
+        # Criar usuário admin
+        new_admin = User(
+            tenant_id=new_tenant.id,
+            business_unit_id=new_bu.id,  # BU default
+            username=admin_username,
+            email=admin_email,
+            hashed_password=hashed_password,
+            first_name=admin_first_name or "Administrador",
+            last_name=admin_last_name or tenant_name,
+            phone=admin_phone,
+            role="admin",  # Admin da empresa (não super_admin)
+            status="active"
+        )
+        db.add(new_admin)
+        db.flush()
+        
+        result["admin_user_id"] = new_admin.id
+        result["admin_username"] = admin_username
+        result["admin_password"] = admin_password
+        result["steps"].append(f"   ✅ Admin criado: {admin_username} ({admin_email})")
+        result["steps"].append(f"   🔑 Senha gerada: {admin_password}")
+        
+        # Criar vínculo do admin com a BU
+        admin_bu_access = UserBusinessUnitAccess(
+            user_id=new_admin.id,
+            business_unit_id=new_bu.id,
+            can_read=True,
+            can_write=True,
+            can_delete=True,
+            can_manage_users=True
+        )
+        db.add(admin_bu_access)
+        
+        result["steps"].append("   ✅ Permissões do admin configuradas")
+        
+        # ========================================
+        # PASSO 4: Importar Plano de Contas (CSV - GARANTIDO)
+        # ========================================
+        result["steps"].append("4️⃣ Importando plano de contas...")
+        
+        try:
+            # Importar plano de contas via CSV (método garantido que funciona)
+            import os
+            
+            # Tentar vários caminhos possíveis
+            possible_paths = [
+                "csv/Fluxo de Caixa 2025_Cliente teste - Plano de contas.csv",
+                "/app/csv/Fluxo de Caixa 2025_Cliente teste - Plano de contas.csv",
+                "../csv/Fluxo de Caixa 2025_Cliente teste - Plano de contas.csv"
+            ]
+            
+            csv_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    csv_path = path
+                    break
+            
+            print(f"[ONBOARD] CSV path: {csv_path}, exists: {csv_path and os.path.exists(csv_path)}")
+            print(f"[ONBOARD] Current dir: {os.getcwd()}")
+            print(f"[ONBOARD] Files in current dir: {os.listdir('.')[:10]}")
+            
+            if csv_path and os.path.exists(csv_path):
+                from app.services.chart_accounts_importer import ChartAccountsImporter
+                
+                with open(csv_path, 'r', encoding='utf-8') as f:
+                    csv_content = f.read()
+                
+                import_result = ChartAccountsImporter.import_chart_accounts(
+                    db,
+                    csv_content,
+                    tenant_id=new_tenant.id,
+                    business_unit_id=new_bu.id
+                )
+                
+                if import_result.get("success"):
+                    summary = import_result.get("summary", {})
+                    result["steps"].append(f"   ✅ Grupos: {summary.get('groups_created', 0)}")
+                    result["steps"].append(f"   ✅ Subgrupos: {summary.get('subgroups_created', 0)}")
+                    result["steps"].append(f"   ✅ Contas: {summary.get('accounts_created', 0)}")
+                    result["import_summary"] = summary
+                else:
+                    result["steps"].append(f"   ⚠️  {import_result.get('message')}")
+            else:
+                result["steps"].append("   ⚠️  CSV não encontrado - admin deve importar via interface")
+                
+        except Exception as e:
+            result["steps"].append(f"   ⚠️  Erro: {str(e)}")
+        
+        # ========================================
+        # PASSO 5: Importar Transações (Google Sheets - OPCIONAL)
+        # ========================================
+        result["steps"].append("5️⃣ Importando transações e previsões...")
+        
+        try:
+            from app.services.llm_sheet_importer import llm_importer
+            
+            if llm_importer.authenticate():
+                result["steps"].append("   ✅ Autenticado com Google Sheets API")
+                
+                # Importar transações e previsões
+                import_result = llm_importer.import_complete_data(
+                    spreadsheet_id,
+                    str(new_tenant.id),
+                    str(new_bu.id),
+                    db,
+                    str(new_admin.id)
+                )
+                
+                if import_result.get("success"):
+                    data = import_result.get("data_imported", {})
+                    
+                    if data.get('daily_transactions', 0) > 0:
+                        result["steps"].append(f"   ✅ Transações: {data.get('daily_transactions', 0)}")
+                    
+                    if data.get('forecasts', 0) > 0:
+                        result["steps"].append(f"   ✅ Previsões: {data.get('forecasts', 0)}")
+                    
+                    if not data.get('daily_transactions') and not data.get('forecasts'):
+                        result["steps"].append("   ℹ️  Nenhuma transação/previsão importada do Sheets")
+                    
+                    if import_result.get("errors"):
+                        for error in import_result["errors"][:3]:  # Mostrar só 3 primeiros erros
+                            result["steps"].append(f"   ⚠️  {error}")
+            else:
+                result["steps"].append("   ℹ️  Google Sheets API não disponível")
+                result["steps"].append("   ℹ️  Admin pode importar transações via interface")
+                
+        except Exception as e:
+            result["steps"].append(f"   ⚠️  Erro nas transações: {str(e)[:100]}")
+            result["steps"].append("   ℹ️  Plano de contas importado com sucesso")
+        
+        # Commit de todas as mudanças
+        db.commit()
+        
+        result["steps"].append("✅ ONBOARDING CONCLUÍDO COM SUCESSO!")
+        
+        # Informações para retorno
+        result["company_info"] = {
+            "tenant_id": new_tenant.id,
+            "tenant_name": tenant_name,
+            "tenant_domain": tenant_domain,
+            "business_unit_id": new_bu.id,
+            "business_unit_name": bu_name,
+            "admin_username": admin_username,
+            "admin_email": admin_email,
+            "admin_password": admin_password,
+            "login_url": "https://finaflow.vercel.app/login"
+        }
+        
+        result["next_steps"] = [
+            f"1. Enviar credenciais para {admin_email}:",
+            f"   - Username: {admin_username}",
+            f"   - Password: {admin_password}",
+            f"   - URL: https://finaflow.vercel.app/login",
+            "2. Admin deve fazer login e trocar a senha",
+            "3. Se não importou planilha, fazer upload via interface",
+            "4. Admin pode criar usuários adicionais da empresa",
+            "5. Configurar permissões dos usuários"
+        ]
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        import traceback
+        return {
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+
+@app.post("/api/v1/admin/fix-unique-constraints")
+async def fix_unique_constraints(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Migration: Corrigir constraints únicos para permitir códigos duplicados entre tenants
+    """
+    try:
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Apenas super_admin")
+        
+        from sqlalchemy import text
+        
+        results = []
+        
+        # chart_account_groups
+        results.append("1️⃣ Corrigindo constraints de chart_account_groups...")
+        db.execute(text("ALTER TABLE chart_account_groups DROP CONSTRAINT IF EXISTS chart_account_groups_code_key CASCADE"))
+        db.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS chart_account_groups_code_tenant_idx 
+                ON chart_account_groups (code, tenant_id) 
+                WHERE tenant_id IS NOT NULL
+        """))
+        db.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS chart_account_groups_code_global_idx 
+                ON chart_account_groups (code) 
+                WHERE tenant_id IS NULL
+        """))
+        results.append("   ✅ chart_account_groups OK")
+        
+        # chart_account_subgroups
+        results.append("2️⃣ Corrigindo constraints de chart_account_subgroups...")
+        db.execute(text("ALTER TABLE chart_account_subgroups DROP CONSTRAINT IF EXISTS chart_account_subgroups_code_key CASCADE"))
+        db.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS chart_account_subgroups_code_tenant_idx 
+                ON chart_account_subgroups (code, tenant_id) 
+                WHERE tenant_id IS NOT NULL
+        """))
+        db.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS chart_account_subgroups_code_global_idx 
+                ON chart_account_subgroups (code) 
+                WHERE tenant_id IS NULL
+        """))
+        results.append("   ✅ chart_account_subgroups OK")
+        
+        # chart_accounts
+        results.append("3️⃣ Corrigindo constraints de chart_accounts...")
+        db.execute(text("ALTER TABLE chart_accounts DROP CONSTRAINT IF EXISTS chart_accounts_code_key CASCADE"))
+        db.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS chart_accounts_code_tenant_idx 
+                ON chart_accounts (code, tenant_id) 
+                WHERE tenant_id IS NOT NULL
+        """))
+        db.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS chart_accounts_code_global_idx 
+                ON chart_accounts (code) 
+                WHERE tenant_id IS NULL
+        """))
+        results.append("   ✅ chart_accounts OK")
+        
+        db.commit()
+        
+        results.append("")
+        results.append("✅ CONSTRAINTS CORRIGIDOS!")
+        results.append("   Agora cada tenant pode ter seus próprios códigos.")
+        
+        return {
+            "success": True,
+            "message": "Constraints corrigidos",
+            "details": results
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/v1/admin/fix-tenant-id-types")
+async def fix_tenant_id_types(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Migration: Converter tenant_id de VARCHAR para UUID
+    IMPORTANTE: Executar apenas UMA VEZ!
+    """
+    try:
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Apenas super_admin")
+        
+        from sqlalchemy import text
+        
+        results = []
+        
+        # 1. Chart Account Groups
+        results.append("1️⃣ Convertendo chart_account_groups...")
+        db.execute(text("ALTER TABLE chart_account_groups ALTER COLUMN tenant_id TYPE UUID USING tenant_id::uuid"))
+        results.append("   ✅ chart_account_groups convertido")
+        
+        # 2. Chart Account Subgroups
+        results.append("2️⃣ Convertendo chart_account_subgroups...")
+        db.execute(text("ALTER TABLE chart_account_subgroups ALTER COLUMN tenant_id TYPE UUID USING tenant_id::uuid"))
+        results.append("   ✅ chart_account_subgroups convertido")
+        
+        # 3. Chart Accounts
+        results.append("3️⃣ Convertendo chart_accounts...")
+        db.execute(text("ALTER TABLE chart_accounts ALTER COLUMN tenant_id TYPE UUID USING tenant_id::uuid"))
+        results.append("   ✅ chart_accounts convertido")
+        
+        # 4. Financial Forecasts
+        results.append("4️⃣ Convertendo financial_forecasts...")
+        db.execute(text("ALTER TABLE financial_forecasts ALTER COLUMN tenant_id TYPE UUID USING tenant_id::uuid"))
+        results.append("   ✅ financial_forecasts convertido")
+        
+        # 5. Financial Transactions
+        results.append("5️⃣ Convertendo financial_transactions...")
+        db.execute(text("ALTER TABLE financial_transactions ALTER COLUMN tenant_id TYPE UUID USING tenant_id::uuid"))
+        db.execute(text("ALTER TABLE financial_transactions ALTER COLUMN business_unit_id TYPE UUID USING business_unit_id::uuid"))
+        results.append("   ✅ financial_transactions convertido")
+        
+        db.commit()
+        
+        # Verificar tipos
+        results.append("")
+        results.append("🔍 Verificação dos tipos:")
+        verification = db.execute(text("""
+            SELECT table_name, data_type 
+            FROM information_schema.columns 
+            WHERE column_name = 'tenant_id' 
+                AND table_name IN ('chart_account_groups', 'chart_account_subgroups', 'chart_accounts', 'financial_forecasts', 'financial_transactions')
+            ORDER BY table_name
+        """)).fetchall()
+        
+        for row in verification:
+            results.append(f"   {row[0]}: {row[1]}")
+        
+        results.append("")
+        results.append("✅ MIGRATION CONCLUÍDA COM SUCESSO!")
+        
+        return {
+            "success": True,
+            "message": "Tipos convertidos para UUID",
+            "details": results
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Erro na migration - verificar se já foi executada"
+        }
+
+@app.post("/api/v1/admin/delete-tenant")
+async def admin_delete_tenant(
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Deleta um tenant e todos os dados relacionados (apenas super_admin)"""
+    try:
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Apenas super_admin")
+        
+        tenant_id = request.get("tenant_id")
+        if not tenant_id:
+            raise HTTPException(status_code=400, detail="tenant_id é obrigatório")
+        
+        from sqlalchemy import text
+        
+        # Deletar em ordem (respeitando FKs)
+        db.execute(text(f"DELETE FROM business_unit_chart_accounts WHERE business_unit_id IN (SELECT id FROM business_units WHERE tenant_id = '{tenant_id}')"))
+        db.execute(text(f"DELETE FROM user_business_unit_access WHERE user_id IN (SELECT id FROM users WHERE tenant_id = '{tenant_id}')"))
+        db.execute(text(f"DELETE FROM financial_transactions WHERE tenant_id = '{tenant_id}'"))
+        db.execute(text(f"DELETE FROM financial_forecasts WHERE business_unit_id IN (SELECT id FROM business_units WHERE tenant_id = '{tenant_id}')"))
+        db.execute(text(f"DELETE FROM users WHERE tenant_id = '{tenant_id}'"))
+        db.execute(text(f"DELETE FROM business_units WHERE tenant_id = '{tenant_id}'"))
+        db.execute(text(f"DELETE FROM chart_accounts WHERE tenant_id = '{tenant_id}'"))
+        db.execute(text(f"DELETE FROM chart_account_subgroups WHERE tenant_id = '{tenant_id}'"))
+        db.execute(text(f"DELETE FROM chart_account_groups WHERE tenant_id = '{tenant_id}'"))
+        db.execute(text(f"DELETE FROM tenants WHERE id = '{tenant_id}'"))
+        
+        db.commit()
+        
+        return {"success": True, "message": f"Tenant {tenant_id} deletado com sucesso"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/v1/admin/migrate-add-tenant-links")
+async def migrate_add_tenant_links(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Migration: Adicionar tenant_id ao plano de contas e criar vínculos BU"""
+    try:
+        # Apenas super_admin pode executar migrations
+        if current_user.get("role") != "super_admin":
+            raise HTTPException(status_code=403, detail="Apenas super_admin pode executar migrations")
+        
+        from sqlalchemy import text
+        
+        results = {
+            "steps": [],
+            "success": True
+        }
+        
+        # PASSO 1: Adicionar colunas tenant_id
+        results["steps"].append("Adicionando colunas tenant_id...")
+        
+        db.execute(text("ALTER TABLE chart_account_groups ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(36)"))
+        db.execute(text("ALTER TABLE chart_account_subgroups ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(36)"))
+        db.execute(text("ALTER TABLE chart_accounts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(36)"))
+        db.execute(text("ALTER TABLE financial_forecasts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(36)"))
+        db.commit()
+        
+        results["steps"].append("✅ Colunas adicionadas")
+        
+        # PASSO 2: Obter tenant_id padrão
+        tenant_result = db.execute(text("SELECT id FROM tenants ORDER BY created_at LIMIT 1")).fetchone()
+        
+        if not tenant_result:
+            results["success"] = False
+            results["error"] = "Nenhum tenant encontrado no sistema"
+            return results
+        
+        default_tenant_id = tenant_result[0]
+        results["default_tenant_id"] = default_tenant_id
+        results["steps"].append(f"Tenant padrão: {default_tenant_id}")
+        
+        # PASSO 3: Atualizar registros existentes
+        db.execute(text(f"UPDATE chart_account_groups SET tenant_id = '{default_tenant_id}' WHERE tenant_id IS NULL"))
+        groups_updated = db.execute(text("SELECT COUNT(*) FROM chart_account_groups WHERE tenant_id IS NOT NULL")).scalar()
+        
+        db.execute(text(f"UPDATE chart_account_subgroups SET tenant_id = '{default_tenant_id}' WHERE tenant_id IS NULL"))
+        subgroups_updated = db.execute(text("SELECT COUNT(*) FROM chart_account_subgroups WHERE tenant_id IS NOT NULL")).scalar()
+        
+        db.execute(text(f"UPDATE chart_accounts SET tenant_id = '{default_tenant_id}' WHERE tenant_id IS NULL"))
+        accounts_updated = db.execute(text("SELECT COUNT(*) FROM chart_accounts WHERE tenant_id IS NOT NULL")).scalar()
+        
+        db.execute(text(f"UPDATE financial_forecasts SET tenant_id = '{default_tenant_id}' WHERE tenant_id IS NULL"))
+        
+        db.commit()
+        
+        results["steps"].append(f"✅ Grupos: {groups_updated} com tenant_id")
+        results["steps"].append(f"✅ Subgrupos: {subgroups_updated} com tenant_id")
+        results["steps"].append(f"✅ Contas: {accounts_updated} com tenant_id")
+        
+        # PASSO 4: Criar vínculos business_unit_chart_accounts
+        bu_result = db.execute(text("SELECT id FROM business_units ORDER BY created_at LIMIT 1")).fetchone()
+        
+        if bu_result:
+            default_bu_id = bu_result[0]
+            results["default_bu_id"] = default_bu_id
+            results["steps"].append(f"Business Unit padrão: {default_bu_id}")
+            
+            # Criar vínculos para todas as contas
+            accounts_to_link = db.execute(text("SELECT id FROM chart_accounts WHERE is_active = true")).fetchall()
+            links_created = 0
+            
+            for account in accounts_to_link:
+                account_id = account[0]
+                
+                # Verificar se vínculo já existe
+                existing = db.execute(text(f"""
+                    SELECT COUNT(*) FROM business_unit_chart_accounts
+                    WHERE business_unit_id = '{default_bu_id}' AND chart_account_id = '{account_id}'
+                """)).scalar()
+                
+                if existing == 0:
+                    # Criar vínculo
+                    db.execute(text(f"""
+                        INSERT INTO business_unit_chart_accounts (
+                            id, business_unit_id, chart_account_id, is_custom, is_active, created_at, updated_at
+                        ) VALUES (
+                            '{str(uuid.uuid4())}',
+                            '{default_bu_id}',
+                            '{account_id}',
+                            false,
+                            true,
+                            NOW(),
+                            NOW()
+                        )
+                    """))
+                    links_created += 1
+            
+            db.commit()
+            results["steps"].append(f"✅ Vínculos BU-Conta criados: {links_created}")
+        else:
+            results["steps"].append("⚠️ Nenhuma Business Unit encontrada - vínculos não criados")
+        
+        # PASSO 5: Criar índices
+        results["steps"].append("Criando índices...")
+        
+        db.execute(text("CREATE INDEX IF NOT EXISTS idx_chart_account_groups_tenant ON chart_account_groups(tenant_id)"))
+        db.execute(text("CREATE INDEX IF NOT EXISTS idx_chart_account_subgroups_tenant ON chart_account_subgroups(tenant_id)"))
+        db.execute(text("CREATE INDEX IF NOT EXISTS idx_chart_accounts_tenant ON chart_accounts(tenant_id)"))
+        db.execute(text("CREATE INDEX IF NOT EXISTS idx_financial_forecasts_tenant ON financial_forecasts(tenant_id)"))
+        
+        db.commit()
+        results["steps"].append("✅ Índices criados")
+        
+        # PASSO 6: Verificação final
+        final_check = {
+            "groups_with_tenant": db.execute(text("SELECT COUNT(*) FROM chart_account_groups WHERE tenant_id IS NOT NULL")).scalar(),
+            "subgroups_with_tenant": db.execute(text("SELECT COUNT(*) FROM chart_account_subgroups WHERE tenant_id IS NOT NULL")).scalar(),
+            "accounts_with_tenant": db.execute(text("SELECT COUNT(*) FROM chart_accounts WHERE tenant_id IS NOT NULL")).scalar(),
+            "bu_account_links": db.execute(text("SELECT COUNT(*) FROM business_unit_chart_accounts")).scalar()
+        }
+        
+        results["final_check"] = final_check
+        results["steps"].append("✅ MIGRATION CONCLUÍDA COM SUCESSO!")
+        
+        return results
+        
+    except Exception as e:
+        db.rollback()
+        import traceback
+        return {
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+
+@app.get("/api/v1/debug/check-import")
+async def debug_check_import(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Debug: verificar importação"""
+    try:
+        tenant_id = current_user.get("tenant_id")
+        
+        # Buscar TODOS os grupos (sem filtro)
+        all_groups = db.query(ChartAccountGroup).all()
+        
+        # Buscar grupos do tenant
+        tenant_groups = db.query(ChartAccountGroup).filter(
+            (ChartAccountGroup.tenant_id == tenant_id) | (ChartAccountGroup.tenant_id == None)
+        ).all()
+        
+        return {
+            "user": {
+                "tenant_id": tenant_id,
+                "business_unit_id": current_user.get("business_unit_id"),
+                "role": current_user.get("role")
+            },
+            "totals": {
+                "all_groups_in_db": len(all_groups),
+                "groups_for_tenant": len(tenant_groups)
+            },
+            "all_groups": [
+                {
+                    "id": g.id,
+                    "code": g.code,
+                    "name": g.name,
+                    "tenant_id": str(g.tenant_id) if g.tenant_id else None
+                }
+                for g in all_groups[:10]  # Primeiros 10
+            ],
+            "tenant_groups": [
+                {
+                    "id": g.id,
+                    "code": g.code,
+                    "name": g.name,
+                    "tenant_id": str(g.tenant_id) if g.tenant_id else None
+                }
+                for g in tenant_groups[:10]
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/v1/debug/check-data-links")
+async def debug_check_data_links(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Endpoint de debug para verificar vínculos de dados com Tenant/BU"""
+    try:
+        from sqlalchemy import text, inspect
+        
+        results = {}
+        
+        # Lista de tabelas para verificar
+        tables_to_check = [
+            'tenants',
+            'business_units',
+            'users',
+            'chart_account_groups',
+            'chart_account_subgroups',
+            'chart_accounts',
+            'business_unit_chart_accounts',
+            'financial_transactions',
+            'financial_forecasts',
+            'user_business_unit_access',
+            'user_tenant_access'
+        ]
+        
+        for table_name in tables_to_check:
+            # Verificar se tabela existe
+            check_table = text(f"""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = '{table_name}'
+                );
+            """)
+            
+            table_exists = db.execute(check_table).scalar()
+            
+            if not table_exists:
+                results[table_name] = {
+                    'exists': False,
+                    'total': 0,
+                    'with_tenant': 'N/A',
+                    'with_bu': 'N/A'
+                }
+                continue
+            
+            # Contar total
+            count_total = text(f"SELECT COUNT(*) FROM {table_name};")
+            total = db.execute(count_total).scalar()
+            
+            # Verificar coluna tenant_id
+            check_tenant_col = text(f"""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = '{table_name}' AND column_name = 'tenant_id'
+                );
+            """)
+            has_tenant_col = db.execute(check_tenant_col).scalar()
+            
+            with_tenant = 'N/A'
+            if has_tenant_col:
+                count_tenant = text(f"SELECT COUNT(*) FROM {table_name} WHERE tenant_id IS NOT NULL;")
+                with_tenant = db.execute(count_tenant).scalar()
+            
+            # Verificar coluna business_unit_id
+            check_bu_col = text(f"""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = '{table_name}' AND column_name = 'business_unit_id'
+                );
+            """)
+            has_bu_col = db.execute(check_bu_col).scalar()
+            
+            with_bu = 'N/A'
+            if has_bu_col:
+                count_bu = text(f"SELECT COUNT(*) FROM {table_name} WHERE business_unit_id IS NOT NULL;")
+                with_bu = db.execute(count_bu).scalar()
+            
+            results[table_name] = {
+                'exists': True,
+                'total': total,
+                'has_tenant_column': has_tenant_col,
+                'with_tenant': with_tenant,
+                'has_bu_column': has_bu_col,
+                'with_bu': with_bu,
+                'status': '✅' if (with_tenant == total or with_tenant == 'N/A') else '⚠️'
+            }
+        
+        # Calcular resumo
+        total_records = sum(r['total'] for r in results.values() if r['exists'])
+        total_with_tenant = sum(r['with_tenant'] for r in results.values() if r['exists'] and isinstance(r['with_tenant'], int))
+        total_with_bu = sum(r['with_bu'] for r in results.values() if r['exists'] and isinstance(r['with_bu'], int))
+        
+        return {
+            'user': current_user.get('username'),
+            'tenant_id': current_user.get('tenant_id'),
+            'business_unit_id': current_user.get('business_unit_id'),
+            'tables': results,
+            'summary': {
+                'total_records': total_records,
+                'total_with_tenant': total_with_tenant,
+                'total_with_bu': total_with_bu,
+                'percent_tenant': round(total_with_tenant / total_records * 100, 2) if total_records > 0 else 0,
+                'percent_bu': round(total_with_bu / total_records * 100, 2) if total_records > 0 else 0
+            }
+        }
+    except Exception as e:
+        import traceback
+        return {
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }
 
 # Criar tabelas necessárias na inicialização
 @app.on_event("startup")

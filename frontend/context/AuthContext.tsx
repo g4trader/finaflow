@@ -177,7 +177,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('refresh-token');
     removeCookie('auth-token');
+    
+    // Redirecionar para login
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   const refreshToken = async () => {

@@ -15,6 +15,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: false,  // Temporariamente desabilitar credentials para CORS funcionar
 });
 
 // Interceptor para adicionar token de autenticação
@@ -59,35 +60,60 @@ api.interceptors.response.use(
   }
 );
 
-// Autenticação
+// Autenticação - Usar proxy para contornar CORS
 export const login = async (username: string, password: string) => {
   console.log('📡 [API] Preparando login...', { username, api_url: API_BASE_URL });
   
-  const formData = new FormData();
-  formData.append('username', username);
-  formData.append('password', password);
-  
-  console.log('📤 [API] Enviando requisição para /api/v1/auth/login');
-  
-  const response = await api.post('/api/v1/auth/login', formData, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  });
-  
-  console.log('📥 [API] Resposta recebida:', { 
-    status: response.status,
-    has_access_token: !!response.data.access_token,
-    has_refresh_token: !!response.data.refresh_token
-  });
-  
-  // Salvar refresh token
-  if (response.data.refresh_token) {
-    localStorage.setItem('refresh-token', response.data.refresh_token);
-    console.log('💾 [API] Refresh token salvo');
+  try {
+    // Tentar via proxy do Next.js (contorna CORS)
+    console.log('📤 [API] Tentando via proxy /api/proxy-login');
+    const proxyResponse = await axios.post('/api/proxy-login', {
+      username,
+      password
+    });
+    
+    console.log('📥 [API] Resposta do proxy recebida:', { 
+      status: proxyResponse.status,
+      has_access_token: !!proxyResponse.data.access_token
+    });
+    
+    // Salvar refresh token
+    if (proxyResponse.data.refresh_token) {
+      localStorage.setItem('refresh-token', proxyResponse.data.refresh_token);
+      console.log('💾 [API] Refresh token salvo');
+    }
+    
+    return proxyResponse.data;
+  } catch (proxyError: any) {
+    console.error('❌ [API] Erro no proxy, tentando direto...', proxyError.message);
+    
+    // Fallback: tentar direto (pode falhar por CORS)
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('password', password);
+    
+    console.log('📤 [API] Enviando requisição direta para /api/v1/auth/login');
+    
+    const response = await api.post('/api/v1/auth/login', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    
+    console.log('📥 [API] Resposta recebida:', { 
+      status: response.status,
+      has_access_token: !!response.data.access_token,
+      has_refresh_token: !!response.data.refresh_token
+    });
+    
+    // Salvar refresh token
+    if (response.data.refresh_token) {
+      localStorage.setItem('refresh-token', response.data.refresh_token);
+      console.log('💾 [API] Refresh token salvo');
+    }
+    
+    return response.data;
   }
-  
-  return response.data;
 };
 
 export const signup = async (data: any, token?: string) => {
@@ -118,15 +144,61 @@ export const getCurrentUser = async () => {
 
 // Novos endpoints para seleção de BU/Empresa
 export const getUserBusinessUnits = async () => {
-  const response = await api.get('/api/v1/auth/user-business-units');
-  return response.data;
+  const token = localStorage.getItem('token');
+  
+  if (!token) {
+    console.error('❌ [API] Token não encontrado no localStorage');
+    throw new Error('Token não encontrado');
+  }
+  
+  try {
+    // Tentar via proxy do Next.js (contorna CORS)
+    console.log('📡 [API] Buscando business units via proxy...');
+    const proxyResponse = await axios.get('/api/proxy-business-units', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    console.log('✅ [API] Business units carregadas via proxy');
+    return proxyResponse.data;
+  } catch (proxyError: any) {
+    console.error('❌ [API] Erro no proxy, tentando direto...', proxyError.message);
+    
+    // Fallback: tentar direto (pode falhar por CORS)
+    const response = await api.get('/api/v1/auth/user-business-units');
+    return response.data;
+  }
 };
 
 export const selectBusinessUnit = async (businessUnitId: string) => {
-  const response = await api.post('/api/v1/auth/select-business-unit', {
-    business_unit_id: businessUnitId
-  });
-  return response.data;
+  const token = localStorage.getItem('token');
+  
+  if (!token) {
+    console.error('❌ [API] Token não encontrado para seleção de BU');
+    throw new Error('Token não encontrado');
+  }
+  
+  try {
+    // Tentar via proxy do Next.js (contorna CORS e problemas de roteamento)
+    console.log('📡 [API] Selecionando BU via proxy...', businessUnitId);
+    const proxyResponse = await axios.post('/api/proxy-select-bu', {
+      business_unit_id: businessUnitId
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    console.log('✅ [API] BU selecionada via proxy');
+    return proxyResponse.data;
+  } catch (proxyError: any) {
+    console.error('❌ [API] Erro no proxy de seleção, tentando direto...', proxyError.message);
+    
+    // Fallback: tentar direto (pode falhar por CORS ou 404)
+    const response = await api.post('/api/v1/auth/select-business-unit', {
+      business_unit_id: businessUnitId
+    });
+    return response.data;
+  }
 };
 
 // Grupos de Contas

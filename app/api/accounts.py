@@ -1,0 +1,142 @@
+"""API routes for account operations."""
+
+from uuid import uuid4
+from datetime import datetime
+
+import asyncio
+import decimal
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.db.bq_client import delete, insert, insert_many, query, update
+from app.models.finance import AccountCreate, AccountInDB, AccountImportSummary
+from app.services.dependencies import get_current_user, tenant
+
+
+router = APIRouter(prefix="/accounts", tags=["accounts"])
+
+
+@router.get("/", response_model=list[AccountInDB])
+async def list_accounts(
+    current=Depends(get_current_user), tenant_id: str = Depends(tenant)
+):
+    return await asyncio.to_thread(query, "Accounts", {"tenant_id": tenant_id})
+
+
+@router.post("/", response_model=AccountInDB, status_code=201)
+async def create_account(
+    account: AccountCreate, current=Depends(get_current_user), tenant_id: str = Depends(tenant)
+):
+    if account.tenant_id != tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied to this tenant")
+
+    new_id = str(uuid4())
+    record = account.dict()
+    record["id"] = new_id
+    record["created_at"] = datetime.utcnow()
+    await asyncio.to_thread(insert, "Accounts", record)
+    return record
+
+
+@router.get("/{account_id}", response_model=AccountInDB)
+async def get_account(
+    account_id: str, current=Depends(get_current_user), tenant_id: str = Depends(tenant)
+):
+    res = await asyncio.to_thread(
+        query, "Accounts", {"id": account_id, "tenant_id": tenant_id}
+    )
+    if not res:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return res[0]
+
+
+@router.put("/{account_id}", response_model=AccountInDB)
+async def update_account(
+    account_id: str,
+    account: AccountCreate,
+    current=Depends(get_current_user),
+    tenant_id: str = Depends(tenant),
+):
+    if account.tenant_id != tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied to this tenant")
+
+    existing = await asyncio.to_thread(
+        query, "Accounts", {"id": account_id, "tenant_id": tenant_id}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    await asyncio.to_thread(update, "Accounts", account_id, account.dict())
+    return {**existing[0], **account.dict(), "id": account_id}
+
+
+@router.delete("/{account_id}", status_code=204)
+async def delete_account(
+    account_id: str, current=Depends(get_current_user), tenant_id: str = Depends(tenant)
+):
+    existing = await asyncio.to_thread(
+        query, "Accounts", {"id": account_id, "tenant_id": tenant_id}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    await asyncio.to_thread(delete, "Accounts", account_id)
+
+
+@router.post("/load_initial_data", response_model=list[AccountInDB], status_code=201)
+async def load_initial_data(
+    accounts: list[AccountCreate],
+    current=Depends(get_current_user),
+    tenant_id: str = Depends(tenant),
+):
+    """Bulk insert a list of accounts for the given tenant."""
+    records: list[AccountInDB] = []
+    for account in accounts:
+        if account.tenant_id != tenant_id:
+            raise HTTPException(status_code=403, detail="Access denied to this tenant")
+        new_id = str(uuid4())
+        record = account.dict()
+        record["id"] = new_id
+        record["created_at"] = datetime.utcnow()
+        await asyncio.to_thread(insert, "Accounts", record)
+        records.append(record)
+    return records
+
+
+@router.post("/import", response_model=AccountImportSummary, status_code=201)
+async def import_accounts(
+    accounts: list[dict],
+    current=Depends(get_current_user),
+    tenant_id: str = Depends(tenant),
+):
+    """Bulk insert accounts using a single BigQuery request.
+
+    Records are validated and collected first, then persisted with one
+    `insert_many` call to avoid multiple round trips to the database.
+    Invalid balances are reported in the ``skipped`` list instead of
+    aborting the entire import.
+    """
+    collected_records: list[dict] = []
+    skipped_details: list[dict] = []
+    for idx, raw in enumerate(accounts):
+        if raw.get("tenant_id") != tenant_id:
+            raise HTTPException(status_code=403, detail="Access denied to this tenant")
+
+        try:
+            raw["balance"] = Decimal(str(raw["balance"]))
+        except decimal.InvalidOperation:
+            skipped_details.append({"row": idx, "reason": "invalid balance"})
+            continue
+
+        account = AccountCreate(**raw)
+        record = account.dict()
+        record["id"] = str(uuid4())
+        record["created_at"] = datetime.utcnow()
+        collected_records.append(record)
+
+    if collected_records:
+        await asyncio.to_thread(insert_many, "Accounts", collected_records)
+
+    return AccountImportSummary(inserted=collected_records, skipped=skipped_details)
+

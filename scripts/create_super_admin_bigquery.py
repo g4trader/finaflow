@@ -116,7 +116,7 @@ def main():
     print("\n3. Execute esta query:")
     print("=" * 60)
     print("""
-INSERT INTO `automatizar-452311.finaflow.Users` 
+INSERT INTO `trivihair.finaflow.Users` 
 (id, username, email, hashed_password, role, tenant_id, created_at)
 VALUES 
 (

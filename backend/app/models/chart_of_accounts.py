@@ -9,7 +9,8 @@ class ChartAccountGroup(Base):
     __tablename__ = "chart_account_groups"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    code = Column(String(10), nullable=False, unique=True)
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=True)  # Null = global/compartilhado
+    code = Column(String(10), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text)
     is_active = Column(Boolean, default=True)
@@ -18,12 +19,18 @@ class ChartAccountGroup(Base):
     
     # Relacionamentos
     subgroups = relationship("ChartAccountSubgroup", back_populates="group", cascade="all, delete-orphan")
+    
+    # Constraints: código único por tenant (ou global se tenant_id é null)
+    __table_args__ = (
+        UniqueConstraint('code', 'tenant_id', name='uq_group_code_tenant'),
+    )
 
 class ChartAccountSubgroup(Base):
     """Subgrupo do Plano de Contas (2º nível)"""
     __tablename__ = "chart_account_subgroups"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=True)  # Null = global/compartilhado
     code = Column(String(10), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text)
@@ -36,9 +43,9 @@ class ChartAccountSubgroup(Base):
     group = relationship("ChartAccountGroup", back_populates="subgroups")
     accounts = relationship("ChartAccount", back_populates="subgroup", cascade="all, delete-orphan")
     
-    # Constraints
+    # Constraints: código único por grupo e tenant
     __table_args__ = (
-        UniqueConstraint('code', 'group_id', name='uq_subgroup_code_group'),
+        UniqueConstraint('code', 'group_id', 'tenant_id', name='uq_subgroup_code_group_tenant'),
     )
 
 class ChartAccount(Base):
@@ -46,6 +53,7 @@ class ChartAccount(Base):
     __tablename__ = "chart_accounts"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=True)  # Null = global/compartilhado
     code = Column(String(10), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text)
@@ -58,9 +66,9 @@ class ChartAccount(Base):
     # Relacionamentos
     subgroup = relationship("ChartAccountSubgroup", back_populates="accounts")
     
-    # Constraints
+    # Constraints: código único por subgrupo e tenant
     __table_args__ = (
-        UniqueConstraint('code', 'subgroup_id', name='uq_account_code_subgroup'),
+        UniqueConstraint('code', 'subgroup_id', 'tenant_id', name='uq_account_code_subgroup_tenant'),
     )
 
 class BusinessUnitChartAccount(Base):

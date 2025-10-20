@@ -45,10 +45,15 @@ app.add_middleware(
     allowed_hosts=ALLOWED_HOSTS
 )
 
-# Middleware CORS
+# Middleware CORS - Aceitar múltiplos origins do Vercel
+# Dividir por vírgula ou ponto-e-vírgula e aceitar qualquer .vercel.app
+cors_origins_raw = os.getenv("CORS_ORIGINS", "https://finaflow.vercel.app,http://localhost:3000")
+cors_origins_list = [origin.strip() for origin in cors_origins_raw.replace(';', ',').split(',')]
+
+# Adicionar regex para aceitar qualquer subdomínio do Vercel
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

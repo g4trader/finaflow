@@ -1,0 +1,14 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: finaflow-backend
+spec:
+  template:
+    spec:
+      containers:
+      - image: gcr.io/trivihair/finaflow-backend:latest
+        env:
+        - name: CORS_ORIGINS
+          value: "*"
+
+

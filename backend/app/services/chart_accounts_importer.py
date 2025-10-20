@@ -70,51 +70,98 @@ class ChartAccountsImporter:
         return code
     
     @staticmethod
-    def import_chart_accounts(db: Session, csv_content: str) -> Dict:
+    def import_chart_accounts(db: Session, csv_content: str, tenant_id: str = None, business_unit_id: str = None) -> Dict:
         """Importa o plano de contas do CSV"""
         try:
+            # Converter IDs para UUID
+            import uuid
+            if tenant_id and isinstance(tenant_id, str):
+                try:
+                    tenant_id = uuid.UUID(tenant_id)
+                except:
+                    pass
+            
+            if business_unit_id and isinstance(business_unit_id, str):
+                try:
+                    business_unit_id = uuid.UUID(business_unit_id)
+                except:
+                    pass
+            
+            print(f"[IMPORT] tenant_id={tenant_id} (converted to UUID)")
+            print(f"[IMPORT] business_unit_id={business_unit_id} (converted to UUID)")
+            
             # Parse do CSV
             accounts_data = ChartAccountsImporter.parse_csv_content(csv_content)
+            print(f"[IMPORT DEBUG] CSV parsed: {len(accounts_data)} accounts found")
             
             if not accounts_data:
                 return {"success": False, "message": "Nenhuma conta válida encontrada no CSV"}
             
-            # Coletar códigos existentes
-            existing_group_codes = [g.code for g in db.query(ChartAccountGroup).all()]
-            existing_subgroup_codes = [sg.code for sg in db.query(ChartAccountSubgroup).all()]
-            existing_account_codes = [a.code for a in db.query(ChartAccount).all()]
+            # Coletar códigos existentes APENAS DO TENANT ATUAL (ou globais)
+            print(f"[IMPORT] Fetching existing codes...")
+            
+            existing_group_codes = [g.code for g in db.query(ChartAccountGroup).filter(
+                (ChartAccountGroup.tenant_id == tenant_id) | (ChartAccountGroup.tenant_id == None)
+            ).all()]
+            print(f"[IMPORT] Found {len(existing_group_codes)} existing group codes")
+            
+            existing_subgroup_codes = [sg.code for sg in db.query(ChartAccountSubgroup).filter(
+                (ChartAccountSubgroup.tenant_id == tenant_id) | (ChartAccountSubgroup.tenant_id == None)
+            ).all()]
+            print(f"[IMPORT] Found {len(existing_subgroup_codes)} existing subgroup codes")
+            
+            existing_account_codes = [a.code for a in db.query(ChartAccount).filter(
+                (ChartAccount.tenant_id == tenant_id) | (ChartAccount.tenant_id == None)
+            ).all()]
+            print(f"[IMPORT] Found {len(existing_account_codes)} existing account codes")
             
             # Processar grupos
             groups_created = 0
             groups_updated = 0
             group_mapping = {}  # nome -> id
             
-            for account in accounts_data:
-                grupo = account['grupo']
-                
-                if grupo not in group_mapping:
-                    # Verificar se o grupo já existe
-                    existing_group = db.query(ChartAccountGroup).filter(
-                        ChartAccountGroup.name == grupo
-                    ).first()
+            print(f"[IMPORT] Processing groups...")
+            try:
+                for account in accounts_data:
+                    grupo = account['grupo']
                     
-                    if existing_group:
-                        group_mapping[grupo] = existing_group.id
-                        groups_updated += 1
-                    else:
-                        # Criar novo grupo
-                        code = ChartAccountsImporter.generate_code(grupo, existing_group_codes)
-                        new_group = ChartAccountGroup(
-                            code=code,
-                            name=grupo,
-                            description=f"Grupo: {grupo}"
-                        )
-                        db.add(new_group)
-                        db.flush()  # Para obter o ID
+                    if grupo not in group_mapping:
+                        # Verificar se o grupo já existe PARA ESTE TENANT
+                        try:
+                            existing_group = db.query(ChartAccountGroup).filter(
+                                ChartAccountGroup.name == grupo,
+                                (ChartAccountGroup.tenant_id == tenant_id) | (ChartAccountGroup.tenant_id == None)
+                            ).first()
+                        except Exception as e:
+                            print(f"[IMPORT ERROR] Query failed for group '{grupo}': {str(e)}")
+                            raise
                         
-                        group_mapping[grupo] = new_group.id
-                        existing_group_codes.append(code)
-                        groups_created += 1
+                        if existing_group:
+                            group_mapping[grupo] = existing_group.id
+                            groups_updated += 1
+                        else:
+                            # Criar novo grupo
+                            code = ChartAccountsImporter.generate_code(grupo, existing_group_codes)
+                            try:
+                                new_group = ChartAccountGroup(
+                                    code=code,
+                                    name=grupo,
+                                    description=f"Grupo: {grupo}",
+                                    tenant_id=tenant_id  # Vincular ao tenant
+                                )
+                                db.add(new_group)
+                                db.flush()  # Para obter o ID
+                                
+                                group_mapping[grupo] = new_group.id
+                                existing_group_codes.append(code)
+                                groups_created += 1
+                                print(f"[IMPORT] Created group: {grupo}")
+                            except Exception as e:
+                                print(f"[IMPORT ERROR] Failed to create group '{grupo}': {str(e)}")
+                                raise
+            except Exception as e:
+                print(f"[IMPORT ERROR] Group processing failed: {str(e)}")
+                raise
             
             # Processar subgrupos
             subgroups_created = 0
@@ -128,10 +175,11 @@ class ChartAccountsImporter:
                 
                 key = (grupo, subgrupo)
                 if key not in subgroup_mapping:
-                    # Verificar se o subgrupo já existe
+                    # Verificar se o subgrupo já existe PARA ESTE TENANT
                     existing_subgroup = db.query(ChartAccountSubgroup).filter(
                         ChartAccountSubgroup.name == subgrupo,
-                        ChartAccountSubgroup.group_id == group_id
+                        ChartAccountSubgroup.group_id == group_id,
+                        (ChartAccountSubgroup.tenant_id == tenant_id) | (ChartAccountSubgroup.tenant_id == None)
                     ).first()
                     
                     if existing_subgroup:
@@ -144,7 +192,8 @@ class ChartAccountsImporter:
                             code=code,
                             name=subgrupo,
                             description=f"Subgrupo: {subgrupo}",
-                            group_id=group_id
+                            group_id=group_id,
+                            tenant_id=tenant_id  # Vincular ao tenant
                         )
                         db.add(new_subgroup)
                         db.flush()  # Para obter o ID
@@ -169,10 +218,11 @@ class ChartAccountsImporter:
                 # Determinar tipo da conta
                 account_type = ChartAccountsImporter.determine_account_type(grupo, subgrupo)
                 
-                # Verificar se a conta já existe
+                # Verificar se a conta já existe PARA ESTE TENANT
                 existing_account = db.query(ChartAccount).filter(
                     ChartAccount.name == conta,
-                    ChartAccount.subgroup_id == subgroup_id
+                    ChartAccount.subgroup_id == subgroup_id,
+                    (ChartAccount.tenant_id == tenant_id) | (ChartAccount.tenant_id == None)
                 ).first()
                 
                 if existing_account:
@@ -188,14 +238,29 @@ class ChartAccountsImporter:
                         name=conta,
                         description=descricao,
                         subgroup_id=subgroup_id,
-                        account_type=account_type
+                        account_type=account_type,
+                        tenant_id=tenant_id  # Vincular ao tenant
                     )
                     db.add(new_account)
+                    db.flush()  # IMPORTANTE: Flush para obter o ID antes de criar vínculo
+                    
                     existing_account_codes.append(code)
                     accounts_created += 1
+                    
+                    # Criar vínculo com Business Unit (se fornecido)
+                    if business_unit_id:
+                        from app.models.chart_of_accounts import BusinessUnitChartAccount
+                        bu_account_link = BusinessUnitChartAccount(
+                            business_unit_id=business_unit_id,
+                            chart_account_id=new_account.id,
+                            is_custom=False
+                        )
+                        db.add(bu_account_link)
             
             # Commit das mudanças
+            print(f"[IMPORT] Committing: {groups_created} grupos, {subgroups_created} subgrupos, {accounts_created} contas")
             db.commit()
+            print(f"[IMPORT] ✅ Commit successful!")
             
             return {
                 "success": True,

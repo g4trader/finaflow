@@ -1,0 +1,2997 @@
+{
+  "timestamp": "2025-09-28T00:10:39.489971",
+  "spreadsheet_id": "1yyHuP6qjnK2Rd26yPPzaOqi_OJVeRjAJnewRIOJvFVY",
+  "sheets": {
+    "Plano de contas": {
+      "info": {
+        "name": "Plano de contas",
+        "id": 1158090564,
+        "row_count": 976,
+        "column_count": 26
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 121,
+        "columns": 4,
+        "headers": [
+          "Conta",
+          "Subgrupo",
+          "Grupo",
+          "Escolha"
+        ],
+        "data_types": {
+          "Conta": "text",
+          "Subgrupo": "text",
+          "Grupo": "text",
+          "Escolha": "text"
+        },
+        "sample_data": [
+          {
+            "column": "Conta",
+            "type": "text",
+            "sample_values": [
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B",
+              "Treinamentos e consultorias B2B",
+              "Treinamentos e consultorias Contratos antigos",
+              "Vendas B2C - Marketing"
+            ]
+          },
+          {
+            "column": "Subgrupo",
+            "type": "text",
+            "sample_values": [
+              "Receita",
+              "Receita",
+              "Receita",
+              "Receita",
+              "Receita"
+            ]
+          },
+          {
+            "column": "Grupo",
+            "type": "text",
+            "sample_values": [
+              "Receita",
+              "Receita",
+              "Receita",
+              "Receita",
+              "Receita"
+            ]
+          },
+          {
+            "column": "Escolha",
+            "type": "text",
+            "sample_values": [
+              "Usar",
+              "Usar",
+              "Usar",
+              "Usar",
+              "Usar"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "Conta",
+          "Subgrupo",
+          "Grupo",
+          "Escolha"
+        ],
+        [
+          "Vendas Cursos pelo o comercial",
+          "Receita",
+          "Receita",
+          "Usar"
+        ],
+        [
+          "Treinamentos B2B",
+          "Receita",
+          "Receita",
+          "Usar"
+        ],
+        [
+          "Treinamentos e consultorias B2B",
+          "Receita",
+          "Receita",
+          "Usar"
+        ],
+        [
+          "Treinamentos e consultorias Contratos antigos",
+          "Receita",
+          "Receita",
+          "Usar"
+        ],
+        [
+          "Vendas B2C - Marketing",
+          "Receita",
+          "Receita",
+          "Usar"
+        ],
+        [
+          "Venda B2C - Comercial",
+          "Receita",
+          "Receita",
+          "Usar"
+        ],
+        [
+          "Marketing B2B para clientes",
+          "Receita",
+          "Receita",
+          "Usar"
+        ],
+        [
+          "Vendas de Ferramentas",
+          "Receita",
+          "Receita",
+          "Usar"
+        ],
+        [
+          "Outras receitas",
+          "Receita",
+          "Receita",
+          "Usar"
+        ]
+      ]
+    },
+    "Resultados Anuais": {
+      "info": {
+        "name": "Resultados Anuais",
+        "id": 272780721,
+        "row_count": 2,
+        "column_count": 2
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 2,
+        "columns": 2,
+        "headers": [
+          "Ano",
+          "Valor"
+        ],
+        "data_types": {
+          "Ano": "numeric",
+          "Valor": "numeric"
+        },
+        "sample_data": [
+          {
+            "column": "Ano",
+            "type": "numeric",
+            "sample_values": [
+              "2024"
+            ]
+          },
+          {
+            "column": "Valor",
+            "type": "numeric",
+            "sample_values": [
+              "R$ 74.855,06"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "Ano",
+          "Valor"
+        ],
+        [
+          "2024",
+          "R$ 74.855,06"
+        ]
+      ]
+    },
+    "Previsão Fluxo de caixa-2025": {
+      "info": {
+        "name": "Previsão Fluxo de caixa-2025",
+        "id": 1437047640,
+        "row_count": 977,
+        "column_count": 26
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 179,
+        "columns": 2,
+        "headers": [
+          "",
+          "Previsão de Fluxo de Caixa"
+        ],
+        "data_types": {
+          "": "empty",
+          "Previsão de Fluxo de Caixa": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Previsão de Fluxo de Caixa",
+            "type": "text",
+            "sample_values": [
+              " Ano do Fluxo:",
+              "2025",
+              "",
+              " Receita",
+              "Vendas Cursos pelo o comercial"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Previsão de Fluxo de Caixa"
+        ],
+        [
+          "",
+          " Ano do Fluxo:",
+          "01/01/2025",
+          "01/02/2025",
+          "01/03/2025",
+          "01/04/2025",
+          "01/05/2025",
+          "01/06/2025",
+          "01/07/2025",
+          "01/08/2025",
+          "01/09/2025",
+          "01/10/2025",
+          "01/11/2025",
+          "01/12/2025"
+        ],
+        [
+          "",
+          "2025",
+          "JANEIRO",
+          "FEVEREIRO",
+          "MARÇO",
+          "ABRIL",
+          "MAIO",
+          "JUNHO",
+          "JULHO",
+          "AGOSTO",
+          "SETEMBRO",
+          "OUTUBRO",
+          "NOVEMBRO",
+          "DEZEMBRO",
+          "Total Ano"
+        ],
+        [
+          "",
+          "",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Previsto",
+          " Total Previsto"
+        ],
+        [
+          "",
+          " Receita",
+          "61.994,00 ",
+          "145.688,00 ",
+          "238.088,00 ",
+          "246.338,00 ",
+          "341.588,00 ",
+          "336.588,00 ",
+          "309.088,00 ",
+          "374.088,00 ",
+          "255.688,00 ",
+          "285.688,00 ",
+          "305.272,00 ",
+          "222.888,00 ",
+          "3.122.996,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "0,00 "
+        ],
+        [
+          "",
+          "Treinamentos B2B",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "0,00 "
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B",
+          "54.000,00 ",
+          "67.000,00 ",
+          "90.000,00 ",
+          "93.750,00 ",
+          "154.000,00 ",
+          "154.000,00 ",
+          "154.000,00 ",
+          "154.000,00 ",
+          "154.000,00 ",
+          "154.000,00 ",
+          "154.000,00 ",
+          "117.000,00 ",
+          "1.499.750,00 "
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos",
+          "",
+          "60.694,00 ",
+          "137.594,00 ",
+          "140.094,00 ",
+          "165.094,00 ",
+          "170.094,00 ",
+          "142.594,00 ",
+          "197.594,00 ",
+          "89.194,00 ",
+          "119.194,00 ",
+          "118.778,00 ",
+          "93.394,00 ",
+          "1.434.318,00 "
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "0,00 "
+        ]
+      ]
+    },
+    "Lançamentos Previstos": {
+      "info": {
+        "name": "Lançamentos Previstos",
+        "id": 323119515,
+        "row_count": 1000,
+        "column_count": 27
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 665,
+        "columns": 6,
+        "headers": [
+          "Ano/Mês",
+          "Mês",
+          "Conta",
+          "Subgrupo",
+          "Grupo",
+          "Valor"
+        ],
+        "data_types": {
+          "Ano/Mês": "date",
+          "Mês": "date",
+          "Conta": "text",
+          "Subgrupo": "text",
+          "Grupo": "text",
+          "Valor": "numeric"
+        },
+        "sample_data": [
+          {
+            "column": "Ano/Mês",
+            "type": "date",
+            "sample_values": [
+              "01/01/2025",
+              "01/02/2025",
+              "01/03/2025",
+              "01/04/2025",
+              "01/05/2025"
+            ]
+          },
+          {
+            "column": "Mês",
+            "type": "date",
+            "sample_values": [
+              "10/01/2025",
+              "10/02/2025",
+              "10/03/2025",
+              "10/04/2025",
+              "10/05/2025"
+            ]
+          },
+          {
+            "column": "Conta",
+            "type": "text",
+            "sample_values": [
+              "Água",
+              "Água",
+              "Água",
+              "Água",
+              "Água"
+            ]
+          },
+          {
+            "column": "Subgrupo",
+            "type": "text",
+            "sample_values": [
+              "Despesas Administrativas",
+              "Despesas Administrativas",
+              "Despesas Administrativas",
+              "Despesas Administrativas",
+              "Despesas Administrativas"
+            ]
+          },
+          {
+            "column": "Grupo",
+            "type": "text",
+            "sample_values": [
+              "Despesas Operacionais",
+              "Despesas Operacionais",
+              "Despesas Operacionais",
+              "Despesas Operacionais",
+              "Despesas Operacionais"
+            ]
+          },
+          {
+            "column": "Valor",
+            "type": "numeric",
+            "sample_values": [
+              "R$ 80,0",
+              "R$ 80,0",
+              "R$ 80,0",
+              "R$ 80,0",
+              "R$ 80,0"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "Ano/Mês",
+          "Mês",
+          "Conta",
+          "Subgrupo",
+          "Grupo",
+          "Valor"
+        ],
+        [
+          "01/01/2025",
+          "10/01/2025",
+          "Água",
+          "Despesas Administrativas",
+          "Despesas Operacionais",
+          "R$ 80,0"
+        ],
+        [
+          "01/02/2025",
+          "10/02/2025",
+          "Água",
+          "Despesas Administrativas",
+          "Despesas Operacionais",
+          "R$ 80,0"
+        ],
+        [
+          "01/03/2025",
+          "10/03/2025",
+          "Água",
+          "Despesas Administrativas",
+          "Despesas Operacionais",
+          "R$ 80,0"
+        ],
+        [
+          "01/04/2025",
+          "10/04/2025",
+          "Água",
+          "Despesas Administrativas",
+          "Despesas Operacionais",
+          "R$ 80,0"
+        ],
+        [
+          "01/05/2025",
+          "10/05/2025",
+          "Água",
+          "Despesas Administrativas",
+          "Despesas Operacionais",
+          "R$ 80,0"
+        ],
+        [
+          "01/06/2025",
+          "10/06/2025",
+          "Água",
+          "Despesas Administrativas",
+          "Despesas Operacionais",
+          "R$ 80,0"
+        ],
+        [
+          "01/07/2025",
+          "10/07/2025",
+          "Água",
+          "Despesas Administrativas",
+          "Despesas Operacionais",
+          "R$ 80,0"
+        ],
+        [
+          "01/08/2025",
+          "10/08/2025",
+          "Água",
+          "Despesas Administrativas",
+          "Despesas Operacionais",
+          "R$ 80,0"
+        ],
+        [
+          "01/09/2025",
+          "10/09/2025",
+          "Água",
+          "Despesas Administrativas",
+          "Despesas Operacionais",
+          "R$ 80,0"
+        ]
+      ]
+    },
+    "Fluxo de caixa-2025": {
+      "info": {
+        "name": "Fluxo de caixa-2025",
+        "id": 799346986,
+        "row_count": 977,
+        "column_count": 73
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 179,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa",
+            "type": "text",
+            "sample_values": [
+              " Ano do Fluxo:",
+              "2025",
+              "",
+              " Receita",
+              "Vendas Cursos pelo o comercial"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa"
+        ],
+        [
+          "",
+          " Ano do Fluxo:",
+          "1",
+          "",
+          "",
+          "",
+          "2",
+          "",
+          "",
+          "",
+          "3",
+          "",
+          "",
+          "",
+          "4",
+          "",
+          "",
+          "",
+          "5",
+          "",
+          "",
+          "",
+          "6"
+        ],
+        [
+          "",
+          "2025",
+          "JANEIRO",
+          "",
+          "",
+          "",
+          "FEVEREIRO",
+          "",
+          "",
+          "",
+          "MARÇO",
+          "",
+          "",
+          "",
+          "ABRIL",
+          "",
+          "",
+          "",
+          "MAIO",
+          "",
+          "",
+          "",
+          "JUNHO"
+        ],
+        [
+          "",
+          "",
+          " Previsto",
+          " Realizado",
+          " AH",
+          " AV",
+          " Previsto",
+          " Realizado",
+          " AH",
+          " AV",
+          " Previsto",
+          " Realizado",
+          " AH",
+          " AV",
+          " Previsto",
+          " Realizado",
+          " AH",
+          " AV",
+          " Previsto",
+          " Realizado",
+          " AH",
+          " AV",
+          " Previsto",
+          " Realizado",
+          " AH",
+          " AV"
+        ],
+        [
+          "",
+          " Receita",
+          "61.994,00 ",
+          "104.990,13 ",
+          "169%",
+          "100%",
+          "145.688,00 ",
+          "52.569,83 ",
+          "36%",
+          "100%",
+          "238.088,00 ",
+          "68.015,62 ",
+          "29%",
+          "100%",
+          "246.338,00 ",
+          "84.392,14 ",
+          "34%",
+          "100%",
+          "341.588,00 ",
+          "259.970,00 ",
+          "76%",
+          "100%",
+          "336.588,00 ",
+          "80.866,36 ",
+          "24%",
+          "100%"
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial",
+          "",
+          "6.328,61 ",
+          "0%",
+          "6%",
+          "",
+          "3.224,90 ",
+          "0%",
+          "3%",
+          "",
+          "3.007,00 ",
+          "0%",
+          "3%",
+          "",
+          "7.978,44 ",
+          "0%",
+          "8%",
+          "",
+          "1.940,00 ",
+          "0%",
+          "2%",
+          "",
+          "6.509,30 ",
+          "0%",
+          "6%"
+        ],
+        [
+          "",
+          "Treinamentos B2B",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B",
+          "54.000,00 ",
+          "0,00 ",
+          "0%",
+          "0%",
+          "67.000,00 ",
+          "0,00 ",
+          "0%",
+          "0%",
+          "90.000,00 ",
+          "0,00 ",
+          "0%",
+          "0%",
+          "93.750,00 ",
+          "64.855,00 ",
+          "69%",
+          "62%",
+          "154.000,00 ",
+          "22.855,00 ",
+          "15%",
+          "22%",
+          "154.000,00 ",
+          "10.000,00 ",
+          "6%",
+          "10%"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos",
+          "",
+          "85.167,02 ",
+          "0%",
+          "81%",
+          "60.694,00 ",
+          "35.847,43 ",
+          "59%",
+          "34%",
+          "137.594,00 ",
+          "54.018,12 ",
+          "39%",
+          "51%",
+          "140.094,00 ",
+          "0,00 ",
+          "0%",
+          "0%",
+          "165.094,00 ",
+          "224.178,98 ",
+          "136%",
+          "214%",
+          "170.094,00 ",
+          "53.364,56 ",
+          "31%",
+          "51%"
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%",
+          "",
+          "0,00 ",
+          "0%",
+          "0%"
+        ]
+      ]
+    },
+    "Lançamento Diário": {
+      "info": {
+        "name": "Lançamento Diário",
+        "id": 251898274,
+        "row_count": 3088,
+        "column_count": 20
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 778,
+        "columns": 6,
+        "headers": [
+          "Ano/Mês",
+          "Data Movimentação",
+          "",
+          "Subgrupo",
+          "Grupo",
+          "Valor"
+        ],
+        "data_types": {
+          "Ano/Mês": "date",
+          "Data Movimentação": "date",
+          "": "text",
+          "Subgrupo": "text",
+          "Grupo": "text",
+          "Valor": "numeric"
+        },
+        "sample_data": [
+          {
+            "column": "Ano/Mês",
+            "type": "date",
+            "sample_values": [
+              "01/01/2025",
+              "01/01/2025",
+              "01/01/2025",
+              "01/01/2025",
+              "01/01/2025"
+            ]
+          },
+          {
+            "column": "Data Movimentação",
+            "type": "date",
+            "sample_values": [
+              "02/01/2025",
+              "02/01/2025",
+              "02/01/2025",
+              "02/01/2025",
+              "02/01/2025"
+            ]
+          },
+          {
+            "column": "",
+            "type": "text",
+            "sample_values": [
+              "Vale Alimentação-ADM",
+              "Salário",
+              "Salário-ADM",
+              "Pró-Labore-ADM",
+              "Pró-Labore"
+            ]
+          },
+          {
+            "column": "Subgrupo",
+            "type": "text",
+            "sample_values": [
+              "Despesas com Pessoal",
+              "Custos com Mão de Obra ",
+              "Despesas com Pessoal",
+              "Despesas com Pessoal",
+              "Custos com Mão de Obra "
+            ]
+          },
+          {
+            "column": "Grupo",
+            "type": "text",
+            "sample_values": [
+              "Despesas Operacionais",
+              "Custos",
+              "Despesas Operacionais",
+              "Despesas Operacionais",
+              "Custos"
+            ]
+          },
+          {
+            "column": "Valor",
+            "type": "numeric",
+            "sample_values": [
+              "3.200,00 ",
+              "7.873,95 ",
+              "9.032,46 ",
+              "14.400,00 ",
+              "9.600,00 "
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "Ano/Mês",
+          "Data Movimentação",
+          "",
+          "Subgrupo",
+          "Grupo",
+          "Valor"
+        ],
+        [
+          "01/01/2025",
+          "02/01/2025",
+          "Vale Alimentação-ADM",
+          "Despesas com Pessoal",
+          "Despesas Operacionais",
+          "3.200,00 "
+        ],
+        [
+          "01/01/2025",
+          "02/01/2025",
+          "Salário",
+          "Custos com Mão de Obra ",
+          "Custos",
+          "7.873,95 "
+        ],
+        [
+          "01/01/2025",
+          "02/01/2025",
+          "Salário-ADM",
+          "Despesas com Pessoal",
+          "Despesas Operacionais",
+          "9.032,46 "
+        ],
+        [
+          "01/01/2025",
+          "02/01/2025",
+          "Pró-Labore-ADM",
+          "Despesas com Pessoal",
+          "Despesas Operacionais",
+          "14.400,00 "
+        ],
+        [
+          "01/01/2025",
+          "02/01/2025",
+          "Pró-Labore",
+          "Custos com Mão de Obra ",
+          "Custos",
+          "9.600,00 "
+        ],
+        [
+          "01/01/2025",
+          "02/01/2025",
+          "Comissão Closer",
+          "Custos com Serviços Prestados",
+          "Custos",
+          "447,21 "
+        ],
+        [
+          "01/01/2025",
+          "03/01/2025",
+          "Alimentação Escritório",
+          "Custos com Mão de Obra ",
+          "Custos",
+          "1.380,00 "
+        ],
+        [
+          "01/01/2025",
+          "03/01/2025",
+          "Vendas Cursos pelo o comercial",
+          "Receita",
+          "Receita",
+          "110,00 "
+        ],
+        [
+          "01/01/2025",
+          "03/01/2025",
+          "Tarifas Bancárias",
+          "Despesas Financeiras",
+          "Despesas Operacionais",
+          "139,00 "
+        ]
+      ]
+    },
+    "FC-diário-Jan2025": {
+      "info": {
+        "name": "FC-diário-Jan2025",
+        "id": 754153444,
+        "row_count": 978,
+        "column_count": 34
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "jan.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "jan.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-jan.-25",
+          "2-jan.-25",
+          "3-jan.-25",
+          "4-jan.-25",
+          "5-jan.-25",
+          "6-jan.-25",
+          "7-jan.-25",
+          "8-jan.-25",
+          "9-jan.-25",
+          "10-jan.-25",
+          "11-jan.-25",
+          "12-jan.-25",
+          "13-jan.-25",
+          "14-jan.-25",
+          "15-jan.-25",
+          "16-jan.-25",
+          "17-jan.-25",
+          "18-jan.-25",
+          "19-jan.-25",
+          "20-jan.-25",
+          "21-jan.-25",
+          "22-jan.-25",
+          "23-jan.-25",
+          "24-jan.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "33.104,50 ",
+          "0,00 ",
+          "0,00 ",
+          "940,00 ",
+          "98,41 ",
+          "3.862,20 ",
+          "760,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "57.667,02 ",
+          "600,00 ",
+          "0,00 ",
+          "0,00 ",
+          "344,00 ",
+          "0,00 ",
+          "0,00 ",
+          "1.400,00 ",
+          "0,00 ",
+          "0,00 ",
+          "3.000,00 ",
+          "714,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial",
+          "",
+          "",
+          "110,00 ",
+          "",
+          "",
+          "940,00 ",
+          "98,41 ",
+          "1.362,20 ",
+          "760,00 ",
+          "",
+          "",
+          "",
+          "",
+          "600,00 ",
+          "",
+          "",
+          "344,00 ",
+          "",
+          "",
+          "1.400,00 ",
+          "",
+          "",
+          "",
+          "714,00 "
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos",
+          "",
+          "",
+          "27.500,00 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "57.667,02 "
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Fev2025": {
+      "info": {
+        "name": "FC-diário-Fev2025",
+        "id": 622028686,
+        "row_count": 978,
+        "column_count": 31
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "fev.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "fev.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-fev.-25",
+          "2-fev.-25",
+          "3-fev.-25",
+          "4-fev.-25",
+          "5-fev.-25",
+          "6-fev.-25",
+          "7-fev.-25",
+          "8-fev.-25",
+          "9-fev.-25",
+          "10-fev.-25",
+          "11-fev.-25",
+          "12-fev.-25",
+          "13-fev.-25",
+          "14-fev.-25",
+          "15-fev.-25",
+          "16-fev.-25",
+          "17-fev.-25",
+          "18-fev.-25",
+          "19-fev.-25",
+          "20-fev.-25",
+          "21-fev.-25",
+          "22-fev.-25",
+          "23-fev.-25",
+          "24-fev.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "2.500,00 ",
+          "550,00 ",
+          "5.961,50 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "26.599,43 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "10.790,90 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "3.003,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial",
+          "",
+          "",
+          "",
+          "550,00 ",
+          "467,00 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "1.542,90 "
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "26.599,43 ",
+          "",
+          "",
+          "",
+          "",
+          "9.248,00 "
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Mar2025": {
+      "info": {
+        "name": "FC-diário-Mar2025",
+        "id": 681232799,
+        "row_count": 978,
+        "column_count": 34
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "mar.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "mar.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-mar.-25",
+          "2-mar.-25",
+          "3-mar.-25",
+          "4-mar.-25",
+          "5-mar.-25",
+          "6-mar.-25",
+          "7-mar.-25",
+          "8-mar.-25",
+          "9-mar.-25",
+          "10-mar.-25",
+          "11-mar.-25",
+          "12-mar.-25",
+          "13-mar.-25",
+          "14-mar.-25",
+          "15-mar.-25",
+          "16-mar.-25",
+          "17-mar.-25",
+          "18-mar.-25",
+          "19-mar.-25",
+          "20-mar.-25",
+          "21-mar.-25",
+          "22-mar.-25",
+          "23-mar.-25",
+          "24-mar.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "2.500,00 ",
+          "890,00 ",
+          "0,00 ",
+          "0,00 ",
+          "5.494,50 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "540,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "324,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "1.253,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "2.996,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial",
+          "",
+          "",
+          "890,00 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "540,00 ",
+          "",
+          "",
+          "",
+          "324,00 ",
+          "",
+          "",
+          "",
+          "",
+          "1.253,00 "
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos"
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Abr2025": {
+      "info": {
+        "name": "FC-diário-Abr2025",
+        "id": 707726861,
+        "row_count": 978,
+        "column_count": 33
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "abr.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "abr.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-abr.-25",
+          "2-abr.-25",
+          "3-abr.-25",
+          "4-abr.-25",
+          "5-abr.-25",
+          "6-abr.-25",
+          "7-abr.-25",
+          "8-abr.-25",
+          "9-abr.-25",
+          "10-abr.-25",
+          "11-abr.-25",
+          "12-abr.-25",
+          "13-abr.-25",
+          "14-abr.-25",
+          "15-abr.-25",
+          "16-abr.-25",
+          "17-abr.-25",
+          "18-abr.-25",
+          "19-abr.-25",
+          "20-abr.-25",
+          "21-abr.-25",
+          "22-abr.-25",
+          "23-abr.-25",
+          "24-abr.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "500,00 ",
+          "5.494,50 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "1.700,00 ",
+          "162,44 ",
+          "37.000,00 ",
+          "2.900,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "32.511,00 ",
+          "300,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial",
+          "",
+          "",
+          "500,00 ",
+          "",
+          "",
+          "",
+          "",
+          "1.700,00 ",
+          "162,44 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "4.656,00 ",
+          "300,00 "
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "37.000,00 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "27.855,00 "
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos"
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Mai2025": {
+      "info": {
+        "name": "FC-diário-Mai2025",
+        "id": 288471405,
+        "row_count": 978,
+        "column_count": 34
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "mai.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "mai.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-mai.-25",
+          "2-mai.-25",
+          "3-mai.-25",
+          "4-mai.-25",
+          "5-mai.-25",
+          "6-mai.-25",
+          "7-mai.-25",
+          "8-mai.-25",
+          "9-mai.-25",
+          "10-mai.-25",
+          "11-mai.-25",
+          "12-mai.-25",
+          "13-mai.-25",
+          "14-mai.-25",
+          "15-mai.-25",
+          "16-mai.-25",
+          "17-mai.-25",
+          "18-mai.-25",
+          "19-mai.-25",
+          "20-mai.-25",
+          "21-mai.-25",
+          "22-mai.-25",
+          "23-mai.-25",
+          "24-mai.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "5.494,50 ",
+          "214.627,50 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "350,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "26.700,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "1.590,00 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "350,00 "
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "15.555,00 "
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "197.478,98 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "26.700,00 "
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Jun2025": {
+      "info": {
+        "name": "FC-diário-Jun2025",
+        "id": 2139064900,
+        "row_count": 978,
+        "column_count": 33
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "jun.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "jun.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-jun.-25",
+          "2-jun.-25",
+          "3-jun.-25",
+          "4-jun.-25",
+          "5-jun.-25",
+          "6-jun.-25",
+          "7-jun.-25",
+          "8-jun.-25",
+          "9-jun.-25",
+          "10-jun.-25",
+          "11-jun.-25",
+          "12-jun.-25",
+          "13-jun.-25",
+          "14-jun.-25",
+          "15-jun.-25",
+          "16-jun.-25",
+          "17-jun.-25",
+          "18-jun.-25",
+          "19-jun.-25",
+          "20-jun.-25",
+          "21-jun.-25",
+          "22-jun.-25",
+          "23-jun.-25",
+          "24-jun.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "1.800,00 ",
+          "0,00 ",
+          "5.791,50 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "1.900,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "12.312,30 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial",
+          "",
+          "",
+          "1.800,00 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "1.900,00 ",
+          "",
+          "",
+          "",
+          "",
+          "2.312,30 "
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "10.000,00 "
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos",
+          "",
+          "",
+          "",
+          "",
+          "297,00 "
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Jul2025": {
+      "info": {
+        "name": "FC-diário-Jul2025",
+        "id": 1785550855,
+        "row_count": 978,
+        "column_count": 34
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "jul.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "jul.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-jul.-25",
+          "2-jul.-25",
+          "3-jul.-25",
+          "4-jul.-25",
+          "5-jul.-25",
+          "6-jul.-25",
+          "7-jul.-25",
+          "8-jul.-25",
+          "9-jul.-25",
+          "10-jul.-25",
+          "11-jul.-25",
+          "12-jul.-25",
+          "13-jul.-25",
+          "14-jul.-25",
+          "15-jul.-25",
+          "16-jul.-25",
+          "17-jul.-25",
+          "18-jul.-25",
+          "19-jul.-25",
+          "20-jul.-25",
+          "21-jul.-25",
+          "22-jul.-25",
+          "23-jul.-25",
+          "24-jul.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "5.494,50 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "2.608,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "890,00 ",
+          "1.094,30 ",
+          "26.767,00 ",
+          "0,00 ",
+          "480,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "17.090,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "1.018,00 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "890,00 ",
+          "864,30 ",
+          "67,00 ",
+          "",
+          "480,00 "
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "14.100,00 "
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "1.590,00 ",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "26.700,00 "
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Ago2025": {
+      "info": {
+        "name": "FC-diário-Ago2025",
+        "id": 41261970,
+        "row_count": 978,
+        "column_count": 34
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "ago.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "ago.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-ago.-25",
+          "2-ago.-25",
+          "3-ago.-25",
+          "4-ago.-25",
+          "5-ago.-25",
+          "6-ago.-25",
+          "7-ago.-25",
+          "8-ago.-25",
+          "9-ago.-25",
+          "10-ago.-25",
+          "11-ago.-25",
+          "12-ago.-25",
+          "13-ago.-25",
+          "14-ago.-25",
+          "15-ago.-25",
+          "16-ago.-25",
+          "17-ago.-25",
+          "18-ago.-25",
+          "19-ago.-25",
+          "20-ago.-25",
+          "21-ago.-25",
+          "22-ago.-25",
+          "23-ago.-25",
+          "24-ago.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial"
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos"
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Set2025": {
+      "info": {
+        "name": "FC-diário-Set2025",
+        "id": 1817743913,
+        "row_count": 978,
+        "column_count": 33
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "set.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "set.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-set.-25",
+          "2-set.-25",
+          "3-set.-25",
+          "4-set.-25",
+          "5-set.-25",
+          "6-set.-25",
+          "7-set.-25",
+          "8-set.-25",
+          "9-set.-25",
+          "10-set.-25",
+          "11-set.-25",
+          "12-set.-25",
+          "13-set.-25",
+          "14-set.-25",
+          "15-set.-25",
+          "16-set.-25",
+          "17-set.-25",
+          "18-set.-25",
+          "19-set.-25",
+          "20-set.-25",
+          "21-set.-25",
+          "22-set.-25",
+          "23-set.-25",
+          "24-set.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial"
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos"
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Out2025": {
+      "info": {
+        "name": "FC-diário-Out2025",
+        "id": 954240486,
+        "row_count": 978,
+        "column_count": 34
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "out.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "out.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-out.-25",
+          "2-out.-25",
+          "3-out.-25",
+          "4-out.-25",
+          "5-out.-25",
+          "6-out.-25",
+          "7-out.-25",
+          "8-out.-25",
+          "9-out.-25",
+          "10-out.-25",
+          "11-out.-25",
+          "12-out.-25",
+          "13-out.-25",
+          "14-out.-25",
+          "15-out.-25",
+          "16-out.-25",
+          "17-out.-25",
+          "18-out.-25",
+          "19-out.-25",
+          "20-out.-25",
+          "21-out.-25",
+          "22-out.-25",
+          "23-out.-25",
+          "24-out.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial"
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos"
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Nov2025": {
+      "info": {
+        "name": "FC-diário-Nov2025",
+        "id": 1115286586,
+        "row_count": 978,
+        "column_count": 33
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "nov.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "nov.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-nov.-25",
+          "2-nov.-25",
+          "3-nov.-25",
+          "4-nov.-25",
+          "5-nov.-25",
+          "6-nov.-25",
+          "7-nov.-25",
+          "8-nov.-25",
+          "9-nov.-25",
+          "10-nov.-25",
+          "11-nov.-25",
+          "12-nov.-25",
+          "13-nov.-25",
+          "14-nov.-25",
+          "15-nov.-25",
+          "16-nov.-25",
+          "17-nov.-25",
+          "18-nov.-25",
+          "19-nov.-25",
+          "20-nov.-25",
+          "21-nov.-25",
+          "22-nov.-25",
+          "23-nov.-25",
+          "24-nov.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial"
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos"
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    },
+    "FC-diário-Dez2025": {
+      "info": {
+        "name": "FC-diário-Dez2025",
+        "id": 2120793930,
+        "row_count": 978,
+        "column_count": 34
+      },
+      "structure": {
+        "status": "analyzed",
+        "rows": 195,
+        "columns": 2,
+        "headers": [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        "data_types": {
+          "": "empty",
+          "Fluxo de Caixa Diário": "text"
+        },
+        "sample_data": [
+          {
+            "column": "",
+            "type": "empty",
+            "sample_values": [
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          {
+            "column": "Fluxo de Caixa Diário",
+            "type": "text",
+            "sample_values": [
+              "dez.-25",
+              "CONTAS",
+              "Receita",
+              "Vendas Cursos pelo o comercial",
+              "Treinamentos B2B"
+            ]
+          }
+        ]
+      },
+      "data_preview": [
+        [
+          "",
+          "Fluxo de Caixa Diário"
+        ],
+        [],
+        [
+          "",
+          "dez.-25"
+        ],
+        [
+          "",
+          "CONTAS",
+          "1-dez.-25",
+          "2-dez.-25",
+          "3-dez.-25",
+          "4-dez.-25",
+          "5-dez.-25",
+          "6-dez.-25",
+          "7-dez.-25",
+          "8-dez.-25",
+          "9-dez.-25",
+          "10-dez.-25",
+          "11-dez.-25",
+          "12-dez.-25",
+          "13-dez.-25",
+          "14-dez.-25",
+          "15-dez.-25",
+          "16-dez.-25",
+          "17-dez.-25",
+          "18-dez.-25",
+          "19-dez.-25",
+          "20-dez.-25",
+          "21-dez.-25",
+          "22-dez.-25",
+          "23-dez.-25",
+          "24-dez.-25"
+        ],
+        [
+          "",
+          "Receita",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 ",
+          "0,00 "
+        ],
+        [
+          "",
+          "Vendas Cursos pelo o comercial"
+        ],
+        [
+          "",
+          "Treinamentos B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias B2B"
+        ],
+        [
+          "",
+          "Treinamentos e consultorias Contratos antigos"
+        ],
+        [
+          "",
+          "Vendas B2C - Marketing"
+        ]
+      ]
+    }
+  },
+  "data_structure": {},
+  "import_mapping": {
+    "account_structure": {
+      "description": "Estrutura de contas (grupos, subgrupos, contas específicas)",
+      "sheets": [],
+      "fields": {
+        "groups": [
+          "Grupo",
+          "Código",
+          "Descrição"
+        ],
+        "subgroups": [
+          "Subgrupo",
+          "Grupo",
+          "Código",
+          "Descrição"
+        ],
+        "accounts": [
+          "Conta",
+          "Subgrupo",
+          "Código",
+          "Tipo"
+        ]
+      }
+    },
+    "transactions": {
+      "description": "Transações financeiras",
+      "sheets": [
+        "Lançamentos Previstos",
+        "Lançamento Diário"
+      ],
+      "fields": {
+        "date": "Data",
+        "description": "Descrição",
+        "account": "Conta",
+        "amount": "Valor",
+        "type": "Tipo"
+      }
+    },
+    "reports": {
+      "description": "Relatórios financeiros (DRE, Fluxo de Caixa)",
+      "sheets": [
+        "Previsão Fluxo de caixa-2025",
+        "Fluxo de caixa-2025",
+        "FC-diário-Jan2025",
+        "FC-diário-Fev2025",
+        "FC-diário-Mar2025",
+        "FC-diário-Abr2025",
+        "FC-diário-Mai2025",
+        "FC-diário-Jun2025",
+        "FC-diário-Jul2025",
+        "FC-diário-Ago2025",
+        "FC-diário-Set2025",
+        "FC-diário-Out2025",
+        "FC-diário-Nov2025",
+        "FC-diário-Dez2025"
+      ],
+      "fields": {
+        "period": "Período",
+        "revenue": "Receitas",
+        "expenses": "Despesas",
+        "profit": "Lucro"
+      }
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "HIGH",
+      "category": "Data Structure",
+      "issue": "Planilha com 18 abas, 18 com dados",
+      "recommendation": "Implementar importação por aba para cada tipo de dados"
+    },
+    {
+      "priority": "HIGH",
+      "category": "Transactions",
+      "issue": "Abas de transações identificadas",
+      "recommendation": "Criar endpoint para importação de transações com validação de dados"
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "Reports",
+      "issue": "Abas de relatórios identificadas",
+      "recommendation": "Implementar geração automática de relatórios baseados nos dados da planilha"
+    },
+    {
+      "priority": "HIGH",
+      "category": "Validation",
+      "issue": "Validação de dados necessária",
+      "recommendation": "Implementar validação de tipos de dados e consistência antes da importação"
+    }
+  ]
+}

@@ -1,345 +1,305 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
-import Layout from '../components/layout/Layout';
+import { motion } from 'framer-motion';
 import { 
-  Upload, 
-  FileText, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Calendar,
-  DollarSign,
-  ArrowUpRight,
-  ArrowDownRight,
-  X,
-  Receipt
+  Plus, Edit, Trash2, Search, Filter, Calendar,
+  DollarSign, FileText, Building, Users, ArrowUpDown
 } from 'lucide-react';
+import Layout from '../components/layout/Layout';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
-interface FinancialTransaction {
-  id: string;
-  reference: string;
-  description: string;
-  amount: number;
-  transaction_date: string;
-  transaction_type: string;
-  status: string;
-  chart_account_id: string;
-  chart_account_name: string;
-  chart_account_code: string;
-  business_unit_id: string;
-  business_unit_name: string;
-  created_by: string;
-  approved_by?: string;
-  is_active: boolean;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-  approved_at?: string;
+interface PlanoContas {
+  grupos: Array<{ id: string; code: string; name: string; }>;
+  subgrupos: Array<{ id: string; code: string; name: string; group_id: string; }>;
+  contas: Array<{ id: string; code: string; name: string; subgroup_id: string; }>;
 }
 
-interface ChartAccount {
+interface LancamentoDiario {
   id: string;
-  name: string;
-  code: string;
-  subgroup_id: string;
+  data_movimentacao: string;
+  valor: number;
+  liquidacao?: string;
+  observacoes?: string;
+  conta_id: string;
+  conta_nome: string;
+  conta_codigo: string;
+  subgrupo_id: string;
+  subgrupo_nome: string;
+  subgrupo_codigo: string;
+  grupo_id: string;
+  grupo_nome: string;
+  grupo_codigo: string;
+  transaction_type: string;
+  status: string;
+  created_at: string;
 }
 
 const Transactions: React.FC = () => {
   const { user } = useAuth();
-  const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
-  const [chartAccounts, setChartAccounts] = useState<ChartAccount[]>([]);
+  const [lancamentos, setLancamentos] = useState<LancamentoDiario[]>([]);
+  const [planoContas, setPlanoContas] = useState<PlanoContas | null>(null);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<any>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<FinancialTransaction | null>(null);
+  const [editingLancamento, setEditingLancamento] = useState<LancamentoDiario | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
   const [formData, setFormData] = useState({
-    chart_account_id: '',
-    transaction_date: '',
-    amount: '',
-    description: '',
-    transaction_type: 'receita',
-    notes: ''
+    data_movimentacao: '',
+    valor: '',
+    liquidacao: '',
+    observacoes: '',
+    grupo_id: '',
+    subgrupo_id: '',
+    conta_id: ''
   });
 
   useEffect(() => {
     if (user?.business_unit_id) {
-      loadTransactions(user.business_unit_id);
-      loadChartAccounts(user.business_unit_id);
+      loadPlanoContas();
+      loadLancamentos();
     }
   }, [user]);
 
-  const loadTransactions = async (buId: string) => {
+  const loadPlanoContas = async () => {
+    try {
+      const response = await api.get('/api/v1/lancamentos-diarios/plano-contas');
+      setPlanoContas(response.data);
+    } catch (error) {
+      console.error('Erro ao carregar plano de contas:', error);
+    }
+  };
+
+  const loadLancamentos = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/api/v1/financial/transactions?business_unit_id=${buId}`);
-      setTransactions(response.data);
+      const response = await api.get('/api/v1/lancamentos-diarios');
+      setLancamentos(response.data.lancamentos || []);
     } catch (error) {
-      console.error('Erro ao carregar transações:', error);
+      console.error('Erro ao carregar lançamentos:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadChartAccounts = async (buId: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
-      const response = await api.get(`/api/v1/chart-accounts/hierarchy?business_unit_id=${buId}`);
-      const accounts = response.data.accounts || [];
-      setChartAccounts(accounts);
-    } catch (error) {
-      console.error('Erro ao carregar contas:', error);
-    }
-  };
+      const payload = {
+        ...formData,
+        valor: parseFloat(formData.valor),
+        liquidacao: formData.liquidacao || null
+      };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type === 'text/csv') {
-      setSelectedFile(file);
-    } else {
-      alert('Por favor, selecione um arquivo CSV válido.');
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!selectedFile || !user?.business_unit_id) return;
-
-    setUploading(true);
-    setUploadProgress(0);
-
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
-        return prev + 10;
-      });
-    }, 100);
-
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('business_unit_id', user.business_unit_id);
-
-    try {
-      const response = await api.post('/api/v1/financial/transactions/import-csv', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(progress);
-          }
-        },
-      });
-
-      setUploadProgress(100);
-      setUploadResult(response.data);
-      if (response.data.summary.processed > 0) {
-        loadTransactions(user.business_unit_id);
+      if (editingLancamento) {
+        await api.put(`/api/v1/lancamentos-diarios/${editingLancamento.id}`, payload);
+      } else {
+        await api.post('/api/v1/lancamentos-diarios', payload);
       }
-    } catch (error: any) {
-      alert(error.response?.data?.detail || 'Erro ao importar arquivo');
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-      setTimeout(() => {
-        setShowUploadModal(false);
-        setSelectedFile(null);
-        setUploadResult(null);
-      }, 2000);
-    }
-  };
 
-  const handleCreateTransaction = async () => {
-    if (!user?.business_unit_id || !formData.chart_account_id || !formData.transaction_date || !formData.amount) {
-      alert('Por favor, preencha todos os campos obrigatórios.');
-      return;
-    }
-
-    try {
-      await api.post('/api/v1/financial/transactions', {
-        ...formData,
-        business_unit_id: user.business_unit_id,
-        amount: parseFloat(formData.amount)
-      });
-
+      await loadLancamentos();
       setShowCreateModal(false);
-      setFormData({
-        chart_account_id: '',
-        transaction_date: '',
-        amount: '',
-        description: '',
-        transaction_type: 'receita',
-        notes: ''
-      });
-      loadTransactions(user.business_unit_id);
-    } catch (error: any) {
-      alert(error.response?.data?.detail || 'Erro ao criar transação');
+      setEditingLancamento(null);
+      resetForm();
+    } catch (error) {
+      console.error('Erro ao salvar lançamento:', error);
+      alert('Erro ao salvar lançamento. Por favor, verifique os dados.');
     }
   };
 
-  const handleUpdateTransaction = async () => {
-    if (!editingTransaction || !formData.chart_account_id || !formData.transaction_date || !formData.amount) {
-      return;
-    }
-
-    try {
-      await api.post(`/api/v1/financial/transactions/${editingTransaction.id}`, {
-        ...formData,
-        amount: parseFloat(formData.amount)
-      });
-
-      setShowCreateModal(false);
-      setEditingTransaction(null);
-      setFormData({
-        chart_account_id: '',
-        transaction_date: '',
-        amount: '',
-        description: '',
-        transaction_type: 'receita',
-        notes: ''
-      });
-      loadTransactions(user.business_unit_id);
-    } catch (error: any) {
-      alert(error.response?.data?.detail || 'Erro ao atualizar transação');
-    }
-  };
-
-  const handleDeleteTransaction = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta transação?')) return;
-
-    try {
-      await api.delete(`/api/v1/financial/transactions/${id}`);
-      loadTransactions(user.business_unit_id);
-    } catch (error: any) {
-      alert(error.response?.data?.detail || 'Erro ao excluir transação');
-    }
-  };
-
-  const handleEditTransaction = (transaction: FinancialTransaction) => {
-    setEditingTransaction(transaction);
+  const handleEdit = (lancamento: LancamentoDiario) => {
     setFormData({
-      chart_account_id: transaction.chart_account_id,
-      transaction_date: transaction.transaction_date.split(' ')[0],
-      amount: transaction.amount.toString(),
-      description: transaction.description,
-      transaction_type: transaction.transaction_type,
-      notes: transaction.notes || ''
+      data_movimentacao: lancamento.data_movimentacao.split('T')[0],
+      valor: lancamento.valor.toString(),
+      liquidacao: lancamento.liquidacao ? lancamento.liquidacao.split('T')[0] : '',
+      observacoes: lancamento.observacoes || '',
+      grupo_id: lancamento.grupo_id,
+      subgrupo_id: lancamento.subgrupo_id,
+      conta_id: lancamento.conta_id
     });
+    setEditingLancamento(lancamento);
     setShowCreateModal(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este lançamento?')) {
+      try {
+        await api.delete(`/api/v1/lancamentos-diarios/${id}`);
+        await loadLancamentos();
+      } catch (error) {
+        console.error('Erro ao excluir lançamento:', error);
+        alert('Erro ao excluir lançamento.');
+      }
+    }
+  };
+
+  const resetForm = () => {
+      setFormData({
+      data_movimentacao: '',
+      valor: '',
+      liquidacao: '',
+      observacoes: '',
+      grupo_id: '',
+      subgrupo_id: '',
+      conta_id: ''
+    });
+  };
+
+  const handleGroupChange = (groupId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      grupo_id: groupId,
+      subgrupo_id: '',
+      conta_id: ''
+    }));
+  };
+
+  const handleSubgroupChange = (subgroupId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      subgrupo_id: subgroupId,
+      conta_id: ''
+    }));
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
   };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(amount);
+  const getSubgruposByGroup = (groupId: string) => {
+    return planoContas?.subgrupos.filter(s => s.group_id === groupId) || [];
   };
 
-  const getTransactionTypeIcon = (type: string) => {
-    return type === 'receita' ? (
-      <ArrowUpRight className="w-4 h-4 text-green-600" />
-    ) : (
-      <ArrowDownRight className="w-4 h-4 text-red-600" />
-    );
+  const getContasBySubgroup = (subgroupId: string) => {
+    return planoContas?.contas.filter(c => c.subgroup_id === subgroupId) || [];
   };
 
-  const getTransactionTypeColor = (type: string) => {
-    return type === 'receita' ? 'text-green-600' : 'text-red-600';
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'aprovada':
-        return 'text-green-600';
-      case 'pendente':
-        return 'text-yellow-600';
-      case 'rejeitada':
-        return 'text-red-600';
-      default:
-        return 'text-gray-600';
-    }
-  };
+  const filteredLancamentos = lancamentos.filter(lanc => {
+    const matchesSearch = 
+      lanc.conta_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lanc.subgrupo_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lanc.grupo_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lanc.observacoes && lanc.observacoes.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesFilter = 
+      filterType === 'all' || 
+      lanc.transaction_type === filterType;
+    
+    return matchesSearch && matchesFilter;
+  });
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Lançamentos Financeiros</h1>
+            <p className="text-gray-600">Gerencie os lançamentos diários (espelho da planilha)</p>
+          </div>
+          <button
+            onClick={() => {
+              resetForm();
+              setEditingLancamento(null);
+              setShowCreateModal(true);
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Novo Lançamento
+          </button>
+        </div>
+
+        {/* Filtros */}
+        <div className="bg-white p-4 rounded-lg shadow mb-6">
+          <div className="flex gap-4 items-center">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Buscar por conta, subgrupo, grupo ou observações..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Todos os tipos</option>
+              <option value="RECEITA">Receitas</option>
+              <option value="DESPESA">Despesas</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Estatísticas rápidas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Transações Financeiras</h1>
-                <p className="text-gray-600 mt-1">
-                  Gerencie as transações financeiras da sua unidade de negócio
-                </p>
+                <p className="text-sm text-gray-600">Total de Lançamentos</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredLancamentos.length}</p>
               </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Importar CSV
-                </button>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nova Transação
-                </button>
-              </div>
+              <FileText className="text-blue-500" size={32} />
             </div>
           </div>
-
-          {/* Transactions List */}
-          {user?.business_unit_id && (
-            <div className="bg-white rounded-lg shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Transações ({transactions.length})
-                </h3>
+          <div className="bg-white p-4 rounded-lg shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Receitas</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(
+                    filteredLancamentos
+                      .filter(l => l.transaction_type === 'RECEITA')
+                      .reduce((sum, l) => sum + l.valor, 0)
+                  )}
+                </p>
+              </div>
+              <DollarSign className="text-green-500" size={32} />
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Despesas</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {formatCurrency(
+                    filteredLancamentos
+                      .filter(l => l.transaction_type === 'DESPESA')
+                      .reduce((sum, l) => sum + l.valor, 0)
+                  )}
+                </p>
+              </div>
+              <DollarSign className="text-red-500" size={32} />
+            </div>
+          </div>
               </div>
               
-              {loading ? (
-                <div className="p-6 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Carregando transações...</p>
-                </div>
-              ) : transactions.length === 0 ? (
-                <div className="p-6 text-center">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Nenhuma transação encontrada</p>
-                  <p className="text-gray-500 text-sm mt-1">
-                    Comece criando uma nova transação ou importando um arquivo CSV
-                  </p>
-                </div>
-              ) : (
+        {/* Lista de Lançamentos */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Referência
+                    Data
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Grupo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Subgrupo
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Conta
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Descrição
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Data
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Valor
@@ -348,7 +308,7 @@ const Transactions: React.FC = () => {
                           Tipo
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
+                    Observações
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ações
@@ -356,197 +316,144 @@ const Transactions: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {transactions.map((transaction) => (
-                        <tr key={transaction.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {transaction.reference || 'N/A'}
-                            </div>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                      Carregando...
+                    </td>
+                  </tr>
+                ) : filteredLancamentos.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                      Nenhum lançamento encontrado
+                    </td>
+                  </tr>
+                ) : (
+                  filteredLancamentos.map((lancamento) => (
+                    <tr key={lancamento.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatDate(lancamento.data_movimentacao)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {transaction.chart_account_name || 'N/A'}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {transaction.chart_account_code || 'N/A'}
-                              </div>
+                          <div className="font-medium">{lancamento.grupo_codigo}</div>
+                          <div className="text-gray-500 text-xs">{lancamento.grupo_nome}</div>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 max-w-xs truncate">
-                              {transaction.description || 'N/A'}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div>
+                          <div className="font-medium">{lancamento.subgrupo_codigo}</div>
+                          <div className="text-gray-500 text-xs">{lancamento.subgrupo_nome}</div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatDate(transaction.transaction_date)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className={`text-sm font-medium ${getTransactionTypeColor(transaction.transaction_type)}`}>
-                              {formatCurrency(transaction.amount)}
+                        <div>
+                          <div className="font-medium">{lancamento.conta_codigo}</div>
+                          <div className="text-gray-500 text-xs">{lancamento.conta_nome}</div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              {getTransactionTypeIcon(transaction.transaction_type)}
-                              <span className={`ml-1 text-sm font-medium ${getTransactionTypeColor(transaction.transaction_type)}`}>
-                                {transaction.transaction_type === 'receita' ? 'Receita' : 'Despesa'}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span className={`font-medium ${
+                          lancamento.transaction_type === 'RECEITA' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {formatCurrency(lancamento.valor)}
                               </span>
-                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(transaction.status)}`}>
-                              {transaction.status ? transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1) : 'N/A'}
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          lancamento.transaction_type === 'RECEITA'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {lancamento.transaction_type}
                             </span>
                           </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                        {lancamento.observacoes || '-'}
+                      </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
+                        <div className="flex gap-2">
                               <button
-                                onClick={() => handleEditTransaction(transaction)}
+                            onClick={() => handleEdit(lancamento)}
                                 className="text-blue-600 hover:text-blue-900"
+                            title="Editar"
                               >
-                                <Edit className="w-4 h-4" />
+                            <Edit size={16} />
                               </button>
                               <button
-                                onClick={() => handleDeleteTransaction(transaction.id)}
+                            onClick={() => handleDelete(lancamento.id)}
                                 className="text-red-600 hover:text-red-900"
+                            title="Excluir"
                               >
-                                <Trash2 className="w-4 h-4" />
+                            <Trash2 size={16} />
                               </button>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                  ))
+                )}
                     </tbody>
                   </table>
                 </div>
-              )}
             </div>
-          )}
 
-          {/* Upload Modal */}
-          {showUploadModal && (
-            <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-              <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div className="mt-3">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Importar Transações CSV</h3>
-                    <button
-                      onClick={() => setShowUploadModal(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Selecionar Arquivo CSV
+        {/* Modal de Criação/Edição */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            >
+              <h2 className="text-xl font-bold mb-4">
+                {editingLancamento ? 'Editar Lançamento' : 'Novo Lançamento'}
+              </h2>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Data Movimentação *
                     </label>
                     <input
-                      type="file"
-                      accept=".csv"
-                      onChange={handleFileSelect}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      type="date"
+                      required
+                      value={formData.data_movimentacao}
+                      onChange={(e) => setFormData(prev => ({ ...prev, data_movimentacao: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-
-                  {selectedFile && (
-                    <div className="mb-4 p-3 bg-blue-50 rounded-md">
-                      <p className="text-sm text-blue-800">
-                        Arquivo selecionado: {selectedFile.name}
-                      </p>
-                    </div>
-                  )}
-
-                  {uploading && (
-                    <div className="mb-4">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div
-                          className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        ></div>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-2">
-                        Importando... {uploadProgress}%
-                      </p>
-                    </div>
-                  )}
-
-                  {uploadResult && (
-                    <div className="mb-4 p-3 bg-green-50 rounded-md">
-                      <div className="text-sm text-green-800">
-                        {uploadResult.message}
-                      </div>
-                      <div className="text-sm text-green-700 mt-1">
-                        Processadas: {uploadResult.summary.processed} | 
-                        Erros: {uploadResult.summary.errors}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={() => setShowUploadModal(false)}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={handleUpload}
-                      disabled={!selectedFile || uploading}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-md"
-                    >
-                      {uploading ? 'Importando...' : 'Importar'}
-                    </button>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Valor *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      value={formData.valor}
+                      onChange={(e) => setFormData(prev => ({ ...prev, valor: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0.00"
+                    />
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Create/Edit Modal */}
-          {showCreateModal && (
-            <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-              <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div className="mt-3">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {editingTransaction ? 'Editar Transação' : 'Nova Transação'}
-                    </h3>
-                    <button
-                      onClick={() => {
-                        setShowCreateModal(false);
-                        setEditingTransaction(null);
-                        setFormData({
-                          chart_account_id: '',
-                          transaction_date: '',
-                          amount: '',
-                          description: '',
-                          transaction_type: 'receita',
-                          notes: ''
-                        });
-                      }}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
                   </div>
                   
-                  <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Conta Contábil *
+                    Grupo *
                       </label>
                       <select
-                        value={formData.chart_account_id}
-                        onChange={(e) => setFormData({...formData, chart_account_id: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Selecione uma conta</option>
-                        {chartAccounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            {account.code} - {account.name}
+                    required
+                    value={formData.grupo_id}
+                    onChange={(e) => handleGroupChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Selecione um grupo</option>
+                    {planoContas?.grupos.map(grupo => (
+                      <option key={grupo.id} value={grupo.id}>
+                        {grupo.code} - {grupo.name}
                           </option>
                         ))}
                       </select>
@@ -554,55 +461,54 @@ const Transactions: React.FC = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Data *
+                    Subgrupo *
                       </label>
-                      <input
-                        type="date"
-                        value={formData.transaction_date}
-                        onChange={(e) => setFormData({...formData, transaction_date: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      />
+                  <select
+                    required
+                    value={formData.subgrupo_id}
+                    onChange={(e) => handleSubgroupChange(e.target.value)}
+                    disabled={!formData.grupo_id}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  >
+                    <option value="">Selecione um subgrupo</option>
+                    {getSubgruposByGroup(formData.grupo_id).map(subgrupo => (
+                      <option key={subgrupo.id} value={subgrupo.id}>
+                        {subgrupo.code} - {subgrupo.name}
+                      </option>
+                    ))}
+                  </select>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Valor *
+                    Conta *
                       </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.amount}
-                        onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0.00"
-                      />
+                  <select
+                    required
+                    value={formData.conta_id}
+                    onChange={(e) => setFormData(prev => ({ ...prev, conta_id: e.target.value }))}
+                    disabled={!formData.subgrupo_id}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  >
+                    <option value="">Selecione uma conta</option>
+                    {getContasBySubgroup(formData.subgrupo_id).map(conta => (
+                      <option key={conta.id} value={conta.id}>
+                        {conta.code} - {conta.name}
+                      </option>
+                    ))}
+                  </select>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Descrição *
+                    Liquidação
                       </label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData({...formData, description: e.target.value})}
-                        rows={3}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Descrição da transação..."
+                  <input
+                    type="date"
+                    value={formData.liquidacao}
+                    onChange={(e) => setFormData(prev => ({ ...prev, liquidacao: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Tipo
-                      </label>
-                      <select
-                        value={formData.transaction_type}
-                        onChange={(e) => setFormData({...formData, transaction_type: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="receita">Receita</option>
-                        <option value="despesa">Despesa</option>
-                      </select>
                     </div>
 
                     <div>
@@ -610,45 +516,37 @@ const Transactions: React.FC = () => {
                         Observações
                       </label>
                       <textarea
-                        value={formData.notes}
-                        onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                        rows={2}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Observações adicionais..."
-                      />
-                    </div>
+                    value={formData.observacoes}
+                    onChange={(e) => setFormData(prev => ({ ...prev, observacoes: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Adicione observações sobre este lançamento..."
+                  />
                   </div>
 
-                  <div className="flex justify-end space-x-3 mt-6">
+                <div className="flex justify-end gap-3 pt-4">
                     <button
+                    type="button"
                       onClick={() => {
                         setShowCreateModal(false);
-                        setEditingTransaction(null);
-                        setFormData({
-                          chart_account_id: '',
-                          transaction_date: '',
-                          amount: '',
-                          description: '',
-                          transaction_type: 'receita',
-                          notes: ''
-                        });
-                      }}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                      setEditingLancamento(null);
+                      resetForm();
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                     >
                       Cancelar
                     </button>
                     <button
-                      onClick={editingTransaction ? handleUpdateTransaction : handleCreateTransaction}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
-                      {editingTransaction ? 'Atualizar' : 'Criar'}
+                    {editingLancamento ? 'Atualizar' : 'Criar'}
                     </button>
-                  </div>
                 </div>
-              </div>
+              </form>
+            </motion.div>
             </div>
           )}
-        </div>
       </div>
     </Layout>
   );

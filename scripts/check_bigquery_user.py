@@ -17,7 +17,7 @@ def test_bigquery_query():
     # O backend usa: query("Users", {"username": username})
     
     print("   O backend executa esta consulta:")
-    print("   SELECT * FROM `automatizar-452311.finaflow.Users` WHERE username='admin'")
+    print("   SELECT * FROM `trivihair.finaflow.Users` WHERE username='admin'")
     
     # Vamos testar se conseguimos acessar a documentação da API
     try:
@@ -33,7 +33,7 @@ def test_bigquery_query():
     
     print("\n📋 Verifique no BigQuery:")
     print("   1. Execute esta query:")
-    print("      SELECT * FROM `automatizar-452311.finaflow.Users` WHERE username='admin'")
+    print("      SELECT * FROM `trivihair.finaflow.Users` WHERE username='admin'")
     print("\n   2. Verifique se retorna exatamente:")
     print("      - username: 'admin' (exatamente assim)")
     print("      - hashed_password: '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/HS.iQeO'")
@@ -52,11 +52,11 @@ def create_correct_user_query():
     print("=" * 60)
     print("""
 -- Primeiro, delete o usuário existente (se houver)
-DELETE FROM `automatizar-452311.finaflow.Users` 
+DELETE FROM `trivihair.finaflow.Users` 
 WHERE username = 'admin';
 
 -- Depois, insira o usuário correto
-INSERT INTO `automatizar-452311.finaflow.Users` 
+INSERT INTO `trivihair.finaflow.Users` 
 (id, username, email, hashed_password, role, tenant_id, created_at)
 VALUES 
 (

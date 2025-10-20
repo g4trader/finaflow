@@ -9,7 +9,7 @@ services:
       - JWT_SECRET=dev-secret-key
       - JWT_ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=60
-      - PROJECT_ID=automatizar-452311
+      - PROJECT_ID=trivihair
       - DATASET=finaflow
     volumes:
       - ./backend:/app

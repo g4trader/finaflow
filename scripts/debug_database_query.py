@@ -140,7 +140,7 @@ def main():
     print("      - Hash da senha está incorreto")
     print("      - Problema na consulta do banco")
     print("\n   2. Verifique no BigQuery:")
-    print("      SELECT * FROM `automatizar-452311.finaflow.Users` WHERE username='admin';")
+    print("      SELECT * FROM `trivihair.finaflow.Users` WHERE username='admin';")
     print("\n   3. Se o usuário existe, verifique o hash da senha")
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
-import { Building2, Users, Shield, ArrowRight, Check } from 'lucide-react';
+import { Building2, Users, Shield, ArrowRight, Check, LogOut, User } from 'lucide-react';
 import { getUserBusinessUnits, selectBusinessUnit } from '../services/api';
 
 interface BusinessUnit {
@@ -23,7 +23,7 @@ interface BusinessUnit {
 }
 
 export default function SelectBusinessUnit() {
-  const { login } = useContext(AuthContext);
+  const { login, logout } = useContext(AuthContext);
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [selectedBU, setSelectedBU] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -31,6 +31,14 @@ export default function SelectBusinessUnit() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Verificar se tem token antes de carregar
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn('⚠️ Token não encontrado, redirecionando para login...');
+      window.location.href = '/login';
+      return;
+    }
+    
     loadBusinessUnits();
   }, []);
 
@@ -78,6 +86,10 @@ export default function SelectBusinessUnit() {
     }
   };
 
+  const handleLogout = () => {
+    logout(); // Usar função do AuthContext
+  };
+
   const getPermissionText = (permissions: BusinessUnit['permissions']) => {
     const permissionsList = [];
     if (permissions.can_read) permissionsList.push('Visualizar');
@@ -116,11 +128,37 @@ export default function SelectBusinessUnit() {
       />
 
       <div className="w-full max-w-2xl relative z-10">
-        {/* Logo and Brand */}
+        {/* Header com logout */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
+          className="flex justify-between items-center mb-6"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <User className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">admin</p>
+              <p className="text-xs text-gray-500">Super Admin</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Fazer logout"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Logout</span>
+          </button>
+        </motion.div>
+
+        {/* Logo and Brand */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
           className="text-center mb-8"
         >
           <img src="/logo-finaflow.svg" alt="finaFlow" className="h-12 mx-auto mb-3" />
@@ -143,7 +181,8 @@ export default function SelectBusinessUnit() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Business Units List */}
                 <div className="space-y-4">
-                  {businessUnits.map((bu) => (
+                  {businessUnits.length > 0 ? (
+                    businessUnits.map((bu) => (
                     <motion.div
                       key={bu.id}
                       initial={{ opacity: 0, x: -20 }}
@@ -191,7 +230,30 @@ export default function SelectBusinessUnit() {
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Nenhuma empresa disponível
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        Você não tem acesso a nenhuma empresa no momento.
+                      </p>
+                      <div className="space-y-2">
+                        <button
+                          onClick={handleLogout}
+                          className="inline-flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Fazer Logout</span>
+                        </button>
+                        <p className="text-xs text-gray-500">
+                          Entre em contato com o administrador para obter acesso.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Error Message */}
@@ -219,14 +281,30 @@ export default function SelectBusinessUnit() {
                 </Button>
               </form>
 
-              {/* Back to Login */}
-              <div className="mt-6 text-center">
+              {/* Navigation Options */}
+              <div className="mt-6 space-y-3">
+                <div className="flex justify-center space-x-4">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Fazer Logout</span>
+                  </button>
                 <button
                   onClick={() => window.location.href = '/login'}
-                  className="text-gray-600 hover:text-gray-800 text-sm transition-colors"
+                    className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  ← Voltar ao login
+                    <span>← Trocar Usuário</span>
                 </button>
+                </div>
+                
+                {/* Help text */}
+                <div className="text-center">
+                  <p className="text-xs text-gray-500">
+                    Problemas de acesso? Entre em contato com o administrador.
+                  </p>
+                </div>
               </div>
             </Card.Body>
           </Card>
