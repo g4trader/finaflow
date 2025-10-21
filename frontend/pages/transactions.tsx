@@ -222,6 +222,13 @@ const Transactions: React.FC = () => {
   };
 
   const applyPeriodFilter = (period: string) => {
+    if (period === 'todos') {
+      setDateStart('');
+      setDateEnd('');
+      setCurrentPage(1);
+      return;
+    }
+    
     const range = getDateRange(period);
     setDateStart(range.start);
     setDateEnd(range.end);
@@ -281,14 +288,14 @@ const Transactions: React.FC = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header */}
+          {/* Header */}
         <div className="flex justify-between items-center">
-          <div>
+              <div>
             <h1 className="text-3xl font-bold text-gray-900">Lançamentos Financeiros</h1>
-            <p className="text-gray-600 mt-1">
+                <p className="text-gray-600 mt-1">
               {filteredLancamentos.length} lançamento(s) encontrado(s)
-            </p>
-          </div>
+                </p>
+              </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -313,6 +320,7 @@ const Transactions: React.FC = () => {
             </label>
             <div className="flex flex-wrap gap-2">
               {[
+                { label: 'Todos', value: 'todos' },
                 { label: 'Hoje', value: 'hoje' },
                 { label: 'Ontem', value: 'ontem' },
                 { label: 'Esta Semana', value: 'esta-semana' },
@@ -325,7 +333,11 @@ const Transactions: React.FC = () => {
                 <button
                   key={period.value}
                   onClick={() => applyPeriodFilter(period.value)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-blue-100 text-gray-700 hover:text-blue-700 rounded-lg transition-colors text-sm font-medium"
+                  className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                    period.value === 'todos'
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-100 hover:bg-blue-100 text-gray-700 hover:text-blue-700'
+                  }`}
                 >
                   {period.label}
                 </button>
@@ -426,8 +438,8 @@ const Transactions: React.FC = () => {
                 ))}
               </select>
             </div>
-          </div>
-
+              </div>
+              
           {/* Busca e Limpar */}
           <div className="flex gap-4">
             <div className="flex-1">
@@ -446,16 +458,16 @@ const Transactions: React.FC = () => {
               <X size={18} />
               Limpar Filtros
             </button>
-          </div>
-        </div>
+                </div>
+                </div>
 
         {/* Tabela */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Data
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -463,25 +475,25 @@ const Transactions: React.FC = () => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Subgrupo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Conta
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Valor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Conta
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Valor
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Tipo
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Observações
-                  </th>
+                        </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+                          Ações
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
@@ -492,30 +504,30 @@ const Transactions: React.FC = () => {
                   <tr>
                     <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       Nenhum lançamento encontrado
-                    </td>
+                          </td>
                   </tr>
                 ) : (
                   currentLancamentos.map((lanc) => (
                     <tr key={lanc.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(lanc.data_movimentacao).toLocaleDateString('pt-BR')}
-                      </td>
+                          </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         <div className="font-medium">{lanc.grupo_codigo}</div>
                         <div className="text-gray-500 text-xs">{lanc.grupo_nome}</div>
-                      </td>
+                          </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         <div className="font-medium">{lanc.subgrupo_codigo}</div>
                         <div className="text-gray-500 text-xs">{lanc.subgrupo_nome}</div>
-                      </td>
+                          </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         <div className="font-medium">{lanc.conta_codigo}</div>
                         <div className="text-gray-500 text-xs">{lanc.conta_nome}</div>
-                      </td>
+                          </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                         R$ {lanc.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                           lanc.transaction_type === 'RECEITA' 
                             ? 'bg-green-100 text-green-800' 
@@ -524,31 +536,31 @@ const Transactions: React.FC = () => {
                             : 'bg-red-100 text-red-800'
                         }`}>
                           {lanc.transaction_type}
-                        </span>
-                      </td>
+                            </span>
+                          </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {lanc.observacoes || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
+                              <button
                           onClick={() => handleEdit(lanc)}
                           className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
+                              >
                           <Edit size={18} />
-                        </button>
-                        <button
+                              </button>
+                              <button
                           onClick={() => handleDelete(lanc.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
+                                className="text-red-600 hover:text-red-900"
+                              >
                           <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </tr>
+                              </button>
+                          </td>
+                        </tr>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
+                    </tbody>
+                  </table>
+                </div>
 
           {/* Paginação */}
           {totalPages > 1 && (
@@ -561,22 +573,22 @@ const Transactions: React.FC = () => {
                 >
                   Anterior
                 </button>
-                <button
+                    <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                   className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                >
+                    >
                   Próxima
-                </button>
-              </div>
+                    </button>
+                  </div>
               <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-gray-700">
                     Mostrando <span className="font-medium">{startIndex + 1}</span> até{' '}
                     <span className="font-medium">{Math.min(endIndex, filteredLancamentos.length)}</span> de{' '}
                     <span className="font-medium">{filteredLancamentos.length}</span> resultados
-                  </p>
-                </div>
+                      </p>
+                    </div>
                 <div>
                   <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                     <button
@@ -611,8 +623,8 @@ const Transactions: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
-
+                  </div>
+                  
         {/* Modal de Criação/Edição */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -673,12 +685,12 @@ const Transactions: React.FC = () => {
                         </option>
                       ))}
                     </select>
-                  </div>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                       Subgrupo *
-                    </label>
+                      </label>
                     <select
                       value={formData.subgrupo_id}
                       onChange={(e) => setFormData({...formData, subgrupo_id: e.target.value, conta_id: ''})}
@@ -695,13 +707,13 @@ const Transactions: React.FC = () => {
                           </option>
                         ))}
                     </select>
-                  </div>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                       Conta *
-                    </label>
-                    <select
+                      </label>
+                      <select
                       value={formData.conta_id}
                       onChange={(e) => setFormData({...formData, conta_id: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
@@ -716,8 +728,8 @@ const Transactions: React.FC = () => {
                             {conta.code} - {conta.name}
                           </option>
                         ))}
-                    </select>
-                  </div>
+                      </select>
+                    </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -729,13 +741,13 @@ const Transactions: React.FC = () => {
                       onChange={(e) => setFormData({...formData, liquidacao: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
-                  </div>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Observações
-                    </label>
-                    <textarea
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Observações
+                      </label>
+                      <textarea
                       value={formData.observacoes}
                       onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
@@ -765,8 +777,8 @@ const Transactions: React.FC = () => {
                 </form>
               </div>
             </motion.div>
-          </div>
-        )}
+            </div>
+          )}
       </div>
     </Layout>
   );

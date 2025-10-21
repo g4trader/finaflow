@@ -2587,7 +2587,7 @@ async def get_lancamentos_diarios(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
     skip: int = 0,
-    limit: int = 100
+    limit: int = 10000  # Aumentado para retornar todos os lançamentos
 ):
     """Listar lançamentos diários"""
     try:
@@ -2595,7 +2595,7 @@ async def get_lancamentos_diarios(
         from sqlalchemy.orm import joinedload
         
         # Buscar lançamentos com joins para buscar nomes
-        lancamentos = db.query(LancamentoDiario).options(
+        query = db.query(LancamentoDiario).options(
             joinedload(LancamentoDiario.conta),
             joinedload(LancamentoDiario.subgrupo),
             joinedload(LancamentoDiario.grupo)
@@ -2603,7 +2603,13 @@ async def get_lancamentos_diarios(
             LancamentoDiario.tenant_id == current_user["tenant_id"],
             LancamentoDiario.business_unit_id == current_user["business_unit_id"],
             LancamentoDiario.is_active == True
-        ).order_by(LancamentoDiario.data_movimentacao.desc()).offset(skip).limit(limit).all()
+        ).order_by(LancamentoDiario.data_movimentacao.desc())
+        
+        # Aplicar paginação apenas se limit não for 0
+        if limit > 0:
+            query = query.offset(skip).limit(limit)
+        
+        lancamentos = query.all()
         
         # Formatar resposta
         lancamentos_data = []
