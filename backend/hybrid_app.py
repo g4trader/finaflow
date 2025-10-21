@@ -5079,14 +5079,17 @@ async def get_daily_cash_flow(
         
         print(f"[DAILY CASH FLOW] Lançamentos encontrados: {len(lancamentos)}")
         
-        # Estrutura: {grupo_nome: {dia: valor}}
-        cash_flow_data = defaultdict(lambda: defaultdict(float))
+        # Estrutura hierárquica: {grupo: {subgrupo: {conta: {dia: valor}}}}
+        cash_flow_hierarchy = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(float))))
         
         # Processar lançamentos
         for lanc in lancamentos:
             dia = lanc.data_movimentacao.day
             grupo_nome = lanc.grupo.name if lanc.grupo else "Outros"
-            cash_flow_data[grupo_nome][dia] += float(lanc.valor)
+            subgrupo_nome = lanc.subgrupo.name if lanc.subgrupo else "Outros"
+            conta_nome = lanc.conta.name if lanc.conta else "Diversos"
+            
+            cash_flow_hierarchy[grupo_nome][subgrupo_nome][conta_nome][dia] += float(lanc.valor)
         
         # Calcular número de dias no mês
         days_in_month = calendar.monthrange(year, month)[1]
@@ -5097,23 +5100,68 @@ async def get_daily_cash_flow(
             "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
         ]
         
-        # Formatar resposta
+        # Formatar resposta com hierarquia completa
         resultado = []
+        totais_grupo = {}
         
-        for grupo_nome in sorted(cash_flow_data.keys()):
-            categoria = {
+        for grupo_nome in sorted(cash_flow_hierarchy.keys()):
+            # Adicionar grupo principal (nível 0)
+            grupo_item = {
                 "categoria": grupo_nome,
                 "nivel": 0,
-                "dias": {}
+                "dias": {dia: 0 for dia in range(1, days_in_month + 1)}
             }
             
-            # Preencher todos os dias do mês (mesmo que sem valor)
-            for dia in range(1, days_in_month + 1):
-                categoria["dias"][dia] = round(cash_flow_data[grupo_nome].get(dia, 0), 2)
+            subgrupos_data = cash_flow_hierarchy[grupo_nome]
             
-            resultado.append(categoria)
+            for subgrupo_nome in sorted(subgrupos_data.keys()):
+                # Adicionar subgrupo (nível 1)
+                subgrupo_item = {
+                    "categoria": subgrupo_nome,
+                    "nivel": 1,
+                    "dias": {dia: 0 for dia in range(1, days_in_month + 1)}
+                }
+                
+                contas_data = subgrupos_data[subgrupo_nome]
+                
+                for conta_nome in sorted(contas_data.keys()):
+                    # Adicionar conta (nível 2)
+                    conta_item = {
+                        "categoria": conta_nome,
+                        "nivel": 2,
+                        "dias": {}
+                    }
+                    
+                    for dia in range(1, days_in_month + 1):
+                        valor = contas_data[conta_nome].get(dia, 0)
+                        conta_item["dias"][dia] = round(valor, 2)
+                        
+                        # Acumular no subgrupo
+                        subgrupo_item["dias"][dia] += valor
+                        
+                        # Acumular no grupo
+                        grupo_item["dias"][dia] += valor
+                    
+                    resultado.append(conta_item)
+                
+                # Adicionar subgrupo após suas contas
+                for dia in range(1, days_in_month + 1):
+                    subgrupo_item["dias"][dia] = round(subgrupo_item["dias"][dia], 2)
+                
+                # Inserir subgrupo antes das contas (encontrar posição)
+                # Encontrar índice da primeira conta deste subgrupo
+                idx = len(resultado) - len(contas_data)
+                resultado.insert(idx, subgrupo_item)
+            
+            # Arredondar dias do grupo
+            for dia in range(1, days_in_month + 1):
+                grupo_item["dias"][dia] = round(grupo_item["dias"][dia], 2)
+            
+            # Inserir grupo no início de suas linhas
+            idx = len(resultado) - sum(len(cash_flow_hierarchy[grupo_nome][sg]) + 1 for sg in cash_flow_hierarchy[grupo_nome].keys())
+            resultado.insert(idx, grupo_item)
         
-        # Adicionar linha de TOTAL
+        # Adicionar linha de TOTAL GERAL
         total = {
             "categoria": "TOTAL",
             "nivel": 0,
@@ -5122,8 +5170,9 @@ async def get_daily_cash_flow(
         
         for dia in range(1, days_in_month + 1):
             total_dia = sum(
-                grupo["dias"].get(dia, 0)
-                for grupo in resultado
+                item["dias"].get(dia, 0)
+                for item in resultado
+                if item["nivel"] == 0 and item["categoria"] != "TOTAL"
             )
             total["dias"][dia] = round(total_dia, 2)
         
