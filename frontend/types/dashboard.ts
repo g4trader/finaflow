@@ -3,8 +3,6 @@ export type MonthlyBreakdown = {
   revenue: number;      // receitas
   expense: number;      // despesas
   cost: number;         // custos
-  balance: number;      // revenue - expense - cost
-  caixa_final: number;  // saldo acumulado até o final do mês
 };
 
 export type AnnualSummaryResponse = {
@@ -13,7 +11,6 @@ export type AnnualSummaryResponse = {
     revenue: number;
     expense: number;
     cost: number;
-    balance: number;
   };
   monthly: MonthlyBreakdown[]; // 12 entradas, meses ausentes devem vir como 0
   ytdComparison?: { 

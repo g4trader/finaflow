@@ -39,9 +39,7 @@ export const fetchAnnualSummary = async (year: number): Promise<AnnualSummaryRes
               month: date.getMonth() + 1,
               revenue: 0,
               expense: 0,
-              cost: 0,
-              balance: 0,
-              caixa_final: 0
+              cost: 0
             };
       }
       
@@ -53,20 +51,14 @@ export const fetchAnnualSummary = async (year: number): Promise<AnnualSummaryRes
     
     // Criar array com 12 meses
     const monthly = [];
-    let saldoAcumulado = 0;
     for (let month = 1; month <= 12; month++) {
       const monthKey = `${year}-${month}`;
       const monthData = monthlyData[monthKey] || {
         month,
         revenue: 0,
         expense: 0,
-        cost: 0,
-        balance: 0
+        cost: 0
       };
-      
-      // Calcular saldo acumulado
-      saldoAcumulado += monthData.balance;
-      monthData.caixa_final = saldoAcumulado;
       
       monthly.push(monthData);
     }
@@ -74,9 +66,8 @@ export const fetchAnnualSummary = async (year: number): Promise<AnnualSummaryRes
     const totals = monthly.reduce((acc, month) => ({
       revenue: acc.revenue + month.revenue,
       expense: acc.expense + month.expense,
-      cost: acc.cost + month.cost,
-      balance: acc.balance + month.balance
-    }), { revenue: 0, expense: 0, cost: 0, balance: 0 });
+      cost: acc.cost + month.cost
+    }), { revenue: 0, expense: 0, cost: 0 });
     
     return {
       year,

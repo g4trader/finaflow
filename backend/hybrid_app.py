@@ -2629,19 +2629,16 @@ async def create_lancamento_diario(
         if subgrupo:
             subgrupo_lower = subgrupo.name.lower()
         
-        # Lógica melhorada de classificação
-        if any(keyword in grupo_lower for keyword in ['receita', 'venda', 'renda', 'faturamento', 'vendas']):
+        # Classificação específica apenas para 3 grupos
+        transaction_type = None  # Sem classificação por padrão
+        
+        if 'receita' in grupo_lower:
             transaction_type = "RECEITA"
-        elif any(keyword in grupo_lower for keyword in ['custo', 'custos']) or any(keyword in subgrupo_lower for keyword in ['custo', 'custos', 'mercadoria', 'produto']):
-            transaction_type = "CUSTO"
-        elif any(keyword in grupo_lower for keyword in ['despesa', 'gasto', 'operacional', 'administrativa']) or any(keyword in subgrupo_lower for keyword in ['despesa', 'gasto', 'marketing', 'administrativa']):
+        elif 'despesas operacionais' in grupo_lower:
             transaction_type = "DESPESA"
-        else:
-            # Default baseado em palavras-chave mais específicas
-            if any(keyword in grupo_lower for keyword in ['ativo', 'passivo', 'patrimonio']):
-                transaction_type = "DESPESA"  # Contas patrimoniais geralmente são despesas
-            else:
-                transaction_type = "DESPESA"  # Default conservador
+        elif 'custos' in grupo_lower:
+            transaction_type = "CUSTO"
+        # Demais grupos ficam sem classificação (None)
         
         # Criar lançamento usando o modelo LancamentoDiario
         from app.models.lancamento_diario import LancamentoDiario
@@ -6752,43 +6749,29 @@ async def get_annual_summary(
                 "month": month,
                 "revenue": 0,
                 "expense": 0,
-                "cost": 0,
-                "balance": 0,
-                "caixa_final": 0  # Saldo acumulado até o final do mês
+                "cost": 0
             }
         
-        # Process transactions
+        # Process transactions - apenas os que têm classificação
         for transaction in transactions:
-            month = transaction.data_movimentacao.month
-            valor = float(transaction.valor)
-            
-            if transaction.transaction_type == "RECEITA":
-                monthly_data[month]["revenue"] += valor
-            elif transaction.transaction_type == "DESPESA":
-                monthly_data[month]["expense"] += valor
-            elif transaction.transaction_type == "CUSTO":
-                monthly_data[month]["cost"] += valor
+            if transaction.transaction_type:  # Apenas transações classificadas
+                month = transaction.data_movimentacao.month
+                valor = float(transaction.valor)
+                
+                if transaction.transaction_type == "RECEITA":
+                    monthly_data[month]["revenue"] += valor
+                elif transaction.transaction_type == "DESPESA":
+                    monthly_data[month]["expense"] += valor
+                elif transaction.transaction_type == "CUSTO":
+                    monthly_data[month]["cost"] += valor
         
-        # Calculate monthly balances, caixa final and annual totals
-        annual_totals = {"revenue": 0, "expense": 0, "cost": 0, "balance": 0}
-        saldo_acumulado = 0  # Saldo acumulado ao longo do ano
+        # Calculate annual totals
+        annual_totals = {"revenue": 0, "expense": 0, "cost": 0}
         
         for month in range(1, 13):
-            # Calcular saldo do mês
-            monthly_data[month]["balance"] = (
-                monthly_data[month]["revenue"] - 
-                monthly_data[month]["expense"] - 
-                monthly_data[month]["cost"]
-            )
-            
-            # Adicionar ao saldo acumulado
-            saldo_acumulado += monthly_data[month]["balance"]
-            monthly_data[month]["caixa_final"] = saldo_acumulado
-            
             annual_totals["revenue"] += monthly_data[month]["revenue"]
             annual_totals["expense"] += monthly_data[month]["expense"]
             annual_totals["cost"] += monthly_data[month]["cost"]
-            annual_totals["balance"] += monthly_data[month]["balance"]
         
         # Convert to list
         monthly_breakdown = [monthly_data[month] for month in range(1, 13)]

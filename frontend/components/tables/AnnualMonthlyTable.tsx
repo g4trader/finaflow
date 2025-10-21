@@ -33,7 +33,7 @@ const AnnualMonthlyTable: React.FC<AnnualMonthlyTableProps> = ({ data, isLoading
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Mês', 'Receita', 'Despesa', 'Custo', 'Caixa Final'].map((header) => (
+                  {['Mês', 'Receita', 'Despesa', 'Custo'].map((header) => (
                     <th key={header} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <div className="h-4 bg-gray-200 rounded w-16"></div>
                     </th>
@@ -43,7 +43,7 @@ const AnnualMonthlyTable: React.FC<AnnualMonthlyTableProps> = ({ data, isLoading
               <tbody className="bg-white divide-y divide-gray-200">
                 {Array.from({ length: 13 }).map((_, index) => (
                   <tr key={index}>
-                    {Array.from({ length: 5 }).map((_, cellIndex) => (
+                    {Array.from({ length: 4 }).map((_, cellIndex) => (
                       <td key={cellIndex} className="px-6 py-4 whitespace-nowrap">
                         <div className="h-4 bg-gray-200 rounded w-20"></div>
                       </td>
@@ -84,9 +84,6 @@ const AnnualMonthlyTable: React.FC<AnnualMonthlyTableProps> = ({ data, isLoading
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Custo
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Caixa Final
-                    </th>
                   </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -110,11 +107,6 @@ const AnnualMonthlyTable: React.FC<AnnualMonthlyTableProps> = ({ data, isLoading
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
                   {formatCurrency(month.cost)}
                 </td>
-                <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                  month.caixa_final >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {formatCurrency(month.caixa_final)}
-                </td>
               </motion.tr>
             ))}
           </tbody>
@@ -131,11 +123,6 @@ const AnnualMonthlyTable: React.FC<AnnualMonthlyTableProps> = ({ data, isLoading
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
                 {formatCurrency(data.totals.cost)}
-              </td>
-              <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                data.totals.balance >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {formatCurrency(data.totals.balance)}
               </td>
             </tr>
           </tfoot>
