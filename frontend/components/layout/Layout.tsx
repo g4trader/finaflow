@@ -127,10 +127,17 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     },
     {
       icon: <Activity className="w-5 h-5" />,
-      label: 'Fluxo de Caixa',
+      label: 'Fluxo de Caixa Mensal',
       href: '/cash-flow',
       active: isItemActive('/cash-flow', 'Fluxo de Caixa'),
       description: 'Análise Previsto x Realizado por mês'
+    },
+    {
+      icon: <Calendar className="w-5 h-5" />,
+      label: 'Fluxo de Caixa Diário',
+      href: '/daily-cash-flow',
+      active: isItemActive('/daily-cash-flow', 'Fluxo de Caixa Diário'),
+      description: 'Movimentação diária do mês'
     },
     {
       icon: <BarChart3 className="w-5 h-5" />,

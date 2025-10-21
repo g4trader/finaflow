@@ -5034,6 +5034,118 @@ async def delete_lancamento_previsto(
 # ENDPOINT DE FLUXO DE CAIXA (PREVISTO X REALIZADO)
 # ============================================================================
 
+@app.get("/api/v1/cash-flow/daily")
+async def get_daily_cash_flow(
+    year: int = None,
+    month: int = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Gerar fluxo de caixa diário para um mês específico
+    Calculado dinamicamente dos lançamentos diários
+    """
+    try:
+        from app.models.lancamento_diario import LancamentoDiario
+        from sqlalchemy.orm import joinedload
+        from sqlalchemy import extract
+        from collections import defaultdict
+        from datetime import datetime
+        import calendar
+        
+        # Definir ano e mês (default: mês/ano atual)
+        if not year:
+            year = datetime.now().year
+        if not month:
+            month = datetime.now().month
+        
+        tenant_id = str(current_user["tenant_id"])
+        business_unit_id = str(current_user["business_unit_id"])
+        
+        print(f"[DAILY CASH FLOW] Gerando fluxo diário para {month}/{year}")
+        
+        # Buscar todos os lançamentos do mês
+        lancamentos = db.query(LancamentoDiario).options(
+            joinedload(LancamentoDiario.grupo),
+            joinedload(LancamentoDiario.subgrupo),
+            joinedload(LancamentoDiario.conta)
+        ).filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.business_unit_id == business_unit_id,
+            LancamentoDiario.is_active == True,
+            extract('year', LancamentoDiario.data_movimentacao) == year,
+            extract('month', LancamentoDiario.data_movimentacao) == month
+        ).all()
+        
+        print(f"[DAILY CASH FLOW] Lançamentos encontrados: {len(lancamentos)}")
+        
+        # Estrutura: {grupo_nome: {dia: valor}}
+        cash_flow_data = defaultdict(lambda: defaultdict(float))
+        
+        # Processar lançamentos
+        for lanc in lancamentos:
+            dia = lanc.data_movimentacao.day
+            grupo_nome = lanc.grupo.name if lanc.grupo else "Outros"
+            cash_flow_data[grupo_nome][dia] += float(lanc.valor)
+        
+        # Calcular número de dias no mês
+        days_in_month = calendar.monthrange(year, month)[1]
+        
+        # Nomes dos meses
+        meses = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ]
+        
+        # Formatar resposta
+        resultado = []
+        
+        for grupo_nome in sorted(cash_flow_data.keys()):
+            categoria = {
+                "categoria": grupo_nome,
+                "nivel": 0,
+                "dias": {}
+            }
+            
+            # Preencher todos os dias do mês (mesmo que sem valor)
+            for dia in range(1, days_in_month + 1):
+                categoria["dias"][dia] = round(cash_flow_data[grupo_nome].get(dia, 0), 2)
+            
+            resultado.append(categoria)
+        
+        # Adicionar linha de TOTAL
+        total = {
+            "categoria": "TOTAL",
+            "nivel": 0,
+            "dias": {}
+        }
+        
+        for dia in range(1, days_in_month + 1):
+            total_dia = sum(
+                grupo["dias"].get(dia, 0)
+                for grupo in resultado
+            )
+            total["dias"][dia] = round(total_dia, 2)
+        
+        resultado.append(total)
+        
+        print(f"[DAILY CASH FLOW] Gerado fluxo com {len(resultado)} categorias e {days_in_month} dias")
+        
+        return {
+            "success": True,
+            "year": year,
+            "month": month,
+            "month_name": meses[month - 1] if 1 <= month <= 12 else "Desconhecido",
+            "days_in_month": days_in_month,
+            "data": resultado
+        }
+        
+    except Exception as e:
+        print(f"[DAILY CASH FLOW ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao gerar fluxo de caixa diário: {str(e)}"}
+
 @app.get("/api/v1/cash-flow/previsto-realizado")
 async def get_cash_flow_previsto_realizado(
     year: int = None,
