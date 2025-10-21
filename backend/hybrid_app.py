@@ -5701,6 +5701,72 @@ async def limpar_todos_lancamentos(
         db.rollback()
         return {"success": False, "message": f"Erro ao limpar lançamentos: {str(e)}"}
 
+@app.post("/api/v1/admin/limpar-tudo-tenant")
+async def limpar_tudo_tenant(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Limpar TODOS os dados do tenant (ordem correta de FKs)"""
+    try:
+        from sqlalchemy import text
+        
+        tenant_id = str(current_user["tenant_id"])
+        
+        print(f"[LIMPAR TUDO] Limpando TODOS os dados do tenant {tenant_id}")
+        
+        # Ordem correta para respeitar foreign keys:
+        
+        # 1. Limpar vínculos business_unit_chart_accounts
+        db.execute(text("""
+            DELETE FROM business_unit_chart_accounts 
+            WHERE chart_account_id IN (
+                SELECT id FROM chart_accounts WHERE tenant_id = :tenant_id
+            )
+        """), {"tenant_id": tenant_id})
+        print("[LIMPAR] ✅ business_unit_chart_accounts")
+        
+        # 2. Limpar lancamentos_previstos
+        db.execute(text("DELETE FROM lancamentos_previstos WHERE tenant_id = :tenant_id"), {"tenant_id": tenant_id})
+        print("[LIMPAR] ✅ lancamentos_previstos")
+        
+        # 3. Limpar lancamentos_diarios
+        db.execute(text("DELETE FROM lancamentos_diarios WHERE tenant_id = :tenant_id"), {"tenant_id": tenant_id})
+        print("[LIMPAR] ✅ lancamentos_diarios")
+        
+        # 4. Limpar financial_transactions (se existir)
+        db.execute(text("DELETE FROM financial_transactions WHERE tenant_id = :tenant_id"), {"tenant_id": tenant_id})
+        print("[LIMPAR] ✅ financial_transactions")
+        
+        # 5. Limpar financial_forecasts (se existir)
+        db.execute(text("DELETE FROM financial_forecasts WHERE tenant_id = :tenant_id"), {"tenant_id": tenant_id})
+        print("[LIMPAR] ✅ financial_forecasts")
+        
+        # 6. Limpar contas
+        db.execute(text("DELETE FROM chart_accounts WHERE tenant_id = :tenant_id"), {"tenant_id": tenant_id})
+        print("[LIMPAR] ✅ chart_accounts")
+        
+        # 7. Limpar subgrupos
+        db.execute(text("DELETE FROM chart_account_subgroups WHERE tenant_id = :tenant_id"), {"tenant_id": tenant_id})
+        print("[LIMPAR] ✅ chart_account_subgroups")
+        
+        # 8. Limpar grupos
+        db.execute(text("DELETE FROM chart_account_groups WHERE tenant_id = :tenant_id"), {"tenant_id": tenant_id})
+        print("[LIMPAR] ✅ chart_account_groups")
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Todos os dados do tenant foram removidos com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"[LIMPAR TUDO ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao limpar: {str(e)}"}
+
 @app.post("/api/v1/admin/limpar-plano-contas")
 async def limpar_plano_contas(
     current_user: dict = Depends(get_current_user),
