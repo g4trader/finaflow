@@ -141,6 +141,27 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       description: 'Movimentação diária do mês'
     },
     {
+      icon: <Building2 className="w-5 h-5" />,
+      label: 'Contas Bancárias',
+      href: '/contas-bancarias',
+      active: isItemActive('/contas-bancarias', 'Contas Bancárias'),
+      description: 'Gestão de contas bancárias'
+    },
+    {
+      icon: <Wallet className="w-5 h-5" />,
+      label: 'Caixa / Dinheiro',
+      href: '/caixa',
+      active: isItemActive('/caixa', 'Caixa'),
+      description: 'Gestão de caixa e dinheiro físico'
+    },
+    {
+      icon: <TrendingUp className="w-5 h-5" />,
+      label: 'Investimentos',
+      href: '/investimentos',
+      active: isItemActive('/investimentos', 'Investimentos'),
+      description: 'Gestão de investimentos e aplicações'
+    },
+    {
       icon: <BarChart3 className="w-5 h-5" />,
       label: 'Relatórios',
       href: '/reports',
