@@ -18,6 +18,24 @@ interface CashFlowData {
   closing_balance: number;
 }
 
+interface AnnualData {
+  year: number;
+  annual_totals: {
+    receita: number;
+    despesa: number;
+    custo: number;
+    saldo: number;
+  };
+  monthly_breakdown: Array<{
+    mes: number;
+    mes_nome: string;
+    receita: number;
+    despesa: number;
+    custo: number;
+    saldo: number;
+  }>;
+}
+
 interface TransactionData {
   id: string;
   description: string;
@@ -46,6 +64,8 @@ const Dashboard = () => {
     caixas: { total: 0, detalhes: [] },
     investimentos: { total: 0, detalhes: [] }
   });
+  const [annualData, setAnnualData] = useState<AnnualData | null>(null);
+  const [selectedYear, setSelectedYear] = useState(2025);
 
   useEffect(() => {
     // Se o usuário precisa selecionar uma BU, redirecionar
@@ -63,47 +83,38 @@ const Dashboard = () => {
     loadDashboardData();
   }, [needsBusinessUnitSelection, user]);
 
+  useEffect(() => {
+    if (selectedYear) {
+      loadDashboardData();
+    }
+  }, [selectedYear]);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       
-      // Carregar fluxo de caixa dos últimos 30 dias
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
-      
-      const [cashFlowResponse, transactionsResponse, saldoResponse] = await Promise.all([
-        getCashFlow({
-          start_date: startDate.toISOString(),
-          end_date: endDate.toISOString(),
-          period_type: 'daily'
-        }),
-        getTransactions({
-          start_date: startDate.toISOString(),
-          end_date: endDate.toISOString()
-        }),
+      const [annualResponse, saldoResponse] = await Promise.all([
+        api.get(`/financial/cash-flow-annual?year=${selectedYear}`).then(r => r.data),
         api.get('/saldo-disponivel').then(r => r.data).catch(() => ({ saldo_disponivel: { total_geral: 0, contas_bancarias: { total: 0, detalhes: [] }, caixas: { total: 0, detalhes: [] }, investimentos: { total: 0, detalhes: [] } } }))
       ]);
 
-      setCashFlowData(cashFlowResponse);
-      setRecentTransactions(transactionsResponse.slice(0, 10));
+      setAnnualData(annualResponse);
       setSaldoDisponivel(saldoResponse.saldo_disponivel || saldoResponse);
 
-      // Calcular métricas
-      const totalRevenue = cashFlowResponse.reduce((sum: number, item: CashFlowData) => sum + item.total_revenue, 0);
-      const totalExpenses = cashFlowResponse.reduce((sum: number, item: CashFlowData) => sum + item.total_expenses, 0);
-      const totalCosts = cashFlowResponse.reduce((sum: number, item: CashFlowData) => sum + item.total_costs, 0);
-      const netFlow = cashFlowResponse.reduce((sum: number, item: CashFlowData) => sum + item.net_flow, 0);
-      const currentBalance = cashFlowResponse.length > 0 ? cashFlowResponse[cashFlowResponse.length - 1].closing_balance : 0;
-
-      setMetrics({
-        totalRevenue,
-        totalExpenses,
-        totalCosts,
-        netFlow,
-        currentBalance,
-        transactionCount: transactionsResponse.length
-      });
+      // Usar dados anuais para as métricas
+      if (annualResponse && annualResponse.annual_totals) {
+        const { receita, despesa, custo, saldo } = annualResponse.annual_totals;
+        
+        setMetrics({
+          totalRevenue: receita,
+          totalExpenses: despesa,
+          totalCosts: custo,
+          netFlow: saldo,
+          currentBalance: saldo,
+          transactionCount: annualResponse.monthly_breakdown.reduce((sum, month) => 
+            sum + (month.receita > 0 ? 1 : 0) + (month.despesa > 0 ? 1 : 0) + (month.custo > 0 ? 1 : 0), 0)
+        });
+      }
 
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard:', error);
@@ -176,9 +187,19 @@ const Dashboard = () => {
               Bem-vindo ao seu dashboard financeiro
             </p>
           </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <Calendar className="w-4 h-4" />
-            <span>{new Date().toLocaleDateString('pt-BR')}</span>
+          <div className="flex items-center space-x-4">
+            <select 
+              value={selectedYear} 
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={2024}>2024</option>
+              <option value={2025}>2025</option>
+            </select>
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <Calendar className="w-4 h-4" />
+              <span>{new Date().toLocaleDateString('pt-BR')}</span>
+            </div>
           </div>
         </div>
 
@@ -333,16 +354,61 @@ const Dashboard = () => {
           </div>
         </motion.div>
 
-        {/* Gráfico de Fluxo de Caixa */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Fluxo de Caixa (Últimos 30 dias)</h3>
-            <div className="flex items-center space-x-4 text-sm">
+        {/* Breakdown Mensal */}
+        {annualData && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">
+              Evolução Mensal - {selectedYear}
+            </h3>
+            
+            {/* Gráfico de Linhas */}
+            <div className="h-64 mb-6">
+              <div className="flex items-end justify-between space-x-2 h-full">
+                {annualData.monthly_breakdown.map((month) => {
+                  const maxValue = Math.max(
+                    ...annualData.monthly_breakdown.map(m => Math.max(m.receita, m.despesa, m.custo))
+                  );
+                  return (
+                    <div key={month.mes} className="flex-1 flex flex-col items-center space-y-1">
+                      <div className="w-full flex flex-col space-y-1 h-48">
+                        {/* Receita */}
+                        <div className="w-full bg-gray-200 rounded-sm">
+                          <div 
+                            className="bg-green-500 rounded-sm"
+                            style={{ height: `${(month.receita / maxValue) * 100}%` }}
+                          ></div>
+                        </div>
+                        {/* Despesa */}
+                        <div className="w-full bg-gray-200 rounded-sm">
+                          <div 
+                            className="bg-red-500 rounded-sm"
+                            style={{ height: `${(month.despesa / maxValue) * 100}%` }}
+                          ></div>
+                        </div>
+                        {/* Custo */}
+                        <div className="w-full bg-gray-200 rounded-sm">
+                          <div 
+                            className="bg-orange-500 rounded-sm"
+                            style={{ height: `${(month.custo / maxValue) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-500 mt-2">
+                        {month.mes_nome.substring(0, 3)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Legenda */}
+            <div className="flex items-center justify-center space-x-6 text-sm">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <span>Receitas</span>
@@ -351,31 +417,95 @@ const Dashboard = () => {
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                 <span>Despesas</span>
               </div>
-            </div>
-          </div>
-          
-          <div className="h-64 flex items-end justify-between space-x-2">
-            {cashFlowData.slice(-7).map((item, index) => (
-              <div key={index} className="flex-1 flex flex-col items-center space-y-2">
-                <div className="w-full bg-gray-200 rounded-t">
-                  <div 
-                    className="bg-green-500 rounded-t"
-                    style={{ height: `${(item.total_revenue / Math.max(...cashFlowData.map(d => d.total_revenue))) * 100}%` }}
-                  ></div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-t">
-                  <div 
-                    className="bg-red-500 rounded-t"
-                    style={{ height: `${(item.total_expenses / Math.max(...cashFlowData.map(d => d.total_expenses))) * 100}%` }}
-                  ></div>
-                </div>
-                <span className="text-xs text-gray-500">
-                  {new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                </span>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <span>Custos</span>
               </div>
-            ))}
-          </div>
-        </motion.div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Tabela Mensal Detalhada */}
+        {annualData && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">
+              Resumo Mensal - {selectedYear}
+            </h3>
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Mês
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Receita
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Despesa
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Custo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Saldo
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {annualData.monthly_breakdown.map((month) => (
+                    <tr key={month.mes} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {month.mes_nome}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                        {formatCurrency(month.receita)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                        {formatCurrency(month.despesa)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
+                        {formatCurrency(month.custo)}
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                        month.saldo >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {formatCurrency(month.saldo)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50">
+                  <tr className="font-semibold">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      Total Anual
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                      {formatCurrency(annualData.annual_totals.receita)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                      {formatCurrency(annualData.annual_totals.despesa)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
+                      {formatCurrency(annualData.annual_totals.custo)}
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                      annualData.annual_totals.saldo >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {formatCurrency(annualData.annual_totals.saldo)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </motion.div>
+        )}
 
         {/* Transações Recentes */}
         <motion.div

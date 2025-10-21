@@ -2083,6 +2083,94 @@ async def import_forecasts_csv(
         print(f"❌ Erro detalhado: {error_details}")
         raise HTTPException(status_code=500, detail=f"Erro no processamento: {str(e)}")
 
+@app.get("/api/v1/financial/cash-flow-annual")
+async def get_cash_flow_annual(
+    year: int = 2025,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get annual cash flow data with monthly breakdown"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        bu_id_str = str(current_user["business_unit_id"])
+        
+        # Get all transactions for the year
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-12-31"
+        
+        transactions = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id_str,
+            LancamentoDiario.business_unit_id == bu_id_str,
+            LancamentoDiario.is_active == True,
+            LancamentoDiario.data_movimentacao >= start_date,
+            LancamentoDiario.data_movimentacao <= end_date
+        ).all()
+        
+        # Calculate monthly data
+        monthly_data = {}
+        for month in range(1, 13):
+            monthly_data[month] = {
+                "receita": 0,
+                "despesa": 0,
+                "custo": 0,
+                "saldo": 0
+            }
+        
+        # Process transactions
+        for transaction in transactions:
+            month = transaction.data_movimentacao.month
+            valor = float(transaction.valor)
+            
+            if transaction.transaction_type == "RECEITA":
+                monthly_data[month]["receita"] += valor
+            elif transaction.transaction_type == "DESPESA":
+                monthly_data[month]["despesa"] += valor
+            elif transaction.transaction_type == "CUSTO":
+                monthly_data[month]["custo"] += valor
+        
+        # Calculate monthly balances and annual totals
+        annual_totals = {"receita": 0, "despesa": 0, "custo": 0, "saldo": 0}
+        
+        for month in range(1, 13):
+            monthly_data[month]["saldo"] = (
+                monthly_data[month]["receita"] - 
+                monthly_data[month]["despesa"] - 
+                monthly_data[month]["custo"]
+            )
+            
+            annual_totals["receita"] += monthly_data[month]["receita"]
+            annual_totals["despesa"] += monthly_data[month]["despesa"]
+            annual_totals["custo"] += monthly_data[month]["custo"]
+            annual_totals["saldo"] += monthly_data[month]["saldo"]
+        
+        # Format response
+        meses_nomes = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ]
+        
+        monthly_breakdown = []
+        for month in range(1, 13):
+            monthly_breakdown.append({
+                "mes": month,
+                "mes_nome": meses_nomes[month-1],
+                "receita": monthly_data[month]["receita"],
+                "despesa": monthly_data[month]["despesa"],
+                "custo": monthly_data[month]["custo"],
+                "saldo": monthly_data[month]["saldo"]
+            })
+        
+        return {
+            "success": True,
+            "year": year,
+            "annual_totals": annual_totals,
+            "monthly_breakdown": monthly_breakdown
+        }
+        
+    except Exception as e:
+        print(f"Erro ao buscar cash flow anual: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 @app.get("/api/v1/financial/cash-flow")
 async def get_cash_flow(
     start_date: Optional[str] = None,
