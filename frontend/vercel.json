@@ -13,6 +13,6 @@
     }
   ],
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://finaflow-backend-609095880025.us-central1.run.app"
+    "NEXT_PUBLIC_API_URL": "https://finaflow-backend-642830139828.us-central1.run.app"
   }
 }
