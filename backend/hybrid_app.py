@@ -4798,8 +4798,63 @@ async def startup_event():
     print("✅ FinaFlow Backend iniciado com sucesso!")
 
 # ============================================================================
-# ENDPOINTS DE LIMPEZA (ADMIN)
+# ENDPOINTS DE LIMPEZA E IMPORTAÇÃO (ADMIN)
 # ============================================================================
+
+@app.post("/api/v1/admin/importar-lancamentos-planilha")
+async def importar_lancamentos_planilha(
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Importar lançamentos diários da planilha Google Sheets"""
+    try:
+        from app.services.llm_sheet_importer import LLMSheetImporter
+        
+        spreadsheet_id = request.get("spreadsheet_id")
+        if not spreadsheet_id:
+            return {"success": False, "message": "spreadsheet_id é obrigatório"}
+        
+        tenant_id = str(current_user["tenant_id"])
+        business_unit_id = str(current_user["business_unit_id"])
+        user_id = current_user.get("sub")
+        
+        print(f"[IMPORT] Iniciando importação de lançamentos...")
+        print(f"[IMPORT] Tenant: {tenant_id}")
+        print(f"[IMPORT] BU: {business_unit_id}")
+        print(f"[IMPORT] Planilha: {spreadsheet_id}")
+        
+        # Criar importador
+        importer = LLMSheetImporter()
+        if not importer.authenticate():
+            return {"success": False, "message": "Falha na autenticação com Google Sheets"}
+        
+        # Importar apenas lançamentos diários
+        result = importer._import_daily_transactions(
+            spreadsheet_id,
+            tenant_id,
+            business_unit_id,
+            db,
+            user_id
+        )
+        
+        if result.get("success"):
+            return {
+                "success": True,
+                "message": f"{result.get('count', 0)} lançamentos importados com sucesso",
+                "count": result.get("count", 0)
+            }
+        else:
+            return {
+                "success": False,
+                "message": result.get("error", "Erro desconhecido na importação")
+            }
+        
+    except Exception as e:
+        print(f"[IMPORT ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao importar: {str(e)}"}
 
 @app.delete("/api/v1/admin/limpar-todos-lancamentos")
 async def limpar_todos_lancamentos(
