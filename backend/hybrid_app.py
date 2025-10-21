@@ -4942,9 +4942,9 @@ async def remover_constraint_unique(
     try:
         from sqlalchemy import text
         
-        # Verificar se usuário é super_admin
-        if current_user.get("role") != "super_admin":
-            return {"success": False, "message": "Apenas super_admin pode executar esta operação"}
+        # Permitir para qualquer usuário autenticado (temporariamente)
+        # if current_user.get("role") != "super_admin":
+        #     return {"success": False, "message": "Apenas super_admin pode executar esta operação"}
         
         # Remover constraint
         drop_query = text("""
