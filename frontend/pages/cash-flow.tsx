@@ -39,103 +39,19 @@ const CashFlow: React.FC = () => {
   const loadCashFlowData = async () => {
     setLoading(true);
     try {
-      // Buscar lançamentos realizados e previstos
-      const [lancamentosRes, previsoesRes] = await Promise.all([
-        api.get('/api/v1/lancamentos-diarios'),
-        api.get('/api/v1/lancamentos-previstos')
-      ]);
-
-      const lancamentos = lancamentosRes.data.lancamentos || [];
-      const previsoes = previsoesRes.data.previsoes || [];
-
-      // Processar dados para estrutura de fluxo de caixa
-      const cashFlow = processCashFlowData(lancamentos, previsoes, selectedYear);
-      setCashFlowData(cashFlow);
+      // Buscar fluxo de caixa calculado pelo backend
+      const response = await api.get(`/api/v1/cash-flow/previsto-realizado?year=${selectedYear}`);
+      
+      if (response.data.success) {
+        setCashFlowData(response.data.data || []);
+      } else {
+        console.error('Erro ao carregar fluxo de caixa:', response.data.message);
+      }
     } catch (error) {
       console.error('Erro ao carregar fluxo de caixa:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const processCashFlowData = (lancamentos: any[], previsoes: any[], year: number): CashFlowData[] => {
-    const data: Map<string, CashFlowData> = new Map();
-
-    // Inicializar estrutura
-    const initCategoria = (nome: string, nivel: number): CashFlowData => ({
-      categoria: nome,
-      nivel,
-      meses: meses.reduce((acc, mes) => ({
-        ...acc,
-        [mes]: { previsto: 0, realizado: 0, ah: 0, av: 0 }
-      }), {})
-    });
-
-    // Processar lançamentos realizados
-    lancamentos.forEach(lanc => {
-      const date = new Date(lanc.data_movimentacao);
-      if (date.getFullYear() !== year) return;
-
-      const mesIndex = date.getMonth();
-      const mesNome = meses[mesIndex];
-      
-      // Agrupar por grupo
-      const key = lanc.grupo_nome;
-      if (!data.has(key)) {
-        data.set(key, initCategoria(lanc.grupo_nome, 0));
-      }
-      
-      const categoria = data.get(key)!;
-      categoria.meses[mesNome].realizado += lanc.valor;
-    });
-
-    // Processar previsões
-    previsoes.forEach(prev => {
-      const date = new Date(prev.data_prevista);
-      if (date.getFullYear() !== year) return;
-
-      const mesIndex = date.getMonth();
-      const mesNome = meses[mesIndex];
-      
-      const key = prev.grupo_nome;
-      if (!data.has(key)) {
-        data.set(key, initCategoria(prev.grupo_nome, 0));
-      }
-      
-      const categoria = data.get(key)!;
-      categoria.meses[mesNome].previsto += prev.valor;
-    });
-
-    // Calcular AH e AV
-    Array.from(data.values()).forEach(categoria => {
-      meses.forEach(mes => {
-        const mesData = categoria.meses[mes];
-        // AH = (Realizado / Previsto) * 100
-        if (mesData.previsto > 0) {
-          mesData.ah = (mesData.realizado / mesData.previsto) * 100;
-        }
-      });
-    });
-
-    // Calcular AV (% do total de receitas)
-    const totaisPorMes = meses.map(mes => {
-      const total = Array.from(data.values()).reduce((sum, cat) => 
-        sum + cat.meses[mes].realizado, 0
-      );
-      return { mes, total };
-    });
-
-    Array.from(data.values()).forEach(categoria => {
-      meses.forEach((mes, idx) => {
-        const mesData = categoria.meses[mes];
-        const totalMes = totaisPorMes[idx].total;
-        if (totalMes > 0) {
-          mesData.av = (mesData.realizado / totalMes) * 100;
-        }
-      });
-    });
-
-    return Array.from(data.values()).sort((a, b) => a.categoria.localeCompare(b.categoria));
   };
 
   const formatCurrency = (value: number) => {

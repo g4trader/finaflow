@@ -5031,6 +5031,164 @@ async def delete_lancamento_previsto(
         return {"success": False, "message": f"Erro ao excluir previsão: {str(e)}"}
 
 # ============================================================================
+# ENDPOINT DE FLUXO DE CAIXA (PREVISTO X REALIZADO)
+# ============================================================================
+
+@app.get("/api/v1/cash-flow/previsto-realizado")
+async def get_cash_flow_previsto_realizado(
+    year: int = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Gerar fluxo de caixa com comparação Previsto x Realizado
+    Calculado dinamicamente dos lançamentos diários e previsões
+    """
+    try:
+        from app.models.lancamento_diario import LancamentoDiario
+        from app.models.lancamento_previsto import LancamentoPrevisto
+        from app.models.chart_of_accounts import ChartAccountGroup
+        from sqlalchemy.orm import joinedload
+        from collections import defaultdict
+        from datetime import datetime
+        
+        # Definir ano (default: ano atual)
+        if not year:
+            year = datetime.now().year
+        
+        tenant_id = str(current_user["tenant_id"])
+        business_unit_id = str(current_user["business_unit_id"])
+        
+        print(f"[CASH FLOW] Gerando fluxo de caixa para ano {year}")
+        
+        # Buscar todos os lançamentos do ano
+        lancamentos = db.query(LancamentoDiario).options(
+            joinedload(LancamentoDiario.grupo)
+        ).filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.business_unit_id == business_unit_id,
+            LancamentoDiario.is_active == True,
+            db.func.extract('year', LancamentoDiario.data_movimentacao) == year
+        ).all()
+        
+        # Buscar todas as previsões do ano
+        previsoes = db.query(LancamentoPrevisto).options(
+            joinedload(LancamentoPrevisto.grupo)
+        ).filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.business_unit_id == business_unit_id,
+            LancamentoPrevisto.is_active == True,
+            db.func.extract('year', LancamentoPrevisto.data_prevista) == year
+        ).all()
+        
+        print(f"[CASH FLOW] Lançamentos: {len(lancamentos)}, Previsões: {len(previsoes)}")
+        
+        # Estrutura de dados: {grupo_nome: {mes: {previsto, realizado}}}
+        cash_flow_data = defaultdict(lambda: {
+            mes: {"previsto": 0, "realizado": 0}
+            for mes in range(1, 13)
+        })
+        
+        # Processar lançamentos (realizado)
+        for lanc in lancamentos:
+            mes = lanc.data_movimentacao.month
+            grupo_nome = lanc.grupo.name if lanc.grupo else "Outros"
+            cash_flow_data[grupo_nome][mes]["realizado"] += float(lanc.valor)
+        
+        # Processar previsões (previsto)
+        for prev in previsoes:
+            mes = prev.data_prevista.month
+            grupo_nome = prev.grupo.name if prev.grupo else "Outros"
+            cash_flow_data[grupo_nome][mes]["previsto"] += float(prev.valor)
+        
+        # Calcular totais por mês para AV%
+        totais_por_mes = {mes: 0 for mes in range(1, 13)}
+        for grupo_data in cash_flow_data.values():
+            for mes in range(1, 13):
+                totais_por_mes[mes] += grupo_data[mes]["realizado"]
+        
+        # Formatar resposta
+        resultado = []
+        meses_nomes = [
+            "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO",
+            "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
+        ]
+        
+        for grupo_nome, meses_data in sorted(cash_flow_data.items()):
+            categoria = {
+                "categoria": grupo_nome,
+                "nivel": 0,  # Grupo principal
+                "meses": {}
+            }
+            
+            for mes in range(1, 13):
+                mes_nome = meses_nomes[mes - 1]
+                previsto = meses_data[mes]["previsto"]
+                realizado = meses_data[mes]["realizado"]
+                
+                # Calcular AH% (Análise Horizontal)
+                ah = (realizado / previsto * 100) if previsto > 0 else 0
+                
+                # Calcular AV% (Análise Vertical)
+                av = (realizado / totais_por_mes[mes] * 100) if totais_por_mes[mes] > 0 else 0
+                
+                categoria["meses"][mes_nome] = {
+                    "previsto": round(previsto, 2),
+                    "realizado": round(realizado, 2),
+                    "ah": round(ah, 1),
+                    "av": round(av, 1)
+                }
+            
+            resultado.append(categoria)
+        
+        # Adicionar linha de TOTAL
+        total = {
+            "categoria": "TOTAL",
+            "nivel": 0,
+            "meses": {}
+        }
+        
+        for mes in range(1, 13):
+            mes_nome = meses_nomes[mes - 1]
+            total_previsto = sum(
+                grupo["meses"][mes_nome]["previsto"] 
+                for grupo in resultado
+            )
+            total_realizado = sum(
+                grupo["meses"][mes_nome]["realizado"] 
+                for grupo in resultado
+            )
+            
+            ah = (total_realizado / total_previsto * 100) if total_previsto > 0 else 0
+            
+            total["meses"][mes_nome] = {
+                "previsto": round(total_previsto, 2),
+                "realizado": round(total_realizado, 2),
+                "ah": round(ah, 1),
+                "av": 100.0  # Total sempre é 100%
+            }
+        
+        resultado.append(total)
+        
+        print(f"[CASH FLOW] Gerado fluxo com {len(resultado)} categorias")
+        
+        return {
+            "success": True,
+            "year": year,
+            "data": resultado,
+            "totais_por_mes": {
+                meses_nomes[mes-1]: totais_por_mes[mes]
+                for mes in range(1, 13)
+            }
+        }
+        
+    except Exception as e:
+        print(f"[CASH FLOW ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao gerar fluxo de caixa: {str(e)}"}
+
+# ============================================================================
 # ENDPOINTS DE LIMPEZA E IMPORTAÇÃO (ADMIN)
 # ============================================================================
 
