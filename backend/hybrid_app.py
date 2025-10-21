@@ -6084,7 +6084,7 @@ async def criar_tabelas_financeiras(
                 valor NUMERIC(15,2) NOT NULL,
                 descricao TEXT,
                 conta_destino_id UUID REFERENCES contas_bancarias(id),
-                lancamento_diario_id UUID REFERENCES lancamentos_diarios(id),
+                lancamento_diario_id VARCHAR(36) REFERENCES lancamentos_diarios(id),
                 created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                 created_by VARCHAR(36) NOT NULL REFERENCES users(id)
             )
@@ -6120,7 +6120,7 @@ async def criar_tabelas_financeiras(
                 tipo VARCHAR(20) NOT NULL,
                 valor NUMERIC(15,2) NOT NULL,
                 descricao TEXT,
-                lancamento_diario_id UUID REFERENCES lancamentos_diarios(id),
+                lancamento_diario_id VARCHAR(36) REFERENCES lancamentos_diarios(id),
                 created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                 created_by VARCHAR(36) NOT NULL REFERENCES users(id)
             )
