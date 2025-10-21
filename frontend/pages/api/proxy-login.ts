@@ -8,7 +8,7 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-642830139828.us-central1.run.app';
+  const BACKEND_URL = 'https://finaflow-backend-642830139828.us-central1.run.app';
 
   try {
     const { username, password } = req.body;

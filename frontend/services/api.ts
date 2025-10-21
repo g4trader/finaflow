@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Build timestamp: 2025-09-02 12:00:00 - Fixed backend URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-642830139828.us-central1.run.app';
+// Build timestamp: 2025-10-21 18:45:00 - FORÇANDO URL CORRETA DO BACKEND
+const API_BASE_URL = 'https://finaflow-backend-642830139828.us-central1.run.app';
 
 // Log da URL da API (para debug)
 if (typeof window !== 'undefined') {

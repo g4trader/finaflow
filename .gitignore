@@ -14,3 +14,4 @@ google_credentials.json
 **/google_credentials.json
 backend/google_credentials.json
 
+.env*.local
