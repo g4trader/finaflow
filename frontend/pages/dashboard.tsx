@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
-import { getCashFlow, getTransactions } from '../services/api';
+import api, { getCashFlow, getTransactions } from '../services/api';
 
 interface CashFlowData {
   date: string;
@@ -82,7 +82,7 @@ const Dashboard = () => {
           start_date: startDate.toISOString(),
           end_date: endDate.toISOString()
         }),
-        fetch('/api/saldo-disponivel').then(r => r.json()).catch(() => ({ saldo_disponivel: { total_geral: 0, contas_bancarias: { total: 0 }, caixas: { total: 0 }, investimentos: { total: 0 } } }))
+        api.get('/saldo-disponivel').then(r => r.data).catch(() => ({ saldo_disponivel: { total_geral: 0, contas_bancarias: { total: 0, detalhes: [] }, caixas: { total: 0, detalhes: [] }, investimentos: { total: 0, detalhes: [] } } }))
       ]);
 
       setCashFlowData(cashFlowResponse);
