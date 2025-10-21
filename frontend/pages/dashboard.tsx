@@ -256,7 +256,7 @@ const Dashboard = () => {
         </div>
 
         {/* Métricas Principais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -273,9 +273,7 @@ const Dashboard = () => {
               {getMetricIcon('revenue')}
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+12.5%</span>
-              <span className="text-gray-500 ml-1">vs mês anterior</span>
+              <span className="text-gray-600 font-medium">Total do Ano</span>
                 </div>
           </motion.div>
 
@@ -295,9 +293,7 @@ const Dashboard = () => {
               {getMetricIcon('expenses')}
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <ArrowDownRight className="w-4 h-4 text-red-600 mr-1" />
-              <span className="text-red-600 font-medium">+8.2%</span>
-              <span className="text-gray-500 ml-1">vs mês anterior</span>
+              <span className="text-gray-600 font-medium">Total do Ano</span>
                 </div>
           </motion.div>
 
@@ -317,33 +313,10 @@ const Dashboard = () => {
               {getMetricIcon('costs')}
             </div>
             <div className="mt-4 flex items-center text-sm">
-              <ArrowDownRight className="w-4 h-4 text-orange-600 mr-1" />
-              <span className="text-orange-600 font-medium">+5.7%</span>
-              <span className="text-gray-500 ml-1">vs mês anterior</span>
+              <span className="text-gray-600 font-medium">Total do Ano</span>
             </div>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-          >
-                <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Saldo Atual</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(metrics.currentBalance)}
-                </p>
-              </div>
-              {getMetricIcon('balance')}
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <ArrowUpRight className="w-4 h-4 text-blue-600 mr-1" />
-              <span className="text-blue-600 font-medium">+15.3%</span>
-              <span className="text-gray-500 ml-1">vs mês anterior</span>
-            </div>
-          </motion.div>
         </div>
 
         {/* Gráfico de Evolução Mensal */}
@@ -590,8 +563,8 @@ const Dashboard = () => {
                   </tr>
                 </tfoot>
               </table>
-          </div>
-        </motion.div>
+            </div>
+          </motion.div>
         )}
 
         {/* Saldo Disponível */}
