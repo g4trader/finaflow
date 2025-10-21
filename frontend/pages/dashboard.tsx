@@ -108,16 +108,22 @@ const Dashboard = () => {
           custo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_costs || 0), 0),
           saldo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.net_flow || 0), 0)
         },
-        monthly_breakdown: [
-          {
-            mes: 10,
-            mes_nome: "Outubro",
-            receita: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_revenue || 0), 0),
-            despesa: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_expenses || 0), 0),
-            custo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_costs || 0), 0),
-            saldo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.net_flow || 0), 0)
-          }
-        ]
+        monthly_breakdown: cashFlowResponse.map((item: any, index: number) => {
+          const date = new Date(item.date);
+          const meses = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+          ];
+          
+          return {
+            mes: date.getMonth() + 1,
+            mes_nome: meses[date.getMonth()],
+            receita: item.total_revenue || 0,
+            despesa: item.total_expenses || 0,
+            custo: item.total_costs || 0,
+            saldo: item.net_flow || 0
+          };
+        })
       };
 
       setAnnualData(annualData);
@@ -126,8 +132,8 @@ const Dashboard = () => {
       // Usar dados anuais para as métricas
       if (annualData && annualData.annual_totals) {
         const { receita, despesa, custo, saldo } = annualData.annual_totals;
-        
-        setMetrics({
+
+      setMetrics({
           totalRevenue: receita,
           totalExpenses: despesa,
           totalCosts: custo,
@@ -218,9 +224,9 @@ const Dashboard = () => {
               <option value={2024}>2024</option>
               <option value={2025}>2025</option>
             </select>
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <Calendar className="w-4 h-4" />
-              <span>{new Date().toLocaleDateString('pt-BR')}</span>
+          <div className="flex items-center space-x-2 text-sm text-gray-500">
+            <Calendar className="w-4 h-4" />
+            <span>{new Date().toLocaleDateString('pt-BR')}</span>
             </div>
           </div>
         </div>
@@ -316,67 +322,7 @@ const Dashboard = () => {
           </motion.div>
         </div>
 
-        {/* Saldo Disponível */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg border border-purple-700 p-6 text-white"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">💰 Saldo Disponível</h3>
-            <span className="text-3xl font-bold">{formatCurrency(saldoDisponivel.total_geral)}</span>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white bg-opacity-20 rounded-lg p-4">
-              <p className="text-purple-100 text-sm mb-1">Contas Bancárias</p>
-              <p className="text-2xl font-bold">{formatCurrency(saldoDisponivel.contas_bancarias?.total || 0)}</p>
-              {saldoDisponivel.contas_bancarias?.detalhes && saldoDisponivel.contas_bancarias.detalhes.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {saldoDisponivel.contas_bancarias.detalhes.slice(0, 3).map((conta: any, idx: number) => (
-                    <div key={idx} className="text-xs text-purple-100 flex justify-between">
-                      <span>{conta.banco}</span>
-                      <span>{formatCurrency(conta.saldo)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white bg-opacity-20 rounded-lg p-4">
-              <p className="text-purple-100 text-sm mb-1">Caixa / Dinheiro</p>
-              <p className="text-2xl font-bold">{formatCurrency(saldoDisponivel.caixas?.total || 0)}</p>
-              {saldoDisponivel.caixas?.detalhes && saldoDisponivel.caixas.detalhes.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {saldoDisponivel.caixas.detalhes.slice(0, 3).map((caixa: any, idx: number) => (
-                    <div key={idx} className="text-xs text-purple-100 flex justify-between">
-                      <span>{caixa.nome}</span>
-                      <span>{formatCurrency(caixa.saldo)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white bg-opacity-20 rounded-lg p-4">
-              <p className="text-purple-100 text-sm mb-1">Investimentos</p>
-              <p className="text-2xl font-bold">{formatCurrency(saldoDisponivel.investimentos?.total || 0)}</p>
-              {saldoDisponivel.investimentos?.detalhes && saldoDisponivel.investimentos.detalhes.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {saldoDisponivel.investimentos.detalhes.slice(0, 3).map((inv: any, idx: number) => (
-                    <div key={idx} className="text-xs text-purple-100 flex justify-between">
-                      <span>{inv.tipo}</span>
-                      <span>{formatCurrency(inv.valor)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Breakdown Mensal */}
+        {/* Gráfico de Evolução Mensal */}
         {annualData && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -388,44 +334,97 @@ const Dashboard = () => {
               Evolução Mensal - {selectedYear}
             </h3>
             
-            {/* Gráfico de Linhas */}
-            <div className="h-64 mb-6">
-              <div className="flex items-end justify-between space-x-2 h-full">
-                {annualData.monthly_breakdown.map((month) => {
+            {/* Gráfico de Linhas - Evolução Mensal */}
+            <div className="h-64 mb-6 relative">
+              <svg className="w-full h-full" viewBox="0 0 800 200">
+                {(() => {
                   const maxValue = Math.max(
                     ...annualData.monthly_breakdown.map(m => Math.max(m.receita, m.despesa, m.custo))
                   );
+                  const data = annualData.monthly_breakdown;
+                  const width = 800;
+                  const height = 200;
+                  const padding = 40;
+                  const chartWidth = width - (padding * 2);
+                  const chartHeight = height - (padding * 2);
+                  
+                  const getX = (index: number) => padding + (index / (data.length - 1)) * chartWidth;
+                  const getY = (value: number) => height - padding - (value / maxValue) * chartHeight;
+                  
+                  // Linha Receita (Verde)
+                  const receitaPath = data.map((point, index) => 
+                    `${index === 0 ? 'M' : 'L'} ${getX(index)} ${getY(point.receita)}`
+                  ).join(' ');
+                  
+                  // Linha Despesa (Vermelho)
+                  const despesaPath = data.map((point, index) => 
+                    `${index === 0 ? 'M' : 'L'} ${getX(index)} ${getY(point.despesa)}`
+                  ).join(' ');
+                  
+                  // Linha Custo (Laranja)
+                  const custoPath = data.map((point, index) => 
+                    `${index === 0 ? 'M' : 'L'} ${getX(index)} ${getY(point.custo)}`
+                  ).join(' ');
+                  
                   return (
-                    <div key={month.mes} className="flex-1 flex flex-col items-center space-y-1">
-                      <div className="w-full flex flex-col space-y-1 h-48">
-                        {/* Receita */}
-                        <div className="w-full bg-gray-200 rounded-sm">
-                          <div 
-                            className="bg-green-500 rounded-sm"
-                            style={{ height: `${(month.receita / maxValue) * 100}%` }}
-                          ></div>
-                        </div>
-                        {/* Despesa */}
-                        <div className="w-full bg-gray-200 rounded-sm">
-                          <div 
-                            className="bg-red-500 rounded-sm"
-                            style={{ height: `${(month.despesa / maxValue) * 100}%` }}
-                          ></div>
-                        </div>
-                        {/* Custo */}
-                        <div className="w-full bg-gray-200 rounded-sm">
-                          <div 
-                            className="bg-orange-500 rounded-sm"
-                            style={{ height: `${(month.custo / maxValue) * 100}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-500 mt-2">
-                        {month.mes_nome.substring(0, 3)}
-                      </span>
-                    </div>
+                    <>
+                      {/* Grid lines */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => (
+                        <line
+                          key={index}
+                          x1={padding}
+                          y1={padding + ratio * chartHeight}
+                          x2={width - padding}
+                          y2={padding + ratio * chartHeight}
+                          stroke="#f3f4f6"
+                          strokeWidth="1"
+                        />
+                      ))}
+                      
+                      {/* Linha Receita */}
+                      <path
+                        d={receitaPath}
+                        fill="none"
+                        stroke="#10b981"
+                        strokeWidth="3"
+                      />
+                      
+                      {/* Linha Despesa */}
+                      <path
+                        d={despesaPath}
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth="3"
+                      />
+                      
+                      {/* Linha Custo */}
+                      <path
+                        d={custoPath}
+                        fill="none"
+                        stroke="#f97316"
+                        strokeWidth="3"
+                      />
+                      
+                      {/* Pontos */}
+                      {data.map((point, index) => (
+                        <g key={index}>
+                          <circle cx={getX(index)} cy={getY(point.receita)} r="4" fill="#10b981" />
+                          <circle cx={getX(index)} cy={getY(point.despesa)} r="4" fill="#ef4444" />
+                          <circle cx={getX(index)} cy={getY(point.custo)} r="4" fill="#f97316" />
+                        </g>
+                      ))}
+                    </>
                   );
-                })}
+                })()}
+              </svg>
+              
+              {/* Labels dos meses */}
+              <div className="absolute bottom-0 left-0 right-0 flex justify-between px-10">
+                {annualData.monthly_breakdown.map((month) => (
+                  <span key={month.mes} className="text-xs text-gray-500">
+                    {month.mes_nome.substring(0, 3)}
+                  </span>
+                ))}
               </div>
             </div>
 
@@ -525,9 +524,69 @@ const Dashboard = () => {
                   </tr>
                 </tfoot>
               </table>
-            </div>
-          </motion.div>
+          </div>
+        </motion.div>
         )}
+
+        {/* Saldo Disponível */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg border border-purple-700 p-6 text-white"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">💰 Saldo Disponível</h3>
+            <span className="text-3xl font-bold">{formatCurrency(saldoDisponivel.total_geral)}</span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white bg-opacity-20 rounded-lg p-4">
+              <p className="text-purple-100 text-sm mb-1">Contas Bancárias</p>
+              <p className="text-2xl font-bold">{formatCurrency(saldoDisponivel.contas_bancarias?.total || 0)}</p>
+              {saldoDisponivel.contas_bancarias?.detalhes && saldoDisponivel.contas_bancarias.detalhes.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {saldoDisponivel.contas_bancarias.detalhes.slice(0, 3).map((conta: any, idx: number) => (
+                    <div key={idx} className="text-xs text-purple-100 flex justify-between">
+                      <span>{conta.banco}</span>
+                      <span>{formatCurrency(conta.saldo)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white bg-opacity-20 rounded-lg p-4">
+              <p className="text-purple-100 text-sm mb-1">Caixa / Dinheiro</p>
+              <p className="text-2xl font-bold">{formatCurrency(saldoDisponivel.caixas?.total || 0)}</p>
+              {saldoDisponivel.caixas?.detalhes && saldoDisponivel.caixas.detalhes.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {saldoDisponivel.caixas.detalhes.slice(0, 3).map((caixa: any, idx: number) => (
+                    <div key={idx} className="text-xs text-purple-100 flex justify-between">
+                      <span>{caixa.nome}</span>
+                      <span>{formatCurrency(caixa.saldo)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white bg-opacity-20 rounded-lg p-4">
+              <p className="text-purple-100 text-sm mb-1">Investimentos</p>
+              <p className="text-2xl font-bold">{formatCurrency(saldoDisponivel.investimentos?.total || 0)}</p>
+              {saldoDisponivel.investimentos?.detalhes && saldoDisponivel.investimentos.detalhes.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {saldoDisponivel.investimentos.detalhes.slice(0, 3).map((inv: any, idx: number) => (
+                    <div key={idx} className="text-xs text-purple-100 flex justify-between">
+                      <span>{inv.tipo}</span>
+                      <span>{formatCurrency(inv.valor)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
 
         {/* Transações Recentes */}
         <motion.div
