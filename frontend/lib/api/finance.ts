@@ -126,7 +126,7 @@ export const fetchTransactions = async (
     const yearTransactions = data.filter((item: any) => {
       const itemYear = new Date(item.data_movimentacao).getFullYear();
       return itemYear === year;
-    }).slice(0, N).map((item: any) => ({
+    }).slice(0, limit).map((item: any) => ({
       id: item.id,
       date: item.data_movimentacao,
       description: item.observacoes || 'Lançamento',

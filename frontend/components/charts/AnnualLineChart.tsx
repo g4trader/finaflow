@@ -96,7 +96,7 @@ const AnnualLineChart: React.FC<AnnualLineChartProps> = ({ data, isLoading = fal
           padding: 20,
           font: {
             size: 14,
-            weight: 'bold'
+            weight: 'bold' as const
           }
         }
       },
@@ -148,7 +148,7 @@ const AnnualLineChart: React.FC<AnnualLineChartProps> = ({ data, isLoading = fal
           text: 'Mês',
           font: {
             size: 14,
-            weight: 'bold'
+            weight: 'bold' as const
           }
         },
         grid: {
@@ -168,7 +168,7 @@ const AnnualLineChart: React.FC<AnnualLineChartProps> = ({ data, isLoading = fal
           text: 'Valor (R$)',
           font: {
             size: 14,
-            weight: 'bold'
+            weight: 'bold' as const
           }
         },
         grid: {
