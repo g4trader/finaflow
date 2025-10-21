@@ -21,6 +21,9 @@ from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount, BusinessUnitChartAccount, Base as ChartBase
 from app.models.financial_transactions import FinancialTransaction, TransactionType, TransactionStatus, Base as FinancialBase
+from app.models.conta_bancaria import ContaBancaria, MovimentacaoBancaria
+from app.models.caixa import Caixa, MovimentacaoCaixa
+from app.models.investimento import Investimento
 
 # Função para criar tabelas necessárias
 def create_required_tables():
