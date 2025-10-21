@@ -6753,7 +6753,8 @@ async def get_annual_summary(
                 "revenue": 0,
                 "expense": 0,
                 "cost": 0,
-                "balance": 0
+                "balance": 0,
+                "caixa_final": 0  # Saldo acumulado até o final do mês
             }
         
         # Process transactions
@@ -6768,15 +6769,21 @@ async def get_annual_summary(
             elif transaction.transaction_type == "CUSTO":
                 monthly_data[month]["cost"] += valor
         
-        # Calculate monthly balances and annual totals
+        # Calculate monthly balances, caixa final and annual totals
         annual_totals = {"revenue": 0, "expense": 0, "cost": 0, "balance": 0}
+        saldo_acumulado = 0  # Saldo acumulado ao longo do ano
         
         for month in range(1, 13):
+            # Calcular saldo do mês
             monthly_data[month]["balance"] = (
                 monthly_data[month]["revenue"] - 
                 monthly_data[month]["expense"] - 
                 monthly_data[month]["cost"]
             )
+            
+            # Adicionar ao saldo acumulado
+            saldo_acumulado += monthly_data[month]["balance"]
+            monthly_data[month]["caixa_final"] = saldo_acumulado
             
             annual_totals["revenue"] += monthly_data[month]["revenue"]
             annual_totals["expense"] += monthly_data[month]["expense"]

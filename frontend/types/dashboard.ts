@@ -4,6 +4,7 @@ export type MonthlyBreakdown = {
   expense: number;      // despesas
   cost: number;         // custos
   balance: number;      // revenue - expense - cost
+  caixa_final: number;  // saldo acumulado até o final do mês
 };
 
 export type AnnualSummaryResponse = {
