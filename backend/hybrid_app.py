@@ -258,79 +258,6 @@ async def root():
     """Endpoint raiz para teste - VERSÃO ATUALIZADA"""
     return {"message": "FinaFlow API funcionando", "version": "2.0.0", "timestamp": str(datetime.datetime.utcnow()), "updated": True}
 
-@app.delete("/api/v1/admin/limpar-todos-lancamentos")
-async def limpar_todos_lancamentos(
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """ADMIN: Limpar todos os lançamentos diários"""
-    try:
-        from app.models.lancamento_diario import LancamentoDiario
-        
-        # Buscar todos os lançamentos do usuário
-        lancamentos = db.query(LancamentoDiario).filter(
-            LancamentoDiario.tenant_id == current_user["tenant_id"],
-            LancamentoDiario.business_unit_id == current_user["business_unit_id"]
-        ).all()
-        
-        count = len(lancamentos)
-        
-        # Deletar todos
-        for lancamento in lancamentos:
-            db.delete(lancamento)
-        
-        db.commit()
-        
-        return {
-            "success": True,
-            "message": f"{count} lançamentos removidos com sucesso"
-        }
-        
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "message": f"Erro ao limpar lançamentos: {str(e)}"}
-
-@app.post("/api/v1/admin/limpar-via-sql")
-async def limpar_via_sql(
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """ADMIN: Limpar lançamentos via SQL direto (bypass datetime bug)"""
-    try:
-        from sqlalchemy import text
-        
-        tenant_id = str(current_user["tenant_id"])
-        business_unit_id = str(current_user["business_unit_id"])
-        
-        # Contar antes
-        count_query = text("""
-            SELECT COUNT(*) FROM lancamentos_diarios 
-            WHERE tenant_id = :tenant_id AND business_unit_id = :bu_id
-        """)
-        count_before = db.execute(count_query, {"tenant_id": tenant_id, "bu_id": business_unit_id}).scalar()
-        
-        # Deletar via SQL direto
-        delete_query = text("""
-            DELETE FROM lancamentos_diarios 
-            WHERE tenant_id = :tenant_id AND business_unit_id = :bu_id
-        """)
-        db.execute(delete_query, {"tenant_id": tenant_id, "bu_id": business_unit_id})
-        db.commit()
-        
-        # Contar depois
-        count_after = db.execute(count_query, {"tenant_id": tenant_id, "bu_id": business_unit_id}).scalar()
-        
-        return {
-            "success": True,
-            "message": f"{count_before} lançamentos removidos via SQL",
-            "before": count_before,
-            "after": count_after
-        }
-        
-    except Exception as e:
-        db.rollback()
-        return {"success": False, "message": f"Erro ao limpar via SQL: {str(e)}"}
-
 @app.get("/health")
 async def health():
     """Endpoint de health check"""
@@ -4869,6 +4796,83 @@ async def startup_event():
     print("🚀 Iniciando FinaFlow Backend...")
     create_required_tables()
     print("✅ FinaFlow Backend iniciado com sucesso!")
+
+# ============================================================================
+# ENDPOINTS DE LIMPEZA (ADMIN)
+# ============================================================================
+
+@app.delete("/api/v1/admin/limpar-todos-lancamentos")
+async def limpar_todos_lancamentos(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Limpar todos os lançamentos diários"""
+    try:
+        from app.models.lancamento_diario import LancamentoDiario
+        
+        # Buscar todos os lançamentos do usuário
+        lancamentos = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == current_user["tenant_id"],
+            LancamentoDiario.business_unit_id == current_user["business_unit_id"]
+        ).all()
+        
+        count = len(lancamentos)
+        
+        # Deletar todos
+        for lancamento in lancamentos:
+            db.delete(lancamento)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"{count} lançamentos removidos com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao limpar lançamentos: {str(e)}"}
+
+@app.post("/api/v1/admin/limpar-via-sql")
+async def limpar_via_sql(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Limpar lançamentos via SQL direto (bypass datetime bug)"""
+    try:
+        from sqlalchemy import text
+        
+        tenant_id = str(current_user["tenant_id"])
+        business_unit_id = str(current_user["business_unit_id"])
+        
+        # Contar antes
+        count_query = text("""
+            SELECT COUNT(*) FROM lancamentos_diarios 
+            WHERE tenant_id = :tenant_id AND business_unit_id = :bu_id
+        """)
+        count_before = db.execute(count_query, {"tenant_id": tenant_id, "bu_id": business_unit_id}).scalar()
+        
+        # Deletar via SQL direto
+        delete_query = text("""
+            DELETE FROM lancamentos_diarios 
+            WHERE tenant_id = :tenant_id AND business_unit_id = :bu_id
+        """)
+        db.execute(delete_query, {"tenant_id": tenant_id, "bu_id": business_unit_id})
+        db.commit()
+        
+        # Contar depois
+        count_after = db.execute(count_query, {"tenant_id": tenant_id, "bu_id": business_unit_id}).scalar()
+        
+        return {
+            "success": True,
+            "message": f"{count_before} lançamentos removidos via SQL",
+            "before": count_before,
+            "after": count_after
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao limpar via SQL: {str(e)}"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
