@@ -22,7 +22,8 @@ import {
   Shield,
   BookOpen,
   FileSpreadsheet,
-  Activity
+  Activity,
+  Calendar
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
