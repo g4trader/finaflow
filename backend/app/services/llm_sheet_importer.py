@@ -145,9 +145,9 @@ class LLMSheetImporter:
             if col_conta is None:
                 return {"success": False, "error": "Coluna 'Conta' não encontrada"}
             
-            # Importar transações
-            from app.models.financial_transactions import FinancialTransaction, TransactionStatus, TransactionType
-            from app.models.chart_of_accounts import ChartAccount
+            # Importar lançamentos diários
+            from app.models.lancamento_diario import LancamentoDiario, TransactionType, TransactionStatus
+            from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
             
             transactions_created = 0
             
@@ -224,26 +224,29 @@ class LLMSheetImporter:
                 if not descricao:
                     descricao = f"Lançamento - {conta_name}"
                 
-                # Tipo de transação baseado no grupo
-                transaction_type = TransactionType.DESPESA  # Default
-                if col_grupo is not None and col_grupo < len(row) and row[col_grupo]:
-                    grupo_name = row[col_grupo].strip().lower()
-                    if "receita" in grupo_name:
-                        transaction_type = TransactionType.RECEITA
-                    elif "custo" in grupo_name or "despesa" in grupo_name:
-                        transaction_type = TransactionType.DESPESA
-                
                 # Criar lançamento diário
                 from app.models.lancamento_diario import LancamentoDiario
                 
-                # Determinar tipo baseado no nome do grupo
-                transaction_type_str = "DESPESA"  # Default
+                # Determinar tipo baseado no nome do grupo e subgrupo com lógica completa
+                transaction_type_enum = TransactionType.DESPESA  # Default
+                
                 if account.subgroup and account.subgroup.group:
                     grupo_nome = account.subgroup.group.name.lower()
-                    if "receita" in grupo_nome or "venda" in grupo_nome or "renda" in grupo_nome:
-                        transaction_type_str = "RECEITA"
-                    elif "despesa" in grupo_nome or "custo" in grupo_nome or "gasto" in grupo_nome:
-                        transaction_type_str = "DESPESA"
+                    subgrupo_nome = account.subgroup.name.lower()
+                    
+                    # Lógica melhorada de classificação (mesmo do endpoint POST)
+                    if any(keyword in grupo_nome for keyword in ['receita', 'venda', 'renda', 'faturamento', 'vendas']):
+                        transaction_type_enum = TransactionType.RECEITA
+                    elif any(keyword in grupo_nome for keyword in ['custo', 'custos']) or any(keyword in subgrupo_nome for keyword in ['custo', 'custos', 'mercadoria', 'produto']):
+                        transaction_type_enum = TransactionType.CUSTO
+                    elif any(keyword in grupo_nome for keyword in ['despesa', 'gasto', 'operacional', 'administrativa']) or any(keyword in subgrupo_nome for keyword in ['despesa', 'gasto', 'marketing', 'administrativa']):
+                        transaction_type_enum = TransactionType.DESPESA
+                    else:
+                        # Default baseado em palavras-chave mais específicas
+                        if any(keyword in grupo_nome for keyword in ['ativo', 'passivo', 'patrimonio']):
+                            transaction_type_enum = TransactionType.DESPESA
+                        else:
+                            transaction_type_enum = TransactionType.DESPESA
                 
                 lancamento = LancamentoDiario(
                     tenant_id=tenant_uuid,
@@ -254,8 +257,8 @@ class LLMSheetImporter:
                     data_movimentacao=transaction_date,
                     valor=abs(amount),
                     observacoes=descricao or f"Importado - {account.name}",
-                    transaction_type=transaction_type_str,
-                    status="PENDENTE",
+                    transaction_type=transaction_type_enum,
+                    status=TransactionStatus.PENDENTE,
                     created_by=user_id
                 )
                 db.add(lancamento)
