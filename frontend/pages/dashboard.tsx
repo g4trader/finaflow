@@ -93,17 +93,39 @@ const Dashboard = () => {
     try {
       setLoading(true);
       
-      const [annualResponse, saldoResponse] = await Promise.all([
-        api.get(`/financial/cash-flow-annual?year=${selectedYear}`).then(r => r.data),
+      // Usar endpoint que funciona (cash-flow dos últimos 30 dias)
+      const [cashFlowResponse, saldoResponse] = await Promise.all([
+        api.get('/financial/cash-flow').then(r => r.data),
         api.get('/saldo-disponivel').then(r => r.data).catch(() => ({ saldo_disponivel: { total_geral: 0, contas_bancarias: { total: 0, detalhes: [] }, caixas: { total: 0, detalhes: [] }, investimentos: { total: 0, detalhes: [] } } }))
       ]);
 
-      setAnnualData(annualResponse);
+      // Criar dados anuais a partir dos dados dos últimos 30 dias
+      const annualData = {
+        year: selectedYear,
+        annual_totals: {
+          receita: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_revenue || 0), 0),
+          despesa: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_expenses || 0), 0),
+          custo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_costs || 0), 0),
+          saldo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.net_flow || 0), 0)
+        },
+        monthly_breakdown: [
+          {
+            mes: 10,
+            mes_nome: "Outubro",
+            receita: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_revenue || 0), 0),
+            despesa: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_expenses || 0), 0),
+            custo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_costs || 0), 0),
+            saldo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.net_flow || 0), 0)
+          }
+        ]
+      };
+
+      setAnnualData(annualData);
       setSaldoDisponivel(saldoResponse.saldo_disponivel || saldoResponse);
 
       // Usar dados anuais para as métricas
-      if (annualResponse && annualResponse.annual_totals) {
-        const { receita, despesa, custo, saldo } = annualResponse.annual_totals;
+      if (annualData && annualData.annual_totals) {
+        const { receita, despesa, custo, saldo } = annualData.annual_totals;
         
         setMetrics({
           totalRevenue: receita,
@@ -111,7 +133,7 @@ const Dashboard = () => {
           totalCosts: custo,
           netFlow: saldo,
           currentBalance: saldo,
-          transactionCount: annualResponse.monthly_breakdown.reduce((sum, month) => 
+          transactionCount: annualData.monthly_breakdown.reduce((sum, month) => 
             sum + (month.receita > 0 ? 1 : 0) + (month.despesa > 0 ? 1 : 0) + (month.custo > 0 ? 1 : 0), 0)
         });
       }

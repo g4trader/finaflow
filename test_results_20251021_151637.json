@@ -1,0 +1,65 @@
+{
+  "timestamp": "2025-10-21T15:15:36.427644",
+  "tests": [
+    {
+      "test": "Frontend Access",
+      "status": "FAIL",
+      "details": "FinaFlow not found in page",
+      "timestamp": "2025-10-21T15:15:48.233095"
+    },
+    {
+      "test": "Login",
+      "status": "FAIL",
+      "details": "Error: Message: no such element: Unable to locate element: {\"method\":\"css selector\",\"selector\":\"[name=\"username\"]\"}\n  (Session info: chrome=141.0.7390.108); For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#nosuchelementexception\nStacktrace:\n0   chromedriver                        0x000000010b6822e8 chromedriver + 6107880\n1   chromedriver                        0x000000010b6799ea chromedriver + 6072810\n2   chromedriver                        0x000000010b118156 chromedriver + 430422\n3   chromedriver                        0x000000010b16a7d1 chromedriver + 767953\n4   chromedriver                        0x000000010b16aa91 chromedriver + 768657\n5   chromedriver                        0x000000010b1baf04 chromedriver + 1097476\n6   chromedriver                        0x000000010b190d5d chromedriver + 925021\n7   chromedriver                        0x000000010b1b821e chromedriver + 1085982\n8   chromedriver                        0x000000010b190b03 chromedriver + 924419\n9   chromedriver                        0x000000010b15c397 chromedriver + 709527\n10  chromedriver                        0x000000010b15d801 chromedriver + 714753\n11  chromedriver                        0x000000010b63ee60 chromedriver + 5832288\n12  chromedriver                        0x000000010b6430c5 chromedriver + 5849285\n13  chromedriver                        0x000000010b61a477 chromedriver + 5682295\n14  chromedriver                        0x000000010b643b5f chromedriver + 5851999\n15  chromedriver                        0x000000010b609904 chromedriver + 5613828\n16  chromedriver                        0x000000010b666b58 chromedriver + 5995352\n17  chromedriver                        0x000000010b666d1d chromedriver + 5995805\n18  chromedriver                        0x000000010b6795c1 chromedriver + 6071745\n19  libsystem_pthread.dylib             0x00007ff817f944e1 _pthread_start + 125\n20  libsystem_pthread.dylib             0x00007ff817f8ff6b thread_start + 15\n",
+      "timestamp": "2025-10-21T15:16:00.256362"
+    },
+    {
+      "test": "Business Unit Selection",
+      "status": "PASS",
+      "details": "Not needed - already selected",
+      "timestamp": "2025-10-21T15:16:02.268050"
+    },
+    {
+      "test": "Dashboard Loading",
+      "status": "FAIL",
+      "details": "Missing elements. Found: ",
+      "timestamp": "2025-10-21T15:16:10.212542"
+    },
+    {
+      "test": "Dashboard Data",
+      "status": "FAIL",
+      "details": "All values are R$ 0,00",
+      "timestamp": "2025-10-21T15:16:12.218887"
+    },
+    {
+      "test": "Navigation Menu",
+      "status": "FAIL",
+      "details": "Only found 1 menu items",
+      "timestamp": "2025-10-21T15:16:14.267474"
+    },
+    {
+      "test": "Contas Banc\u00e1rias Page",
+      "status": "PASS",
+      "details": "Page loaded but no data visible",
+      "timestamp": "2025-10-21T15:16:19.841736"
+    },
+    {
+      "test": "Lan\u00e7amentos Page",
+      "status": "PASS",
+      "details": "Page loaded",
+      "timestamp": "2025-10-21T15:16:25.212923"
+    },
+    {
+      "test": "Screenshots",
+      "status": "PASS",
+      "details": "Screenshots saved with timestamp 20251021_151627",
+      "timestamp": "2025-10-21T15:16:35.633187"
+    }
+  ],
+  "summary": {
+    "total_tests": 9,
+    "passed": 4,
+    "failed": 5,
+    "success_rate": "44.4%"
+  }
+}
