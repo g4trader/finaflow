@@ -132,22 +132,37 @@ const Dashboard = () => {
           custo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.total_costs || 0), 0),
           saldo: cashFlowResponse.reduce((sum: number, item: any) => sum + (item.net_flow || 0), 0)
         },
-        monthly_breakdown: cashFlowResponse.map((item: any, index: number) => {
-          const date = new Date(item.date);
-          const meses = [
-            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-          ];
+        monthly_breakdown: (() => {
+          // Agrupar dados por mês
+          const monthlyData: { [key: string]: any } = {};
           
-          return {
-            mes: date.getMonth() + 1,
-            mes_nome: meses[date.getMonth()],
-            receita: item.total_revenue || 0,
-            despesa: item.total_expenses || 0,
-            custo: item.total_costs || 0,
-            saldo: item.net_flow || 0
-          };
-        })
+          cashFlowResponse.forEach((item: any) => {
+            const date = new Date(item.date);
+            const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+            
+            if (!monthlyData[monthKey]) {
+              monthlyData[monthKey] = {
+                mes: date.getMonth() + 1,
+                mes_nome: [
+                  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+                ][date.getMonth()],
+                receita: 0,
+                despesa: 0,
+                custo: 0,
+                saldo: 0
+              };
+            }
+            
+            monthlyData[monthKey].receita += item.total_revenue || 0;
+            monthlyData[monthKey].despesa += item.total_expenses || 0;
+            monthlyData[monthKey].custo += item.total_costs || 0;
+            monthlyData[monthKey].saldo += item.net_flow || 0;
+          });
+          
+          // Converter para array e ordenar por mês
+          return Object.values(monthlyData).sort((a: any, b: any) => a.mes - b.mes);
+        })()
       };
 
       setAnnualData(annualData);
