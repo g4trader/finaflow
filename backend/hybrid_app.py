@@ -258,6 +258,38 @@ async def root():
     """Endpoint raiz para teste - VERSÃO ATUALIZADA"""
     return {"message": "FinaFlow API funcionando", "version": "2.0.0", "timestamp": str(datetime.datetime.utcnow()), "updated": True}
 
+@app.delete("/api/v1/admin/limpar-todos-lancamentos")
+async def limpar_todos_lancamentos(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Limpar todos os lançamentos diários"""
+    try:
+        from app.models.lancamento_diario import LancamentoDiario
+        
+        # Buscar todos os lançamentos do usuário
+        lancamentos = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == current_user["tenant_id"],
+            LancamentoDiario.business_unit_id == current_user["business_unit_id"]
+        ).all()
+        
+        count = len(lancamentos)
+        
+        # Deletar todos
+        for lancamento in lancamentos:
+            db.delete(lancamento)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"{count} lançamentos removidos com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao limpar lançamentos: {str(e)}"}
+
 @app.get("/health")
 async def health():
     """Endpoint de health check"""
