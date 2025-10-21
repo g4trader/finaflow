@@ -5049,6 +5049,7 @@ async def get_cash_flow_previsto_realizado(
         from app.models.lancamento_previsto import LancamentoPrevisto
         from app.models.chart_of_accounts import ChartAccountGroup
         from sqlalchemy.orm import joinedload
+        from sqlalchemy import func, extract
         from collections import defaultdict
         from datetime import datetime
         
@@ -5068,7 +5069,7 @@ async def get_cash_flow_previsto_realizado(
             LancamentoDiario.tenant_id == tenant_id,
             LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active == True,
-            db.func.extract('year', LancamentoDiario.data_movimentacao) == year
+            extract('year', LancamentoDiario.data_movimentacao) == year
         ).all()
         
         # Buscar todas as previsões do ano
@@ -5078,7 +5079,7 @@ async def get_cash_flow_previsto_realizado(
             LancamentoPrevisto.tenant_id == tenant_id,
             LancamentoPrevisto.business_unit_id == business_unit_id,
             LancamentoPrevisto.is_active == True,
-            db.func.extract('year', LancamentoPrevisto.data_prevista) == year
+            extract('year', LancamentoPrevisto.data_prevista) == year
         ).all()
         
         print(f"[CASH FLOW] Lançamentos: {len(lancamentos)}, Previsões: {len(previsoes)}")
