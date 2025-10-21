@@ -64,17 +64,17 @@ const WalletCard: React.FC<WalletCardProps> = ({ data, isLoading = false }) => {
             <p className="text-purple-100 text-sm font-medium">Contas Bancárias</p>
           </div>
           <p className="text-2xl font-bold mb-2">
-            {formatCurrency(data.bankAccounts.reduce((sum, account) => sum + account.amount, 0))}
+            {formatCurrency((data.bankAccounts || []).reduce((sum, account) => sum + account.amount, 0))}
           </p>
-          {data.bankAccounts.length > 0 && (
+          {data.bankAccounts && data.bankAccounts.length > 0 && (
             <div className="space-y-1">
-              {data.bankAccounts.slice(0, 3).map((account, idx) => (
+              {(data.bankAccounts || []).slice(0, 3).map((account, idx) => (
                 <div key={idx} className="text-xs text-purple-100 flex justify-between">
                   <span className="truncate mr-2">{account.label}</span>
                   <span className="font-medium">{formatCurrency(account.amount)}</span>
                 </div>
               ))}
-              {data.bankAccounts.length > 3 && (
+              {data.bankAccounts && data.bankAccounts.length > 3 && (
                 <div className="text-xs text-purple-100">
                   +{data.bankAccounts.length - 3} mais
                 </div>
@@ -90,17 +90,17 @@ const WalletCard: React.FC<WalletCardProps> = ({ data, isLoading = false }) => {
             <p className="text-purple-100 text-sm font-medium">Caixa / Dinheiro</p>
           </div>
           <p className="text-2xl font-bold mb-2">
-            {formatCurrency(data.cash.reduce((sum, cash) => sum + cash.amount, 0))}
+            {formatCurrency((data.cash || []).reduce((sum, cash) => sum + cash.amount, 0))}
           </p>
-          {data.cash.length > 0 && (
+          {data.cash && data.cash.length > 0 && (
             <div className="space-y-1">
-              {data.cash.slice(0, 3).map((cash, idx) => (
+              {(data.cash || []).slice(0, 3).map((cash, idx) => (
                 <div key={idx} className="text-xs text-purple-100 flex justify-between">
                   <span className="truncate mr-2">{cash.label}</span>
                   <span className="font-medium">{formatCurrency(cash.amount)}</span>
                 </div>
               ))}
-              {data.cash.length > 3 && (
+              {data.cash && data.cash.length > 3 && (
                 <div className="text-xs text-purple-100">
                   +{data.cash.length - 3} mais
                 </div>
@@ -116,17 +116,17 @@ const WalletCard: React.FC<WalletCardProps> = ({ data, isLoading = false }) => {
             <p className="text-purple-100 text-sm font-medium">Investimentos</p>
           </div>
           <p className="text-2xl font-bold mb-2">
-            {formatCurrency(data.investments.reduce((sum, investment) => sum + investment.amount, 0))}
+            {formatCurrency((data.investments || []).reduce((sum, investment) => sum + investment.amount, 0))}
           </p>
-          {data.investments.length > 0 && (
+          {data.investments && data.investments.length > 0 && (
             <div className="space-y-1">
-              {data.investments.slice(0, 3).map((investment, idx) => (
+              {(data.investments || []).slice(0, 3).map((investment, idx) => (
                 <div key={idx} className="text-xs text-purple-100 flex justify-between">
                   <span className="truncate mr-2">{investment.label}</span>
                   <span className="font-medium">{formatCurrency(investment.amount)}</span>
                 </div>
               ))}
-              {data.investments.length > 3 && (
+              {data.investments && data.investments.length > 3 && (
                 <div className="text-xs text-purple-100">
                   +{data.investments.length - 3} mais
                 </div>

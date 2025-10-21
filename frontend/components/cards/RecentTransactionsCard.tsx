@@ -115,7 +115,7 @@ const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
         </Link>
       </div>
 
-      {data.items.length === 0 ? (
+      {!data.items || data.items.length === 0 ? (
         <div className="text-center py-8">
           <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-sm">
@@ -124,7 +124,7 @@ const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
         </div>
       ) : (
         <div className="space-y-4">
-          {data.items.map((transaction, index) => (
+          {(data.items || []).map((transaction, index) => (
             <motion.div
               key={transaction.id}
               initial={{ opacity: 0, x: -20 }}
