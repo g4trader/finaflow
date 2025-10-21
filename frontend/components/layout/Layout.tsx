@@ -21,7 +21,8 @@ import {
   GitBranch,
   Shield,
   BookOpen,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Activity
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -122,7 +123,14 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       label: 'Previsões Financeiras',
       href: '/financial-forecasts',
       active: isItemActive('/financial-forecasts', 'Previsões Financeiras'),
-      description: 'Gerenciar previsões financeiras e importar CSV'
+      description: 'Gerenciar previsões financeiras'
+    },
+    {
+      icon: <Activity className="w-5 h-5" />,
+      label: 'Fluxo de Caixa',
+      href: '/cash-flow',
+      active: isItemActive('/cash-flow', 'Fluxo de Caixa'),
+      description: 'Análise Previsto x Realizado por mês'
     },
     {
       icon: <BarChart3 className="w-5 h-5" />,
