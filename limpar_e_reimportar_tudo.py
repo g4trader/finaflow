@@ -67,6 +67,7 @@ else:
 # 4. Importar Plano de Contas
 print("4️⃣ IMPORTANDO PLANO DE CONTAS DA PLANILHA...")
 print("   ⏳ Aguarde...")
+import_data = {"spreadsheet_id": GOOGLE_SHEET_ID}
 response = requests.post(
     f"{BACKEND_URL}/api/v1/admin/importar-plano-contas-planilha",
     json=import_data,

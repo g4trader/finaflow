@@ -5712,20 +5712,29 @@ async def limpar_plano_contas(
         
         tenant_id = str(current_user["tenant_id"])
         
-        # Limpar em ordem (contas, subgrupos, grupos)
+        # Limpar em ordem (vínculos BU, contas, subgrupos, grupos)
         print(f"[LIMPAR PLANO] Limpando plano de contas do tenant {tenant_id}")
+        
+        # Vínculos BU primeiro
+        delete_bu_links = text("""
+            DELETE FROM business_unit_chart_accounts 
+            WHERE chart_account_id IN (
+                SELECT id FROM chart_accounts WHERE tenant_id = :tenant_id
+            )
+        """)
+        db.execute(delete_bu_links, {"tenant_id": tenant_id})
         
         # Contas
         delete_contas = text("DELETE FROM chart_accounts WHERE tenant_id = :tenant_id")
-        result_contas = db.execute(delete_contas, {"tenant_id": tenant_id})
+        db.execute(delete_contas, {"tenant_id": tenant_id})
         
         # Subgrupos
         delete_subgrupos = text("DELETE FROM chart_account_subgroups WHERE tenant_id = :tenant_id")
-        result_subgrupos = db.execute(delete_subgrupos, {"tenant_id": tenant_id})
+        db.execute(delete_subgrupos, {"tenant_id": tenant_id})
         
         # Grupos
         delete_grupos = text("DELETE FROM chart_account_groups WHERE tenant_id = :tenant_id")
-        result_grupos = db.execute(delete_grupos, {"tenant_id": tenant_id})
+        db.execute(delete_grupos, {"tenant_id": tenant_id})
         
         db.commit()
         
