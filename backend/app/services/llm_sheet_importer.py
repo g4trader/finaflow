@@ -312,20 +312,33 @@ class LLMSheetImporter:
             print(f"[IMPORT PREVISÕES] Encontradas {len(rows)} linhas")
             print(f"[IMPORT PREVISÕES] Cabeçalhos: {headers[:8]}")
             
-            # Mapear colunas (mesma estrutura dos lançamentos diários)
-            col_data = self._find_column(headers, ["data prevista", "data", "date"])
-            col_conta = self._find_column(headers, ["conta", "account"])
-            col_subgrupo = self._find_column(headers, ["subgrupo", "subgroup"])
-            col_grupo = self._find_column(headers, ["grupo", "group"])
-            col_valor = self._find_column(headers, ["valor", "value", "amount"])
-            col_observacao = self._find_column(headers, ["observação", "observacao", "description"])
+            # Mapear colunas baseado na estrutura real da planilha
+            # A: Ano/Mês, B: Mês, C: Conta, D: Subgrupo, E: Grupo, F: Valor, H: DESCRIÇÃO
+            col_data = self._find_column(headers, ["mês", "mes", "data", "date"])
+            if col_data is None:
+                col_data = 1  # Coluna B (Mês)
             
-            # Fallback para coluna de valor
+            col_conta = self._find_column(headers, ["conta", "account"])
+            if col_conta is None:
+                col_conta = 2  # Coluna C
+            
+            col_subgrupo = self._find_column(headers, ["subgrupo", "subgroup"])
+            if col_subgrupo is None:
+                col_subgrupo = 3  # Coluna D
+            
+            col_grupo = self._find_column(headers, ["grupo", "group"])
+            if col_grupo is None:
+                col_grupo = 4  # Coluna E
+            
+            col_valor = self._find_column(headers, ["valor", "value", "amount"])
             if col_valor is None:
                 col_valor = 5  # Coluna F
-                print(f"[IMPORT PREVISÕES] Usando coluna F como valor")
             
-            print(f"[IMPORT PREVISÕES] Mapeamento: data={col_data}, conta={col_conta}, valor={col_valor}")
+            col_observacao = self._find_column(headers, ["descrição", "descricao", "description"])
+            if col_observacao is None:
+                col_observacao = 7  # Coluna H
+            
+            print(f"[IMPORT PREVISÕES] Mapeamento: data={col_data}(B), conta={col_conta}(C), subgrupo={col_subgrupo}(D), grupo={col_grupo}(E), valor={col_valor}(F), obs={col_observacao}(H)")
             
             if col_data is None or col_valor is None or col_conta is None:
                 return {"success": False, "error": "Colunas obrigatórias não encontradas"}
