@@ -249,18 +249,19 @@ class LLMSheetImporter:
                             transaction_type_enum = TransactionType.DESPESA
                 
                 # Verificar se já existe (evitar duplicatas)
+                # Converter para string pois colunas são VARCHAR no banco
                 existing = db.query(LancamentoDiario).filter(
                     LancamentoDiario.data_movimentacao == transaction_date,
                     LancamentoDiario.conta_id == account.id,
                     LancamentoDiario.valor == abs(amount),
-                    LancamentoDiario.tenant_id == tenant_uuid,
-                    LancamentoDiario.business_unit_id == business_unit_id
+                    LancamentoDiario.tenant_id == str(tenant_uuid),
+                    LancamentoDiario.business_unit_id == str(business_unit_id)
                 ).first()
                 
                 if not existing:
                     lancamento = LancamentoDiario(
-                        tenant_id=tenant_uuid,
-                        business_unit_id=business_unit_id,
+                        tenant_id=str(tenant_uuid),
+                        business_unit_id=str(business_unit_id),
                         conta_id=account.id,
                         subgrupo_id=account.subgroup_id,
                         grupo_id=account.subgroup.group_id if account.subgroup else None,
