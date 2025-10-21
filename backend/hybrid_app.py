@@ -4804,8 +4804,340 @@ async def startup_event():
     print("✅ FinaFlow Backend iniciado com sucesso!")
 
 # ============================================================================
+# ENDPOINTS DE LANÇAMENTOS PREVISTOS
+# ============================================================================
+
+@app.get("/api/v1/lancamentos-previstos")
+async def get_lancamentos_previstos(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 10000
+):
+    """Listar lançamentos previstos"""
+    try:
+        from app.models.lancamento_previsto import LancamentoPrevisto
+        from sqlalchemy.orm import joinedload
+        
+        # Buscar lançamentos previstos com joins
+        query = db.query(LancamentoPrevisto).options(
+            joinedload(LancamentoPrevisto.conta),
+            joinedload(LancamentoPrevisto.subgrupo),
+            joinedload(LancamentoPrevisto.grupo)
+        ).filter(
+            LancamentoPrevisto.tenant_id == str(current_user["tenant_id"]),
+            LancamentoPrevisto.business_unit_id == str(current_user["business_unit_id"]),
+            LancamentoPrevisto.is_active == True
+        ).order_by(LancamentoPrevisto.data_prevista.desc())
+        
+        if limit > 0:
+            query = query.offset(skip).limit(limit)
+        
+        previsoes = query.all()
+        
+        # Formatar resposta
+        previsoes_data = []
+        for prev in previsoes:
+            previsoes_data.append({
+                "id": str(prev.id),
+                "data_prevista": prev.data_prevista.isoformat(),
+                "valor": float(prev.valor),
+                "observacoes": prev.observacoes,
+                "conta_id": str(prev.conta_id),
+                "conta_nome": prev.conta.name if prev.conta else "N/A",
+                "conta_codigo": prev.conta.code if prev.conta else "N/A",
+                "subgrupo_id": str(prev.subgrupo_id),
+                "subgrupo_nome": prev.subgrupo.name if prev.subgrupo else "N/A",
+                "subgrupo_codigo": prev.subgrupo.code if prev.subgrupo else "N/A",
+                "grupo_id": str(prev.grupo_id),
+                "grupo_nome": prev.grupo.name if prev.grupo else "N/A",
+                "grupo_codigo": prev.grupo.code if prev.grupo else "N/A",
+                "transaction_type": prev.transaction_type,
+                "status": prev.status,
+                "created_at": prev.created_at.isoformat()
+            })
+        
+        return {
+            "success": True,
+            "previsoes": previsoes_data,
+            "total": len(previsoes_data)
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar previsões: {str(e)}"}
+
+@app.post("/api/v1/lancamentos-previstos")
+async def create_lancamento_previsto(
+    previsao_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Criar nova previsão"""
+    try:
+        from datetime import datetime
+        from decimal import Decimal
+        from app.models.lancamento_previsto import LancamentoPrevisto, TransactionType
+        from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup
+        
+        # Validar dados obrigatórios
+        required_fields = ['data_prevista', 'valor', 'conta_id', 'subgrupo_id', 'grupo_id']
+        for field in required_fields:
+            if field not in previsao_data:
+                return {"success": False, "message": f"Campo obrigatório: {field}"}
+        
+        # Converter data
+        data_prevista = datetime.fromisoformat(previsao_data['data_prevista'].replace('Z', '+00:00'))
+        valor = Decimal(str(previsao_data['valor']))
+        
+        # Buscar informações do grupo para determinar tipo
+        grupo = db.query(ChartAccountGroup).filter(
+            ChartAccountGroup.id == previsao_data['grupo_id']
+        ).first()
+        
+        if not grupo:
+            return {"success": False, "message": "Grupo não encontrado"}
+        
+        # Determinar tipo de transação (mesma lógica dos lançamentos diários)
+        grupo_lower = grupo.name.lower()
+        subgrupo_lower = ""
+        
+        subgrupo = db.query(ChartAccountSubgroup).filter(
+            ChartAccountSubgroup.id == previsao_data['subgrupo_id']
+        ).first()
+        if subgrupo:
+            subgrupo_lower = subgrupo.name.lower()
+        
+        # Lógica de classificação
+        if any(keyword in grupo_lower for keyword in ['receita', 'venda', 'renda', 'faturamento', 'vendas']):
+            transaction_type = TransactionType.RECEITA
+        elif any(keyword in grupo_lower for keyword in ['custo', 'custos']) or any(keyword in subgrupo_lower for keyword in ['custo', 'custos', 'mercadoria', 'produto']):
+            transaction_type = TransactionType.CUSTO
+        elif any(keyword in grupo_lower for keyword in ['despesa', 'gasto', 'operacional', 'administrativa']) or any(keyword in subgrupo_lower for keyword in ['despesa', 'gasto', 'marketing', 'administrativa']):
+            transaction_type = TransactionType.DESPESA
+        else:
+            transaction_type = TransactionType.DESPESA
+        
+        previsao = LancamentoPrevisto(
+            data_prevista=data_prevista,
+            valor=valor,
+            observacoes=previsao_data.get('observacoes', ''),
+            conta_id=previsao_data['conta_id'],
+            subgrupo_id=previsao_data['subgrupo_id'],
+            grupo_id=previsao_data['grupo_id'],
+            transaction_type=transaction_type,
+            status="PENDENTE",
+            tenant_id=str(current_user["tenant_id"]),
+            business_unit_id=str(current_user["business_unit_id"]),
+            created_by=current_user["sub"]
+        )
+        
+        db.add(previsao)
+        db.commit()
+        db.refresh(previsao)
+        
+        return {
+            "success": True,
+            "message": "Previsão criada com sucesso",
+            "previsao_id": str(previsao.id),
+            "transaction_type": transaction_type.value
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao criar previsão: {str(e)}"}
+
+@app.put("/api/v1/lancamentos-previstos/{previsao_id}")
+async def update_lancamento_previsto(
+    previsao_id: str,
+    previsao_data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Atualizar previsão"""
+    try:
+        from datetime import datetime
+        from decimal import Decimal
+        from app.models.lancamento_previsto import LancamentoPrevisto
+        
+        # Buscar previsão
+        previsao = db.query(LancamentoPrevisto).filter(
+            LancamentoPrevisto.id == previsao_id,
+            LancamentoPrevisto.tenant_id == str(current_user["tenant_id"]),
+            LancamentoPrevisto.business_unit_id == str(current_user["business_unit_id"])
+        ).first()
+        
+        if not previsao:
+            return {"success": False, "message": "Previsão não encontrada"}
+        
+        # Atualizar campos
+        if 'data_prevista' in previsao_data:
+            previsao.data_prevista = datetime.fromisoformat(previsao_data['data_prevista'].replace('Z', '+00:00'))
+        if 'valor' in previsao_data:
+            previsao.valor = Decimal(str(previsao_data['valor']))
+        if 'observacoes' in previsao_data:
+            previsao.observacoes = previsao_data['observacoes']
+        if 'status' in previsao_data:
+            previsao.status = previsao_data['status']
+        if 'conta_id' in previsao_data:
+            previsao.conta_id = previsao_data['conta_id']
+        if 'subgrupo_id' in previsao_data:
+            previsao.subgrupo_id = previsao_data['subgrupo_id']
+        if 'grupo_id' in previsao_data:
+            previsao.grupo_id = previsao_data['grupo_id']
+        
+        previsao.updated_at = datetime.datetime.now()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Previsão atualizada com sucesso"
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao atualizar previsão: {str(e)}"}
+
+@app.delete("/api/v1/lancamentos-previstos/{previsao_id}")
+async def delete_lancamento_previsto(
+    previsao_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Excluir previsão"""
+    try:
+        from datetime import datetime
+        from app.models.lancamento_previsto import LancamentoPrevisto
+        
+        # Buscar previsão
+        previsao = db.query(LancamentoPrevisto).filter(
+            LancamentoPrevisto.id == previsao_id,
+            LancamentoPrevisto.tenant_id == str(current_user["tenant_id"]),
+            LancamentoPrevisto.business_unit_id == str(current_user["business_unit_id"])
+        ).first()
+        
+        if not previsao:
+            return {"success": False, "message": "Previsão não encontrada"}
+        
+        # Hard delete
+        db.delete(previsao)
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Previsão excluída com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao excluir previsão: {str(e)}"}
+
+# ============================================================================
 # ENDPOINTS DE LIMPEZA E IMPORTAÇÃO (ADMIN)
 # ============================================================================
+
+@app.post("/api/v1/admin/criar-tabela-previsoes")
+async def criar_tabela_previsoes(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Criar tabela de lançamentos previstos"""
+    try:
+        from sqlalchemy import text
+        
+        create_table_sql = text("""
+            CREATE TABLE IF NOT EXISTS lancamentos_previstos (
+                id VARCHAR(36) PRIMARY KEY,
+                data_prevista TIMESTAMP NOT NULL,
+                valor NUMERIC(15, 2) NOT NULL,
+                observacoes TEXT,
+                conta_id VARCHAR(36) NOT NULL REFERENCES chart_accounts(id),
+                subgrupo_id VARCHAR(36) NOT NULL REFERENCES chart_account_subgroups(id),
+                grupo_id VARCHAR(36) NOT NULL REFERENCES chart_account_groups(id),
+                transaction_type VARCHAR(50) NOT NULL,
+                status VARCHAR(20) DEFAULT 'pendente',
+                tenant_id VARCHAR(36) NOT NULL REFERENCES tenants(id),
+                business_unit_id VARCHAR(36) NOT NULL REFERENCES business_units(id),
+                created_by VARCHAR(36) NOT NULL REFERENCES users(id),
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_previsoes_tenant_bu 
+            ON lancamentos_previstos(tenant_id, business_unit_id);
+            
+            CREATE INDEX IF NOT EXISTS idx_previsoes_data 
+            ON lancamentos_previstos(data_prevista);
+        """)
+        
+        db.execute(create_table_sql)
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Tabela lancamentos_previstos criada com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao criar tabela: {str(e)}"}
+
+@app.post("/api/v1/admin/importar-previsoes-planilha")
+async def importar_previsoes_planilha(
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Importar lançamentos previstos da planilha Google Sheets"""
+    try:
+        from app.services.llm_sheet_importer import LLMSheetImporter
+        
+        spreadsheet_id = request.get("spreadsheet_id")
+        if not spreadsheet_id:
+            return {"success": False, "message": "spreadsheet_id é obrigatório"}
+        
+        tenant_id = current_user["tenant_id"]
+        business_unit_id = current_user["business_unit_id"]
+        user_id = current_user.get("sub")
+        
+        print(f"[IMPORT PREVISÕES] Iniciando importação...")
+        print(f"[IMPORT PREVISÕES] Tenant: {tenant_id}")
+        print(f"[IMPORT PREVISÕES] BU: {business_unit_id}")
+        print(f"[IMPORT PREVISÕES] Planilha: {spreadsheet_id}")
+        
+        # Criar importador
+        importer = LLMSheetImporter()
+        if not importer.authenticate():
+            return {"success": False, "message": "Falha na autenticação com Google Sheets"}
+        
+        # Importar previsões
+        sheet_name = "Lançamentos Previstos"
+        
+        result = importer._import_forecast_transactions(
+            spreadsheet_id,
+            sheet_name,
+            str(tenant_id),
+            str(business_unit_id),
+            db,
+            user_id
+        )
+        
+        if result.get("success"):
+            return {
+                "success": True,
+                "message": f"{result.get('count', 0)} previsões importadas com sucesso",
+                "count": result.get("count", 0)
+            }
+        else:
+            return {
+                "success": False,
+                "message": result.get("error", "Erro desconhecido na importação")
+            }
+        
+    except Exception as e:
+        print(f"[IMPORT ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao importar: {str(e)}"}
 
 @app.post("/api/v1/admin/importar-lancamentos-planilha")
 async def importar_lancamentos_planilha(

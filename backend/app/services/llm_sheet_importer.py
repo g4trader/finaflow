@@ -293,7 +293,7 @@ class LLMSheetImporter:
             traceback.print_exc()
             return {"success": False, "error": str(e)}
     
-    def _import_forecast_transactions(self, spreadsheet_id, sheet_name, tenant_id, business_unit_id, db):
+    def _import_forecast_transactions(self, spreadsheet_id, sheet_name, tenant_id, business_unit_id, db, user_id=None):
         """Importar lançamentos previstos (previsões)"""
         try:
             result = self.service.spreadsheets().values().get(
@@ -309,88 +309,123 @@ class LLMSheetImporter:
             headers = values[0]
             rows = values[1:]
             
-            print(f"[IMPORT] Encontradas {len(rows)} linhas de previsões")
+            print(f"[IMPORT PREVISÕES] Encontradas {len(rows)} linhas")
+            print(f"[IMPORT PREVISÕES] Cabeçalhos: {headers[:8]}")
             
-            # Mapear colunas
-            col_data = self._find_column(headers, ["data", "date"])
-            col_descricao = self._find_column(headers, ["descrição", "description"])
+            # Mapear colunas (mesma estrutura dos lançamentos diários)
+            col_data = self._find_column(headers, ["data prevista", "data", "date"])
             col_conta = self._find_column(headers, ["conta", "account"])
-            col_valor = self._find_column(headers, ["valor", "value"])
+            col_subgrupo = self._find_column(headers, ["subgrupo", "subgroup"])
+            col_grupo = self._find_column(headers, ["grupo", "group"])
+            col_valor = self._find_column(headers, ["valor", "value", "amount"])
+            col_observacao = self._find_column(headers, ["observação", "observacao", "description"])
             
-            if col_data is None or col_valor is None:
+            # Fallback para coluna de valor
+            if col_valor is None:
+                col_valor = 5  # Coluna F
+                print(f"[IMPORT PREVISÕES] Usando coluna F como valor")
+            
+            print(f"[IMPORT PREVISÕES] Mapeamento: data={col_data}, conta={col_conta}, valor={col_valor}")
+            
+            if col_data is None or col_valor is None or col_conta is None:
                 return {"success": False, "error": "Colunas obrigatórias não encontradas"}
             
             # Importar previsões
-            from app.models.chart_of_accounts import ChartAccount
-            
-            # Usar FinancialForecast do hybrid_app (definido lá)
-            from hybrid_app import FinancialForecast
+            from app.models.lancamento_previsto import LancamentoPrevisto, TransactionType, TransactionStatus
+            from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
             
             forecasts_created = 0
             import uuid
             tenant_uuid = uuid.UUID(tenant_id) if isinstance(tenant_id, str) else tenant_id
-            bu_uuid = uuid.UUID(business_unit_id) if isinstance(business_unit_id, str) else business_unit_id
             
             for row in rows:
-                if len(row) <= max(filter(lambda x: x is not None, [col_data, col_valor])):
+                if len(row) <= max(filter(lambda x: x is not None, [col_data, col_valor, col_conta or 0])):
                     continue
                 
+                # Extrair dados
                 data_str = row[col_data].strip() if col_data < len(row) and row[col_data] else ""
                 valor_str = row[col_valor].strip() if col_valor < len(row) and row[col_valor] else ""
+                conta_name = row[col_conta].strip() if col_conta is not None and col_conta < len(row) and row[col_conta] else ""
                 
-                if not data_str or not valor_str:
+                if not data_str or not valor_str or not conta_name:
                     continue
                 
+                # Parsear
                 forecast_date = self._parse_date(data_str)
-                amount = self._parse_amount(valor_str)
+                if not forecast_date:
+                    continue
                 
-                if not forecast_date or amount == 0:
+                amount = self._parse_amount(valor_str)
+                if amount == 0:
                     continue
                 
                 # Buscar conta
-                account = None
-                if col_conta and col_conta < len(row) and row[col_conta]:
-                    conta_name = row[col_conta].strip()
+                account = db.query(ChartAccount).filter(
+                    ChartAccount.name == conta_name,
+                    (ChartAccount.tenant_id == tenant_uuid) | (ChartAccount.tenant_id == None)
+                ).first()
+                
+                if not account:
                     account = db.query(ChartAccount).filter(
                         ChartAccount.name.ilike(f"%{conta_name}%"),
                         (ChartAccount.tenant_id == tenant_uuid) | (ChartAccount.tenant_id == None)
                     ).first()
                 
-                if not account:
-                    account = db.query(ChartAccount).filter(
-                        ChartAccount.tenant_id == tenant_uuid
-                    ).first()
-                
-                if not account:
+                if not account or not account.subgroup or not account.subgroup.group:
                     continue
                 
                 # Descrição
                 descricao = ""
-                if col_descricao and col_descricao < len(row):
-                    descricao = row[col_descricao].strip() if row[col_descricao] else ""
+                if col_observacao is not None and col_observacao < len(row) and row[col_observacao]:
+                    descricao = row[col_observacao].strip()
+                if not descricao:
+                    descricao = f"Previsão - {conta_name}"
                 
-                # Criar previsão
-                forecast_type = "expense" if amount < 0 else "revenue"
+                # Determinar tipo (mesma lógica dos lançamentos diários)
+                grupo_nome = account.subgroup.group.name.lower()
+                subgrupo_nome = account.subgroup.name.lower()
                 
-                forecast = FinancialForecast(
-                    tenant_id=tenant_uuid,
-                    business_unit_id=bu_uuid,
-                    chart_account_id=account.id,
-                    forecast_date=forecast_date,
-                    description=descricao or f"Previsão - {account.name}",
-                    amount=abs(amount),
-                    forecast_type=forecast_type,
-                    status="active"
-                )
-                db.add(forecast)
-                forecasts_created += 1
+                if any(keyword in grupo_nome for keyword in ['receita', 'venda', 'renda', 'faturamento', 'vendas']):
+                    transaction_type_enum = TransactionType.RECEITA
+                elif any(keyword in grupo_nome for keyword in ['custo', 'custos']) or any(keyword in subgrupo_nome for keyword in ['custo', 'custos', 'mercadoria', 'produto']):
+                    transaction_type_enum = TransactionType.CUSTO
+                elif any(keyword in grupo_nome for keyword in ['despesa', 'gasto', 'operacional', 'administrativa']) or any(keyword in subgrupo_nome for keyword in ['despesa', 'gasto', 'marketing', 'administrativa']):
+                    transaction_type_enum = TransactionType.DESPESA
+                else:
+                    transaction_type_enum = TransactionType.DESPESA
                 
-                if forecasts_created % 100 == 0:
-                    db.commit()
-                    print(f"[IMPORT] Progresso: {forecasts_created} previsões...")
+                # Verificar se já existe
+                existing = db.query(LancamentoPrevisto).filter(
+                    LancamentoPrevisto.data_prevista == forecast_date,
+                    LancamentoPrevisto.conta_id == account.id,
+                    LancamentoPrevisto.valor == abs(amount),
+                    LancamentoPrevisto.tenant_id == str(tenant_uuid),
+                    LancamentoPrevisto.business_unit_id == str(business_unit_id)
+                ).first()
+                
+                if not existing:
+                    previsao = LancamentoPrevisto(
+                        tenant_id=str(tenant_uuid),
+                        business_unit_id=str(business_unit_id),
+                        conta_id=account.id,
+                        subgrupo_id=account.subgroup_id,
+                        grupo_id=account.subgroup.group_id,
+                        data_prevista=forecast_date,
+                        valor=abs(amount),
+                        observacoes=descricao,
+                        transaction_type=transaction_type_enum,
+                        status=TransactionStatus.PENDENTE,
+                        created_by=user_id
+                    )
+                    db.add(previsao)
+                    forecasts_created += 1
+                    
+                    if forecasts_created % 100 == 0:
+                        db.commit()
+                        print(f"[IMPORT PREVISÕES] Progresso: {forecasts_created}...")
             
             db.commit()
-            print(f"[IMPORT] ✅ Total: {forecasts_created} previsões importadas")
+            print(f"[IMPORT PREVISÕES] ✅ Total: {forecasts_created} importadas")
             
             return {"success": True, "count": forecasts_created}
             

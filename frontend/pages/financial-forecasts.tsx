@@ -1,96 +1,153 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { 
+  Plus, Edit, Trash2, Search, Calendar, ChevronLeft, ChevronRight,
+  Filter, X
+} from 'lucide-react';
+import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import Layout from '../components/layout/Layout';
-import { 
-  Upload, 
-  FileText, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Download, 
-  Calendar,
-  DollarSign,
-  Building,
-  TrendingUp,
-  AlertCircle,
-  CheckCircle,
-  X
-} from 'lucide-react';
 
-interface FinancialForecast {
+interface PlanoContas {
+  grupos: Array<{ id: string; code: string; name: string; }>;
+  subgrupos: Array<{ id: string; code: string; name: string; group_id: string; }>;
+  contas: Array<{ id: string; code: string; name: string; subgroup_id: string; }>;
+}
+
+interface LancamentoPrevisto {
   id: string;
-  business_unit_id: string;
-  business_unit_name: string;
-  chart_account_id: string;
-  chart_account_name: string;
-  chart_account_code: string;
-  forecast_date: string;
-  amount: number;
-  description?: string;
-  forecast_type: string;
-  is_active: boolean;
+  data_prevista: string;
+  valor: number;
+  observacoes?: string;
+  conta_id: string;
+  conta_nome: string;
+  conta_codigo: string;
+  subgrupo_id: string;
+  subgrupo_nome: string;
+  subgrupo_codigo: string;
+  grupo_id: string;
+  grupo_nome: string;
+  grupo_codigo: string;
+  transaction_type: string;
+  status: string;
   created_at: string;
-  updated_at: string;
 }
 
-interface BusinessUnit {
-  id: string;
-  name: string;
-  tenant_id: string;
-}
-
-interface ChartAccount {
-  id: string;
-  name: string;
-  code: string;
-  subgroup_id: string;
-}
+// Funções auxiliares para períodos
+const getDateRange = (period: string): { start: string; end: string } => {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  switch (period) {
+    case 'hoje':
+      return {
+        start: today.toISOString().split('T')[0],
+        end: today.toISOString().split('T')[0]
+      };
+    case 'ontem':
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return {
+        start: yesterday.toISOString().split('T')[0],
+        end: yesterday.toISOString().split('T')[0]
+      };
+    case 'esta-semana':
+      const firstDay = new Date(today);
+      firstDay.setDate(today.getDate() - today.getDay());
+      return {
+        start: firstDay.toISOString().split('T')[0],
+        end: today.toISOString().split('T')[0]
+      };
+    case 'semana-passada':
+      const lastWeekEnd = new Date(today);
+      lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
+      const lastWeekStart = new Date(lastWeekEnd);
+      lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
+      return {
+        start: lastWeekStart.toISOString().split('T')[0],
+        end: lastWeekEnd.toISOString().split('T')[0]
+      };
+    case 'este-mes':
+      const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return {
+        start: firstDayMonth.toISOString().split('T')[0],
+        end: today.toISOString().split('T')[0]
+      };
+    case 'mes-passado':
+      const firstDayLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastDayLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      return {
+        start: firstDayLastMonth.toISOString().split('T')[0],
+        end: lastDayLastMonth.toISOString().split('T')[0]
+      };
+    case 'este-ano':
+      const firstDayYear = new Date(now.getFullYear(), 0, 1);
+      return {
+        start: firstDayYear.toISOString().split('T')[0],
+        end: today.toISOString().split('T')[0]
+      };
+    case 'ano-passado':
+      const firstDayLastYear = new Date(now.getFullYear() - 1, 0, 1);
+      const lastDayLastYear = new Date(now.getFullYear() - 1, 11, 31);
+      return {
+        start: firstDayLastYear.toISOString().split('T')[0],
+        end: lastDayLastYear.toISOString().split('T')[0]
+      };
+    default:
+      return { start: '', end: '' };
+  }
+};
 
 const FinancialForecasts: React.FC = () => {
   const { user } = useAuth();
-  const [forecasts, setForecasts] = useState<FinancialForecast[]>([]);
-  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
-  const [chartAccounts, setChartAccounts] = useState<ChartAccount[]>([]);
+  const [previsoes, setPrevisoes] = useState<LancamentoPrevisto[]>([]);
+  const [planoContas, setPlanoContas] = useState<PlanoContas | null>(null);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<any>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingForecast, setEditingForecast] = useState<FinancialForecast | null>(null);
+  const [editingPrevisao, setEditingPrevisao] = useState<LancamentoPrevisto | null>(null);
+  
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+  const [selectedGrupo, setSelectedGrupo] = useState('');
+  const [selectedSubgrupo, setSelectedSubgrupo] = useState('');
+  const [selectedConta, setSelectedConta] = useState('');
+  
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+  
   const [formData, setFormData] = useState({
-    chart_account_id: '',
-    forecast_date: '',
-    amount: '',
-    description: '',
-    forecast_type: 'monthly'
+    data_prevista: '',
+    valor: '',
+    observacoes: '',
+    grupo_id: '',
+    subgrupo_id: '',
+    conta_id: ''
   });
 
   useEffect(() => {
     if (user?.business_unit_id) {
-      loadForecasts(user.business_unit_id);
-      loadChartAccounts(user.business_unit_id);
+      loadPlanoContas();
+      loadPrevisoes();
     }
   }, [user]);
 
-
-
-  const loadBusinessUnits = async () => {
+  const loadPlanoContas = async () => {
     try {
-      const response = await api.get('/api/v1/auth/user-business-units');
-      setBusinessUnits(response.data);
+      const response = await api.get('/api/v1/lancamentos-diarios/plano-contas');
+      setPlanoContas(response.data);
     } catch (error) {
-      console.error('Erro ao carregar BUs:', error);
+      console.error('Erro ao carregar plano de contas:', error);
     }
   };
 
-  const loadForecasts = async (buId: string) => {
+  const loadPrevisoes = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/api/v1/financial/forecasts?business_unit_id=${buId}`);
-      setForecasts(response.data);
+      const response = await api.get('/api/v1/lancamentos-previstos');
+      setPrevisoes(response.data.previsoes || []);
     } catch (error) {
       console.error('Erro ao carregar previsões:', error);
     } finally {
@@ -98,214 +155,324 @@ const FinancialForecasts: React.FC = () => {
     }
   };
 
-  const loadChartAccounts = async (buId: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
-      const response = await api.get(`/api/v1/chart-accounts/hierarchy?business_unit_id=${buId}`);
-      const accounts = response.data.accounts || [];
-      setChartAccounts(accounts);
-    } catch (error) {
-      console.error('Erro ao carregar contas:', error);
-    }
-  };
+      const payload = {
+        ...formData,
+        valor: parseFloat(formData.valor)
+      };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type === 'text/csv') {
-      setSelectedFile(file);
+      if (editingPrevisao) {
+        await api.put(`/api/v1/lancamentos-previstos/${editingPrevisao.id}`, payload);
     } else {
-      alert('Por favor, selecione um arquivo CSV válido.');
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!selectedFile || !user?.business_unit_id) return;
-
-    setUploading(true);
-    setUploadProgress(0);
-    setUploadResult(null);
-
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('business_unit_id', user.business_unit_id);
-
-    try {
-      const response = await api.post('/api/v1/financial/forecasts/import-csv', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(progress);
-          }
-        },
-      });
-
-      setUploadResult(response.data);
-      if (response.data.summary.processed > 0) {
-        loadForecasts(user.business_unit_id);
+        await api.post('/api/v1/lancamentos-previstos', payload);
       }
-    } catch (error: any) {
-      setUploadResult({
-        error: true,
-        message: error.response?.data?.detail || 'Erro ao fazer upload do arquivo'
-      });
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
-  };
 
-  const handleCreateForecast = async () => {
-    if (!user?.business_unit_id || !formData.chart_account_id || !formData.forecast_date || !formData.amount) {
-      alert('Por favor, preencha todos os campos obrigatórios.');
-      return;
-    }
-
-    try {
-              await api.post('/api/v1/financial/forecasts', {
-        ...formData,
-        business_unit_id: user.business_unit_id,
-        amount: parseFloat(formData.amount)
-      });
-
+      await loadPrevisoes();
+      resetForm();
       setShowCreateModal(false);
-      setFormData({
-        chart_account_id: '',
-        forecast_date: '',
-        amount: '',
-        description: '',
-        forecast_type: 'monthly'
-      });
-      loadForecasts(user.business_unit_id);
-    } catch (error: any) {
-      alert(error.response?.data?.detail || 'Erro ao criar previsão');
+      setEditingPrevisao(null);
+    } catch (error) {
+      console.error('Erro ao salvar previsão:', error);
+      alert('Erro ao salvar previsão');
     }
   };
 
-  const handleUpdateForecast = async () => {
-    if (!editingForecast) return;
-
-    try {
-              await api.put(`/api/v1/financial/forecasts/${editingForecast.id}`, {
-        ...formData,
-        amount: parseFloat(formData.amount)
-      });
-
-      setEditingForecast(null);
-      setFormData({
-        chart_account_id: '',
-        forecast_date: '',
-        amount: '',
-        description: '',
-        forecast_type: 'monthly'
-      });
-      loadForecasts(user.business_unit_id);
-    } catch (error: any) {
-      alert(error.response?.data?.detail || 'Erro ao atualizar previsão');
-    }
-  };
-
-  const handleDeleteForecast = async (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir esta previsão?')) return;
 
     try {
-              await api.delete(`/api/v1/financial/forecasts/${id}`);
-      loadForecasts(user.business_unit_id);
-    } catch (error: any) {
-      alert(error.response?.data?.detail || 'Erro ao excluir previsão');
+      await api.delete(`/api/v1/lancamentos-previstos/${id}`);
+      await loadPrevisoes();
+    } catch (error) {
+      console.error('Erro ao excluir previsão:', error);
+      alert('Erro ao excluir previsão');
     }
   };
 
-  const handleEdit = (forecast: FinancialForecast) => {
-    setEditingForecast(forecast);
+  const resetForm = () => {
     setFormData({
-      chart_account_id: forecast.chart_account_id,
-      forecast_date: forecast.forecast_date,
-      amount: forecast.amount.toString(),
-      description: forecast.description || '',
-      forecast_type: forecast.forecast_type
+      data_prevista: '',
+      valor: '',
+      observacoes: '',
+      grupo_id: '',
+      subgrupo_id: '',
+      conta_id: ''
+    });
+  };
+
+  const handleEdit = (previsao: LancamentoPrevisto) => {
+    setEditingPrevisao(previsao);
+    setFormData({
+      data_prevista: previsao.data_prevista.split('T')[0],
+      valor: previsao.valor.toString(),
+      observacoes: previsao.observacoes || '',
+      grupo_id: previsao.grupo_id,
+      subgrupo_id: previsao.subgrupo_id,
+      conta_id: previsao.conta_id
     });
     setShowCreateModal(true);
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
+  const applyPeriodFilter = (period: string) => {
+    if (period === 'todos') {
+      setDateStart('');
+      setDateEnd('');
+      setCurrentPage(1);
+      return;
+    }
+    
+    const range = getDateRange(period);
+    setDateStart(range.start);
+    setDateEnd(range.end);
+    setCurrentPage(1);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+  const clearFilters = () => {
+    setSearchTerm('');
+    setDateStart('');
+    setDateEnd('');
+    setSelectedGrupo('');
+    setSelectedSubgrupo('');
+    setSelectedConta('');
+    setCurrentPage(1);
   };
+
+  // Filtrar previsões
+  const filteredPrevisoes = previsoes.filter(prev => {
+    // Filtro de busca
+    if (searchTerm && !prev.observacoes?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !prev.conta_nome.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+    
+    // Filtro de data
+    if (dateStart && prev.data_prevista.split('T')[0] < dateStart) return false;
+    if (dateEnd && prev.data_prevista.split('T')[0] > dateEnd) return false;
+    
+    // Filtro de grupo
+    if (selectedGrupo && prev.grupo_id !== selectedGrupo) return false;
+    
+    // Filtro de subgrupo
+    if (selectedSubgrupo && prev.subgrupo_id !== selectedSubgrupo) return false;
+    
+    // Filtro de conta
+    if (selectedConta && prev.conta_id !== selectedConta) return false;
+    
+    return true;
+  });
+
+  // Paginação
+  const totalPages = Math.ceil(filteredPrevisoes.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPrevisoes = filteredPrevisoes.slice(startIndex, endIndex);
+
+  // Filtrar subgrupos baseado no grupo selecionado
+  const filteredSubgrupos = planoContas?.subgrupos.filter(
+    sub => !selectedGrupo || sub.group_id === selectedGrupo
+  ) || [];
+
+  // Filtrar contas baseado no subgrupo selecionado
+  const filteredContas = planoContas?.contas.filter(
+    conta => !selectedSubgrupo || conta.subgroup_id === selectedSubgrupo
+  ) || [];
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Lançamentos Previstos</h1>
+            <p className="text-gray-600 mt-1">
+              {filteredPrevisoes.length} previsão(ões) encontrada(s)
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              resetForm();
+              setEditingPrevisao(null);
+              setShowCreateModal(true);
+            }}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Nova Previsão
+          </motion.button>
+        </div>
+
+        {/* Filtros */}
+        <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+          {/* Filtros de Período */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Período
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: 'Todos', value: 'todos' },
+                { label: 'Hoje', value: 'hoje' },
+                { label: 'Ontem', value: 'ontem' },
+                { label: 'Esta Semana', value: 'esta-semana' },
+                { label: 'Semana Passada', value: 'semana-passada' },
+                { label: 'Este Mês', value: 'este-mes' },
+                { label: 'Mês Passado', value: 'mes-passado' },
+                { label: 'Este Ano', value: 'este-ano' },
+                { label: 'Ano Passado', value: 'ano-passado' }
+              ].map(period => (
+                <button
+                  key={period.value}
+                  onClick={() => applyPeriodFilter(period.value)}
+                  className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                    period.value === 'todos'
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-100 hover:bg-blue-100 text-gray-700 hover:text-blue-700'
+                  }`}
+                >
+                  {period.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filtros Customizados */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Data Início */}
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Previsões Financeiras</h1>
-              <p className="text-gray-600 mt-1">
-                Gerencie as previsões financeiras da sua unidade de negócio
-              </p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data Início
+              </label>
+              <input
+                type="date"
+                value={dateStart}
+                onChange={(e) => setDateStart(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
             </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Importar CSV
-              </button>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Previsão
-              </button>
+
+            {/* Data Fim */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data Fim
+              </label>
+              <input
+                type="date"
+                value={dateEnd}
+                onChange={(e) => setDateEnd(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
             </div>
+
+            {/* Grupo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Grupo
+              </label>
+              <select
+                value={selectedGrupo}
+                onChange={(e) => {
+                  setSelectedGrupo(e.target.value);
+                  setSelectedSubgrupo('');
+                  setSelectedConta('');
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todos os grupos</option>
+                {planoContas?.grupos.map(grupo => (
+                  <option key={grupo.id} value={grupo.id}>
+                    {grupo.code} - {grupo.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Subgrupo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Subgrupo
+              </label>
+              <select
+                value={selectedSubgrupo}
+                onChange={(e) => {
+                  setSelectedSubgrupo(e.target.value);
+                  setSelectedConta('');
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                disabled={!selectedGrupo}
+              >
+                <option value="">Todos os subgrupos</option>
+                {filteredSubgrupos.map(sub => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.code} - {sub.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Conta */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Conta
+              </label>
+              <select
+                value={selectedConta}
+                onChange={(e) => setSelectedConta(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                disabled={!selectedSubgrupo}
+              >
+                <option value="">Todas as contas</option>
+                {filteredContas.map(conta => (
+                  <option key={conta.id} value={conta.id}>
+                    {conta.code} - {conta.name}
+                  </option>
+                ))}
+              </select>
           </div>
         </div>
 
-
-
-        {/* Forecasts List */}
-        {user?.business_unit_id && (
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">
-                Previsões ({forecasts.length})
-              </h3>
+          {/* Busca e Limpar */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Buscar por observações ou conta..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
             </div>
-            
-            {loading ? (
-              <div className="p-6 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Carregando previsões...</p>
+            <button
+              onClick={clearFilters}
+              className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg flex items-center gap-2"
+            >
+              <X size={18} />
+              Limpar Filtros
+            </button>
               </div>
-            ) : forecasts.length === 0 ? (
-              <div className="p-6 text-center">
-                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Nenhuma previsão encontrada</p>
-                <p className="text-gray-500 text-sm mt-1">
-                  Comece criando uma nova previsão ou importando um arquivo CSV
-                </p>
               </div>
-            ) : (
+
+        {/* Tabela */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Data Prevista
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Grupo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Subgrupo
+                  </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Conta
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Data
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Valor
@@ -314,204 +481,205 @@ const FinancialForecasts: React.FC = () => {
                         Tipo
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
+                    Observações
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ações
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {forecasts.map((forecast) => (
-                      <tr key={forecast.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {forecast.chart_account_name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {forecast.chart_account_code}
-                            </div>
-                          </div>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                      Carregando...
+                    </td>
+                  </tr>
+                ) : currentPrevisoes.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                      Nenhuma previsão encontrada
                         </td>
+                  </tr>
+                ) : (
+                  currentPrevisoes.map((prev) => (
+                    <tr key={prev.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDate(forecast.forecast_date)}
+                        {new Date(prev.data_prevista).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div className="font-medium">{prev.grupo_codigo}</div>
+                        <div className="text-gray-500 text-xs">{prev.grupo_nome}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div className="font-medium">{prev.subgrupo_codigo}</div>
+                        <div className="text-gray-500 text-xs">{prev.subgrupo_nome}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                          {formatCurrency(forecast.amount)}
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div className="font-medium">{prev.conta_codigo}</div>
+                        <div className="text-gray-500 text-xs">{prev.conta_nome}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {forecast.forecast_type}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                        R$ {prev.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            forecast.is_active 
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          prev.transaction_type === 'RECEITA' 
                               ? 'bg-green-100 text-green-800' 
+                            : prev.transaction_type === 'CUSTO'
+                            ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            {forecast.is_active ? 'Ativa' : 'Inativa'}
+                          {prev.transaction_type}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {prev.observacoes || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
-                              onClick={() => handleEdit(forecast)}
-                              className="text-blue-600 hover:text-blue-900"
+                          onClick={() => handleEdit(prev)}
+                          className="text-blue-600 hover:text-blue-900 mr-4"
                             >
-                              <Edit className="w-4 h-4" />
+                          <Edit size={18} />
                             </button>
                             <button
-                              onClick={() => handleDeleteForecast(forecast.id)}
+                          onClick={() => handleDelete(prev.id)}
                               className="text-red-600 hover:text-red-900"
                             >
-                              <Trash2 className="w-4 h-4" />
+                          <Trash2 size={18} />
                             </button>
-                          </div>
                         </td>
                       </tr>
-                    ))}
+                  ))
+                )}
                   </tbody>
                 </table>
-              </div>
-            )}
           </div>
-        )}
 
-        {/* Upload Modal */}
-        {showUploadModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Importar Previsões CSV</h3>
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Anterior
+                </button>
                   <button
-                    onClick={() => setShowUploadModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                   >
-                    <X className="w-5 h-5" />
+                  Próxima
                   </button>
                 </div>
-                
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selecionar arquivo CSV
-                  </label>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileSelect}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Mostrando <span className="font-medium">{startIndex + 1}</span> até{' '}
+                    <span className="font-medium">{Math.min(endIndex, filteredPrevisoes.length)}</span> de{' '}
+                    <span className="font-medium">{filteredPrevisoes.length}</span> resultados
+                  </p>
                 </div>
-
-                {selectedFile && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded-md">
-                    <div className="flex items-center">
-                      <FileText className="w-4 h-4 text-blue-600 mr-2" />
-                      <span className="text-sm text-blue-800">{selectedFile.name}</span>
-                    </div>
-                  </div>
-                )}
-
-                {uploading && (
-                  <div className="mb-4">
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div 
-                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Enviando arquivo... {uploadProgress}%
-                    </p>
-                  </div>
-                )}
-
-                {uploadResult && (
-                  <div className={`mb-4 p-3 rounded-md ${
-                    uploadResult.error 
-                      ? 'bg-red-50 text-red-800' 
-                      : 'bg-green-50 text-green-800'
-                  }`}>
-                    <div className="flex items-center">
-                      {uploadResult.error ? (
-                        <AlertCircle className="w-4 h-4 mr-2" />
-                      ) : (
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                      )}
-                      <span className="text-sm">{uploadResult.message}</span>
-                    </div>
-                    {!uploadResult.error && uploadResult.summary && (
-                      <div className="mt-2 text-sm">
-                        <p>Processadas: {uploadResult.summary.processed}</p>
-                        <p>Erros: {uploadResult.summary.errors}</p>
-                        <p>Total: {uploadResult.summary.total_rows}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-3">
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    {[...Array(Math.min(totalPages, 10))].map((_, i) => {
+                      const pageNum = i + 1;
+                      return (
                   <button
-                    onClick={() => setShowUploadModal(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-                  >
-                    Cancelar
+                          key={i}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            currentPage === pageNum
+                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
                   </button>
+                      );
+                    })}
                   <button
-                    onClick={handleUpload}
-                    disabled={!selectedFile || uploading}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-md"
-                  >
-                    {uploading ? 'Enviando...' : 'Importar'}
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <ChevronRight size={20} />
                   </button>
+                  </nav>
                 </div>
               </div>
             </div>
+          )}
           </div>
-        )}
 
-        {/* Create/Edit Modal */}
+        {/* Modal de Criação/Edição */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {editingForecast ? 'Editar Previsão' : 'Nova Previsão'}
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setEditingForecast(null);
-                      setFormData({
-                        chart_account_id: '',
-                        forecast_date: '',
-                        amount: '',
-                        description: '',
-                        forecast_type: 'monthly'
-                      });
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-4">
+                  {editingPrevisao ? 'Editar Previsão' : 'Nova Previsão'}
+                </h2>
                 
-                <div className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Data Prevista *
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.data_prevista}
+                        onChange={(e) => setFormData({...formData, data_prevista: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Valor *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.valor}
+                        onChange={(e) => setFormData({...formData, valor: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        required
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Conta *
+                      Grupo *
                     </label>
                     <select
-                      value={formData.chart_account_id}
-                      onChange={(e) => setFormData({...formData, chart_account_id: e.target.value})}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={formData.grupo_id}
+                      onChange={(e) => setFormData({...formData, grupo_id: e.target.value, subgrupo_id: '', conta_id: ''})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
                     >
-                      <option value="">Selecione uma conta</option>
-                      {chartAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.code} - {account.name}
+                      <option value="">Selecione um grupo</option>
+                      {planoContas?.grupos.map(grupo => (
+                        <option key={grupo.id} value={grupo.id}>
+                          {grupo.code} - {grupo.name}
                         </option>
                       ))}
                     </select>
@@ -519,94 +687,87 @@ const FinancialForecasts: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Data *
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.forecast_date}
-                      onChange={(e) => setFormData({...formData, forecast_date: e.target.value})}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Valor *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="0.00"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Descrição
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      rows={3}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Descrição da previsão..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tipo
+                      Subgrupo *
                     </label>
                     <select
-                      value={formData.forecast_type}
-                      onChange={(e) => setFormData({...formData, forecast_type: e.target.value})}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={formData.subgrupo_id}
+                      onChange={(e) => setFormData({...formData, subgrupo_id: e.target.value, conta_id: ''})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                      disabled={!formData.grupo_id}
                     >
-                      <option value="monthly">Mensal</option>
-                      <option value="quarterly">Trimestral</option>
-                      <option value="yearly">Anual</option>
+                      <option value="">Selecione um subgrupo</option>
+                      {planoContas?.subgrupos
+                        .filter(sub => sub.group_id === formData.grupo_id)
+                        .map(sub => (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.code} - {sub.name}
+                          </option>
+                        ))}
                     </select>
                   </div>
-                </div>
 
-                <div className="flex justify-end space-x-3 mt-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Conta *
+                    </label>
+                    <select
+                      value={formData.conta_id}
+                      onChange={(e) => setFormData({...formData, conta_id: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                      disabled={!formData.subgrupo_id}
+                    >
+                      <option value="">Selecione uma conta</option>
+                      {planoContas?.contas
+                        .filter(conta => conta.subgroup_id === formData.subgrupo_id)
+                        .map(conta => (
+                          <option key={conta.id} value={conta.id}>
+                            {conta.code} - {conta.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Observações
+                    </label>
+                    <textarea
+                      value={formData.observacoes}
+                      onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex gap-4 pt-4">
                   <button
+                      type="button"
                     onClick={() => {
                       setShowCreateModal(false);
-                      setEditingForecast(null);
-                      setFormData({
-                        chart_account_id: '',
-                        forecast_date: '',
-                        amount: '',
-                        description: '',
-                        forecast_type: 'monthly'
-                      });
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                        setEditingPrevisao(null);
+                        resetForm();
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                   >
                     Cancelar
                   </button>
                   <button
-                    onClick={editingForecast ? handleUpdateForecast : handleCreateForecast}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                      type="submit"
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
-                    {editingForecast ? 'Atualizar' : 'Criar'}
+                      {editingPrevisao ? 'Atualizar' : 'Criar'} Previsão
                   </button>
                 </div>
+                </form>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
-      </div>
       </div>
     </Layout>
   );
 };
 
 export default FinancialForecasts;
-
-
-
