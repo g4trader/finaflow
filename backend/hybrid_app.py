@@ -290,6 +290,47 @@ async def limpar_todos_lancamentos(
         db.rollback()
         return {"success": False, "message": f"Erro ao limpar lançamentos: {str(e)}"}
 
+@app.post("/api/v1/admin/limpar-via-sql")
+async def limpar_via_sql(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Limpar lançamentos via SQL direto (bypass datetime bug)"""
+    try:
+        from sqlalchemy import text
+        
+        tenant_id = str(current_user["tenant_id"])
+        business_unit_id = str(current_user["business_unit_id"])
+        
+        # Contar antes
+        count_query = text("""
+            SELECT COUNT(*) FROM lancamentos_diarios 
+            WHERE tenant_id = :tenant_id AND business_unit_id = :bu_id
+        """)
+        count_before = db.execute(count_query, {"tenant_id": tenant_id, "bu_id": business_unit_id}).scalar()
+        
+        # Deletar via SQL direto
+        delete_query = text("""
+            DELETE FROM lancamentos_diarios 
+            WHERE tenant_id = :tenant_id AND business_unit_id = :bu_id
+        """)
+        db.execute(delete_query, {"tenant_id": tenant_id, "bu_id": business_unit_id})
+        db.commit()
+        
+        # Contar depois
+        count_after = db.execute(count_query, {"tenant_id": tenant_id, "bu_id": business_unit_id}).scalar()
+        
+        return {
+            "success": True,
+            "message": f"{count_before} lançamentos removidos via SQL",
+            "before": count_before,
+            "after": count_after
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao limpar via SQL: {str(e)}"}
+
 @app.get("/health")
 async def health():
     """Endpoint de health check"""
