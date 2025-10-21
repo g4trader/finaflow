@@ -178,12 +178,27 @@ class LLMPlanoContasImporter:
                 
                 if not conta:
                     conta_code = self.generate_code(conta_nome, existing_account_codes)
+                    
+                    # Determinar tipo
+                    account_type = "Outro"
+                    if "receita" in grupo_nome.lower():
+                        account_type = "Receita"
+                    elif "custo" in grupo_nome.lower():
+                        account_type = "Custo"
+                    elif "despesa" in grupo_nome.lower():
+                        account_type = "Despesa"
+                    elif "invest" in grupo_nome.lower():
+                        account_type = "Investimento"
+                    elif "dedu" in grupo_nome.lower():
+                        account_type = "Dedução"
+                    
                     conta = ChartAccount(
                         code=conta_code,
                         name=conta_nome,
                         description=f"Conta {conta_nome}",
                         subgroup_id=subgrupo.id,
                         tenant_id=tenant_id,
+                        account_type=account_type,
                         is_active=True
                     )
                     db.add(conta)
