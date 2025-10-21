@@ -6718,5 +6718,208 @@ async def remover_constraint_unique(
         db.rollback()
         return {"success": False, "message": f"Erro ao remover constraint: {str(e)}"}
 
+# =============================================================================
+# ENDPOINTS ANUAIS PARA DASHBOARD
+# =============================================================================
+
+@app.get("/api/v1/financial/annual-summary")
+async def get_annual_summary(
+    year: int = 2025,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get annual summary with monthly breakdown"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        bu_id_str = str(current_user["business_unit_id"])
+        
+        # Get all transactions for the year
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-12-31"
+        
+        transactions = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id_str,
+            LancamentoDiario.business_unit_id == bu_id_str,
+            LancamentoDiario.is_active == True,
+            LancamentoDiario.data_movimentacao >= start_date,
+            LancamentoDiario.data_movimentacao <= end_date
+        ).all()
+        
+        # Initialize monthly data
+        monthly_data = {}
+        for month in range(1, 13):
+            monthly_data[month] = {
+                "month": month,
+                "revenue": 0,
+                "expense": 0,
+                "cost": 0,
+                "balance": 0
+            }
+        
+        # Process transactions
+        for transaction in transactions:
+            month = transaction.data_movimentacao.month
+            valor = float(transaction.valor)
+            
+            if transaction.transaction_type == "RECEITA":
+                monthly_data[month]["revenue"] += valor
+            elif transaction.transaction_type == "DESPESA":
+                monthly_data[month]["expense"] += valor
+            elif transaction.transaction_type == "CUSTO":
+                monthly_data[month]["cost"] += valor
+        
+        # Calculate monthly balances and annual totals
+        annual_totals = {"revenue": 0, "expense": 0, "cost": 0, "balance": 0}
+        
+        for month in range(1, 13):
+            monthly_data[month]["balance"] = (
+                monthly_data[month]["revenue"] - 
+                monthly_data[month]["expense"] - 
+                monthly_data[month]["cost"]
+            )
+            
+            annual_totals["revenue"] += monthly_data[month]["revenue"]
+            annual_totals["expense"] += monthly_data[month]["expense"]
+            annual_totals["cost"] += monthly_data[month]["cost"]
+            annual_totals["balance"] += monthly_data[month]["balance"]
+        
+        # Convert to list
+        monthly_breakdown = [monthly_data[month] for month in range(1, 13)]
+        
+        return {
+            "year": year,
+            "totals": annual_totals,
+            "monthly": monthly_breakdown
+        }
+        
+    except Exception as e:
+        print(f"Erro ao buscar resumo anual: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/v1/financial/wallet")
+async def get_wallet_annual(
+    year: int = 2025,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get wallet data for the year"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        bu_id_str = str(current_user["business_unit_id"])
+        
+        # Get bank accounts
+        bank_accounts = db.query(ContaBancaria).filter(
+            ContaBancaria.tenant_id == tenant_id_str,
+            ContaBancaria.business_unit_id == bu_id_str,
+            ContaBancaria.is_active == True
+        ).all()
+        
+        # Get cash accounts
+        cash_accounts = db.query(Caixa).filter(
+            Caixa.tenant_id == tenant_id_str,
+            Caixa.business_unit_id == bu_id_str,
+            Caixa.is_active == True
+        ).all()
+        
+        # Get investments
+        investments = db.query(Investimento).filter(
+            Investimento.tenant_id == tenant_id_str,
+            Investimento.business_unit_id == bu_id_str,
+            Investimento.is_active == True
+        ).all()
+        
+        # Format response
+        bank_accounts_data = [
+            {"label": conta.banco, "amount": float(conta.saldo_atual or 0)}
+            for conta in bank_accounts
+        ]
+        
+        cash_data = [
+            {"label": caixa.nome, "amount": float(caixa.saldo_atual or 0)}
+            for caixa in cash_accounts
+        ]
+        
+        investments_data = [
+            {"label": inv.tipo, "amount": float(inv.valor_atual or 0)}
+            for inv in investments
+        ]
+        
+        total_available = (
+            sum(conta["amount"] for conta in bank_accounts_data) +
+            sum(cash["amount"] for cash in cash_data) +
+            sum(inv["amount"] for inv in investments_data)
+        )
+        
+        return {
+            "year": year,
+            "bankAccounts": bank_accounts_data,
+            "cash": cash_data,
+            "investments": investments_data,
+            "totalAvailable": total_available
+        }
+        
+    except Exception as e:
+        print(f"Erro ao buscar dados da carteira: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/v1/financial/transactions")
+async def get_transactions_annual(
+    year: int = 2025,
+    limit: int = 10,
+    cursor: str = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get recent transactions for the year"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        bu_id_str = str(current_user["business_unit_id"])
+        
+        # Build query
+        query = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id_str,
+            LancamentoDiario.business_unit_id == bu_id_str,
+            LancamentoDiario.is_active == True
+        )
+        
+        # Filter by year
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-12-31"
+        query = query.filter(
+            LancamentoDiario.data_movimentacao >= start_date,
+            LancamentoDiario.data_movimentacao <= end_date
+        )
+        
+        # Order by date descending
+        query = query.order_by(LancamentoDiario.data_movimentacao.desc())
+        
+        # Apply limit
+        if limit:
+            query = query.limit(limit)
+        
+        transactions = query.all()
+        
+        # Format response
+        items = []
+        for transaction in transactions:
+            items.append({
+                "id": transaction.id,
+                "date": transaction.data_movimentacao.isoformat(),
+                "description": transaction.observacoes or "Lançamento",
+                "type": transaction.transaction_type.lower(),
+                "amount": float(transaction.valor),
+                "account": transaction.conta.name if transaction.conta else "Conta"
+            })
+        
+        return {
+            "year": year,
+            "items": items,
+            "nextCursor": None  # TODO: implement pagination cursor
+        }
+        
+    except Exception as e:
+        print(f"Erro ao buscar transações: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
