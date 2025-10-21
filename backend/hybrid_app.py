@@ -2676,7 +2676,7 @@ async def update_lancamento_diario(
         if 'grupo_id' in lancamento_data:
             lancamento.grupo_id = lancamento_data['grupo_id']
         
-        lancamento.updated_at = datetime.utcnow()
+        lancamento.updated_at = datetime.datetime.now()
         
         db.commit()
         
