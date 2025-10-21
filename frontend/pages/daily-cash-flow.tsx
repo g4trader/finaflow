@@ -8,6 +8,7 @@ import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 interface DailyCashFlow {
   categoria: string;
   nivel: number;
+  tipo?: string; // grupo, subgrupo, conta, calculado, saldo
   dias: { [dia: number]: number }; // dia -> valor
 }
 
