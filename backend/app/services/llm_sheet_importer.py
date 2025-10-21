@@ -248,26 +248,36 @@ class LLMSheetImporter:
                         else:
                             transaction_type_enum = TransactionType.DESPESA
                 
-                lancamento = LancamentoDiario(
-                    tenant_id=tenant_uuid,
-                    business_unit_id=business_unit_id,
-                    conta_id=account.id,
-                    subgrupo_id=account.subgroup_id,
-                    grupo_id=account.subgroup.group_id if account.subgroup else None,
-                    data_movimentacao=transaction_date,
-                    valor=abs(amount),
-                    observacoes=descricao or f"Importado - {account.name}",
-                    transaction_type=transaction_type_enum,
-                    status=TransactionStatus.PENDENTE,
-                    created_by=user_id
-                )
-                db.add(lancamento)
-                transactions_created += 1
+                # Verificar se já existe (evitar duplicatas)
+                existing = db.query(LancamentoDiario).filter(
+                    LancamentoDiario.data_movimentacao == transaction_date,
+                    LancamentoDiario.conta_id == account.id,
+                    LancamentoDiario.valor == abs(amount),
+                    LancamentoDiario.tenant_id == tenant_uuid,
+                    LancamentoDiario.business_unit_id == business_unit_id
+                ).first()
                 
-                # Commit a cada 100 transações para evitar timeout
-                if transactions_created % 100 == 0:
-                    db.commit()
-                    print(f"[IMPORT] Progresso: {transactions_created} transações...")
+                if not existing:
+                    lancamento = LancamentoDiario(
+                        tenant_id=tenant_uuid,
+                        business_unit_id=business_unit_id,
+                        conta_id=account.id,
+                        subgrupo_id=account.subgroup_id,
+                        grupo_id=account.subgroup.group_id if account.subgroup else None,
+                        data_movimentacao=transaction_date,
+                        valor=abs(amount),
+                        observacoes=descricao or f"Importado - {account.name}",
+                        transaction_type=transaction_type_enum,
+                        status=TransactionStatus.PENDENTE,
+                        created_by=user_id
+                    )
+                    db.add(lancamento)
+                    transactions_created += 1
+                    
+                    # Commit a cada 100 transações para evitar timeout
+                    if transactions_created % 100 == 0:
+                        db.commit()
+                        print(f"[IMPORT] Progresso: {transactions_created} transações...")
             
             # Commit final
             db.commit()
