@@ -4830,9 +4830,12 @@ async def importar_lancamentos_planilha(
             return {"success": False, "message": "Falha na autenticação com Google Sheets"}
         
         # Importar apenas lançamentos diários
-        # Passar db como Session, não como string
+        # Nome da aba conforme planilha LLM Lavanderia
+        sheet_name = "Lançamento Diário"
+        
         result = importer._import_daily_transactions(
             spreadsheet_id,
+            sheet_name,
             str(tenant_id),
             str(business_unit_id),
             db,  # Session do SQLAlchemy
