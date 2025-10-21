@@ -5079,6 +5079,15 @@ async def get_daily_cash_flow(
         
         print(f"[DAILY CASH FLOW] Lançamentos encontrados: {len(lancamentos)}")
         
+        # Calcular número de dias no mês
+        days_in_month = calendar.monthrange(year, month)[1]
+        
+        # Nomes dos meses
+        meses = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ]
+        
         # Estrutura hierárquica: {grupo: {subgrupo: {conta: {dia: valor}}}}
         cash_flow_hierarchy = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(float))))
         
@@ -5114,9 +5123,6 @@ async def get_daily_cash_flow(
                 mov_nao_operacionais_por_dia[dia] += valor
             else:
                 despesas_por_dia[dia] += valor
-        
-        # Calcular número de dias no mês
-        days_in_month = calendar.monthrange(year, month)[1]
         
         # Formatar resposta com hierarquia completa
         resultado = []
