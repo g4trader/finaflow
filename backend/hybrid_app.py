@@ -6067,7 +6067,7 @@ async def criar_tabelas_financeiras(
                 is_active BOOLEAN NOT NULL DEFAULT true,
                 created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                created_by UUID NOT NULL REFERENCES users(id)
+                created_by VARCHAR(36) NOT NULL REFERENCES users(id)
             )
         """))
         print("[CRIAR TABELAS] ✅ contas_bancarias")
@@ -6086,7 +6086,7 @@ async def criar_tabelas_financeiras(
                 conta_destino_id UUID REFERENCES contas_bancarias(id),
                 lancamento_diario_id UUID REFERENCES lancamentos_diarios(id),
                 created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                created_by UUID NOT NULL REFERENCES users(id)
+                created_by VARCHAR(36) NOT NULL REFERENCES users(id)
             )
         """))
         print("[CRIAR TABELAS] ✅ movimentacoes_bancarias")
@@ -6104,7 +6104,7 @@ async def criar_tabelas_financeiras(
                 is_active BOOLEAN NOT NULL DEFAULT true,
                 created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                created_by UUID NOT NULL REFERENCES users(id)
+                created_by VARCHAR(36) NOT NULL REFERENCES users(id)
             )
         """))
         print("[CRIAR TABELAS] ✅ caixas")
@@ -6122,7 +6122,7 @@ async def criar_tabelas_financeiras(
                 descricao TEXT,
                 lancamento_diario_id UUID REFERENCES lancamentos_diarios(id),
                 created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                created_by UUID NOT NULL REFERENCES users(id)
+                created_by VARCHAR(36) NOT NULL REFERENCES users(id)
             )
         """))
         print("[CRIAR TABELAS] ✅ movimentacoes_caixa")
@@ -6144,7 +6144,7 @@ async def criar_tabelas_financeiras(
                 is_active BOOLEAN NOT NULL DEFAULT true,
                 created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                created_by UUID NOT NULL REFERENCES users(id)
+                created_by VARCHAR(36) NOT NULL REFERENCES users(id)
             )
         """))
         print("[CRIAR TABELAS] ✅ investimentos")
