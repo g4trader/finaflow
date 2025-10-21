@@ -4933,5 +4933,35 @@ async def limpar_via_sql(
         db.rollback()
         return {"success": False, "message": f"Erro ao limpar via SQL: {str(e)}"}
 
+@app.post("/api/v1/admin/remover-constraint-unique")
+async def remover_constraint_unique(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Remover constraint unique temporariamente para permitir importação"""
+    try:
+        from sqlalchemy import text
+        
+        # Verificar se usuário é super_admin
+        if current_user.get("role") != "super_admin":
+            return {"success": False, "message": "Apenas super_admin pode executar esta operação"}
+        
+        # Remover constraint
+        drop_query = text("""
+            ALTER TABLE lancamentos_diarios 
+            DROP CONSTRAINT IF EXISTS uq_lancamento_data_conta_valor
+        """)
+        db.execute(drop_query)
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Constraint removida com sucesso. Agora pode importar os dados."
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao remover constraint: {str(e)}"}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
