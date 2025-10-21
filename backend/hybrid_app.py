@@ -5031,6 +5031,539 @@ async def delete_lancamento_previsto(
         return {"success": False, "message": f"Erro ao excluir previsão: {str(e)}"}
 
 # ============================================================================
+# ENDPOINTS DE CONTAS BANCÁRIAS
+# ============================================================================
+
+@app.post("/api/v1/contas-bancarias")
+async def criar_conta_bancaria(
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Criar nova conta bancária"""
+    try:
+        from app.models.conta_bancaria import ContaBancaria
+        
+        conta = ContaBancaria(
+            tenant_id=str(current_user["tenant_id"]),
+            business_unit_id=str(current_user["business_unit_id"]),
+            banco=request['banco'],
+            agencia=request.get('agencia'),
+            numero_conta=request.get('numero_conta'),
+            tipo=request.get('tipo', 'corrente'),
+            saldo_inicial=float(request.get('saldo_inicial', 0)),
+            saldo_atual=float(request.get('saldo_inicial', 0)),
+            created_by=current_user["sub"]
+        )
+        
+        db.add(conta)
+        db.commit()
+        db.refresh(conta)
+        
+        return {
+            "success": True,
+            "message": "Conta bancária criada com sucesso",
+            "conta": {
+                "id": str(conta.id),
+                "banco": conta.banco,
+                "agencia": conta.agencia,
+                "numero_conta": conta.numero_conta,
+                "tipo": conta.tipo,
+                "saldo_atual": float(conta.saldo_atual)
+            }
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"[CRIAR CONTA ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao criar conta: {str(e)}"}
+
+@app.get("/api/v1/contas-bancarias")
+async def listar_contas_bancarias(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Listar contas bancárias do tenant/BU"""
+    try:
+        from app.models.conta_bancaria import ContaBancaria
+        
+        contas = db.query(ContaBancaria).filter(
+            ContaBancaria.tenant_id == str(current_user["tenant_id"]),
+            ContaBancaria.business_unit_id == str(current_user["business_unit_id"]),
+            ContaBancaria.is_active == True
+        ).all()
+        
+        return {
+            "success": True,
+            "contas": [
+                {
+                    "id": str(c.id),
+                    "banco": c.banco,
+                    "agencia": c.agencia,
+                    "numero_conta": c.numero_conta,
+                    "tipo": c.tipo,
+                    "saldo_inicial": float(c.saldo_inicial),
+                    "saldo_atual": float(c.saldo_atual),
+                    "created_at": c.created_at.isoformat() if c.created_at else None
+                } for c in contas
+            ]
+        }
+        
+    except Exception as e:
+        print(f"[LISTAR CONTAS ERROR] {str(e)}")
+        return {"success": False, "message": f"Erro ao listar contas: {str(e)}"}
+
+@app.put("/api/v1/contas-bancarias/{conta_id}")
+async def atualizar_conta_bancaria(
+    conta_id: str,
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Atualizar conta bancária"""
+    try:
+        from app.models.conta_bancaria import ContaBancaria
+        from uuid import UUID
+        
+        conta = db.query(ContaBancaria).filter(
+            ContaBancaria.id == UUID(conta_id),
+            ContaBancaria.tenant_id == str(current_user["tenant_id"]),
+            ContaBancaria.business_unit_id == str(current_user["business_unit_id"])
+        ).first()
+        
+        if not conta:
+            return {"success": False, "message": "Conta não encontrada"}
+        
+        if 'banco' in request:
+            conta.banco = request['banco']
+        if 'agencia' in request:
+            conta.agencia = request['agencia']
+        if 'numero_conta' in request:
+            conta.numero_conta = request['numero_conta']
+        if 'tipo' in request:
+            conta.tipo = request['tipo']
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Conta atualizada com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao atualizar conta: {str(e)}"}
+
+@app.delete("/api/v1/contas-bancarias/{conta_id}")
+async def deletar_conta_bancaria(
+    conta_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Deletar (desativar) conta bancária"""
+    try:
+        from app.models.conta_bancaria import ContaBancaria
+        from uuid import UUID
+        
+        conta = db.query(ContaBancaria).filter(
+            ContaBancaria.id == UUID(conta_id),
+            ContaBancaria.tenant_id == str(current_user["tenant_id"]),
+            ContaBancaria.business_unit_id == str(current_user["business_unit_id"])
+        ).first()
+        
+        if not conta:
+            return {"success": False, "message": "Conta não encontrada"}
+        
+        conta.is_active = False
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Conta removida com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao remover conta: {str(e)}"}
+
+# ============================================================================
+# ENDPOINTS DE CAIXA
+# ============================================================================
+
+@app.post("/api/v1/caixa")
+async def criar_caixa(
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Criar novo caixa"""
+    try:
+        from app.models.caixa import Caixa
+        
+        caixa = Caixa(
+            tenant_id=str(current_user["tenant_id"]),
+            business_unit_id=str(current_user["business_unit_id"]),
+            nome=request['nome'],
+            descricao=request.get('descricao'),
+            saldo_inicial=float(request.get('saldo_inicial', 0)),
+            saldo_atual=float(request.get('saldo_inicial', 0)),
+            created_by=current_user["sub"]
+        )
+        
+        db.add(caixa)
+        db.commit()
+        db.refresh(caixa)
+        
+        return {
+            "success": True,
+            "message": "Caixa criado com sucesso",
+            "caixa": {
+                "id": str(caixa.id),
+                "nome": caixa.nome,
+                "saldo_atual": float(caixa.saldo_atual)
+            }
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao criar caixa: {str(e)}"}
+
+@app.get("/api/v1/caixa")
+async def listar_caixas(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Listar caixas do tenant/BU"""
+    try:
+        from app.models.caixa import Caixa
+        
+        caixas = db.query(Caixa).filter(
+            Caixa.tenant_id == str(current_user["tenant_id"]),
+            Caixa.business_unit_id == str(current_user["business_unit_id"]),
+            Caixa.is_active == True
+        ).all()
+        
+        return {
+            "success": True,
+            "caixas": [
+                {
+                    "id": str(c.id),
+                    "nome": c.nome,
+                    "descricao": c.descricao,
+                    "saldo_inicial": float(c.saldo_inicial),
+                    "saldo_atual": float(c.saldo_atual),
+                    "created_at": c.created_at.isoformat() if c.created_at else None
+                } for c in caixas
+            ]
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao listar caixas: {str(e)}"}
+
+@app.put("/api/v1/caixa/{caixa_id}")
+async def atualizar_caixa(
+    caixa_id: str,
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Atualizar caixa"""
+    try:
+        from app.models.caixa import Caixa
+        from uuid import UUID
+        
+        caixa = db.query(Caixa).filter(
+            Caixa.id == UUID(caixa_id),
+            Caixa.tenant_id == str(current_user["tenant_id"]),
+            Caixa.business_unit_id == str(current_user["business_unit_id"])
+        ).first()
+        
+        if not caixa:
+            return {"success": False, "message": "Caixa não encontrado"}
+        
+        if 'nome' in request:
+            caixa.nome = request['nome']
+        if 'descricao' in request:
+            caixa.descricao = request['descricao']
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Caixa atualizado com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao atualizar caixa: {str(e)}"}
+
+@app.delete("/api/v1/caixa/{caixa_id}")
+async def deletar_caixa(
+    caixa_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Deletar (desativar) caixa"""
+    try:
+        from app.models.caixa import Caixa
+        from uuid import UUID
+        
+        caixa = db.query(Caixa).filter(
+            Caixa.id == UUID(caixa_id),
+            Caixa.tenant_id == str(current_user["tenant_id"]),
+            Caixa.business_unit_id == str(current_user["business_unit_id"])
+        ).first()
+        
+        if not caixa:
+            return {"success": False, "message": "Caixa não encontrado"}
+        
+        caixa.is_active = False
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Caixa removido com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao remover caixa: {str(e)}"}
+
+# ============================================================================
+# ENDPOINTS DE INVESTIMENTOS
+# ============================================================================
+
+@app.post("/api/v1/investimentos")
+async def criar_investimento(
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Criar novo investimento"""
+    try:
+        from app.models.investimento import Investimento
+        from datetime import datetime
+        
+        investimento = Investimento(
+            tenant_id=str(current_user["tenant_id"]),
+            business_unit_id=str(current_user["business_unit_id"]),
+            tipo=request['tipo'],
+            instituicao=request['instituicao'],
+            descricao=request.get('descricao'),
+            valor_aplicado=float(request['valor_aplicado']),
+            valor_atual=float(request.get('valor_atual', request['valor_aplicado'])),
+            data_aplicacao=datetime.fromisoformat(request['data_aplicacao'].replace('Z', '+00:00')).date(),
+            data_vencimento=datetime.fromisoformat(request['data_vencimento'].replace('Z', '+00:00')).date() if request.get('data_vencimento') else None,
+            taxa_rendimento=float(request['taxa_rendimento']) if request.get('taxa_rendimento') else None,
+            created_by=current_user["sub"]
+        )
+        
+        db.add(investimento)
+        db.commit()
+        db.refresh(investimento)
+        
+        return {
+            "success": True,
+            "message": "Investimento criado com sucesso",
+            "investimento": {
+                "id": str(investimento.id),
+                "tipo": investimento.tipo,
+                "instituicao": investimento.instituicao,
+                "valor_atual": float(investimento.valor_atual)
+            }
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"[CRIAR INVESTIMENTO ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao criar investimento: {str(e)}"}
+
+@app.get("/api/v1/investimentos")
+async def listar_investimentos(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Listar investimentos do tenant/BU"""
+    try:
+        from app.models.investimento import Investimento
+        
+        investimentos = db.query(Investimento).filter(
+            Investimento.tenant_id == str(current_user["tenant_id"]),
+            Investimento.business_unit_id == str(current_user["business_unit_id"]),
+            Investimento.is_active == True
+        ).all()
+        
+        return {
+            "success": True,
+            "investimentos": [
+                {
+                    "id": str(i.id),
+                    "tipo": i.tipo,
+                    "instituicao": i.instituicao,
+                    "descricao": i.descricao,
+                    "valor_aplicado": float(i.valor_aplicado),
+                    "valor_atual": float(i.valor_atual),
+                    "data_aplicacao": i.data_aplicacao.isoformat() if i.data_aplicacao else None,
+                    "data_vencimento": i.data_vencimento.isoformat() if i.data_vencimento else None,
+                    "taxa_rendimento": float(i.taxa_rendimento) if i.taxa_rendimento else None,
+                    "created_at": i.created_at.isoformat() if i.created_at else None
+                } for i in investimentos
+            ]
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao listar investimentos: {str(e)}"}
+
+@app.get("/api/v1/investimentos/resumo")
+async def resumo_investimentos(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Resumo total de investimentos"""
+    try:
+        from app.models.investimento import Investimento
+        from sqlalchemy import func
+        
+        resultado = db.query(
+            func.sum(Investimento.valor_aplicado).label('total_aplicado'),
+            func.sum(Investimento.valor_atual).label('total_atual'),
+            func.count(Investimento.id).label('quantidade')
+        ).filter(
+            Investimento.tenant_id == str(current_user["tenant_id"]),
+            Investimento.business_unit_id == str(current_user["business_unit_id"]),
+            Investimento.is_active == True
+        ).first()
+        
+        total_aplicado = float(resultado.total_aplicado) if resultado.total_aplicado else 0
+        total_atual = float(resultado.total_atual) if resultado.total_atual else 0
+        rentabilidade = ((total_atual - total_aplicado) / total_aplicado * 100) if total_aplicado > 0 else 0
+        
+        return {
+            "success": True,
+            "resumo": {
+                "quantidade": resultado.quantidade or 0,
+                "total_aplicado": total_aplicado,
+                "total_atual": total_atual,
+                "rentabilidade_percentual": round(rentabilidade, 2)
+            }
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao calcular resumo: {str(e)}"}
+
+# ============================================================================
+# ENDPOINT DE SALDO DISPONÍVEL
+# ============================================================================
+
+@app.get("/api/v1/saldo-disponivel")
+async def get_saldo_disponivel(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter saldo disponível total (Contas + Caixa + Investimentos)"""
+    try:
+        from app.models.conta_bancaria import ContaBancaria
+        from app.models.caixa import Caixa
+        from app.models.investimento import Investimento
+        from sqlalchemy import func
+        
+        # Contas Bancárias
+        contas_total = db.query(
+            func.sum(ContaBancaria.saldo_atual).label('total')
+        ).filter(
+            ContaBancaria.tenant_id == str(current_user["tenant_id"]),
+            ContaBancaria.business_unit_id == str(current_user["business_unit_id"]),
+            ContaBancaria.is_active == True
+        ).first()
+        
+        contas = db.query(ContaBancaria).filter(
+            ContaBancaria.tenant_id == str(current_user["tenant_id"]),
+            ContaBancaria.business_unit_id == str(current_user["business_unit_id"]),
+            ContaBancaria.is_active == True
+        ).all()
+        
+        # Caixas
+        caixas_total = db.query(
+            func.sum(Caixa.saldo_atual).label('total')
+        ).filter(
+            Caixa.tenant_id == str(current_user["tenant_id"]),
+            Caixa.business_unit_id == str(current_user["business_unit_id"]),
+            Caixa.is_active == True
+        ).first()
+        
+        caixas = db.query(Caixa).filter(
+            Caixa.tenant_id == str(current_user["tenant_id"]),
+            Caixa.business_unit_id == str(current_user["business_unit_id"]),
+            Caixa.is_active == True
+        ).all()
+        
+        # Investimentos
+        investimentos_total = db.query(
+            func.sum(Investimento.valor_atual).label('total')
+        ).filter(
+            Investimento.tenant_id == str(current_user["tenant_id"]),
+            Investimento.business_unit_id == str(current_user["business_unit_id"]),
+            Investimento.is_active == True
+        ).first()
+        
+        investimentos = db.query(Investimento).filter(
+            Investimento.tenant_id == str(current_user["tenant_id"]),
+            Investimento.business_unit_id == str(current_user["business_unit_id"]),
+            Investimento.is_active == True
+        ).all()
+        
+        total_contas = float(contas_total.total) if contas_total.total else 0
+        total_caixas = float(caixas_total.total) if caixas_total.total else 0
+        total_investimentos = float(investimentos_total.total) if investimentos_total.total else 0
+        
+        total_geral = total_contas + total_caixas + total_investimentos
+        
+        return {
+            "success": True,
+            "saldo_disponivel": {
+                "contas_bancarias": {
+                    "total": total_contas,
+                    "detalhes": [
+                        {
+                            "banco": c.banco,
+                            "saldo": float(c.saldo_atual)
+                        } for c in contas
+                    ]
+                },
+                "caixas": {
+                    "total": total_caixas,
+                    "detalhes": [
+                        {
+                            "nome": c.nome,
+                            "saldo": float(c.saldo_atual)
+                        } for c in caixas
+                    ]
+                },
+                "investimentos": {
+                    "total": total_investimentos,
+                    "detalhes": [
+                        {
+                            "tipo": i.tipo,
+                            "instituicao": i.instituicao,
+                            "valor": float(i.valor_atual)
+                        } for i in investimentos
+                    ]
+                },
+                "total_geral": total_geral
+            }
+        }
+        
+    except Exception as e:
+        print(f"[SALDO DISPONIVEL ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao calcular saldo: {str(e)}"}
+
+# ============================================================================
 # ENDPOINT DE FLUXO DE CAIXA (PREVISTO X REALIZADO)
 # ============================================================================
 
@@ -5504,6 +6037,133 @@ async def importar_plano_contas_planilha(
         import traceback
         traceback.print_exc()
         return {"success": False, "message": f"Erro ao importar: {str(e)}"}
+
+@app.post("/api/v1/admin/criar-tabelas-financeiras")
+async def criar_tabelas_financeiras(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Criar tabelas de contas bancárias, caixa e investimentos"""
+    try:
+        from sqlalchemy import text
+        
+        # Contas Bancárias
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS contas_bancarias (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id VARCHAR(36) NOT NULL REFERENCES tenants(id),
+                business_unit_id VARCHAR(36) NOT NULL REFERENCES business_units(id),
+                banco VARCHAR(100) NOT NULL,
+                agencia VARCHAR(20),
+                numero_conta VARCHAR(50),
+                tipo VARCHAR(20) NOT NULL DEFAULT 'corrente',
+                saldo_inicial NUMERIC(15,2) NOT NULL DEFAULT 0,
+                saldo_atual NUMERIC(15,2) NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by UUID NOT NULL REFERENCES users(id)
+            )
+        """))
+        print("[CRIAR TABELAS] ✅ contas_bancarias")
+        
+        # Movimentações Bancárias
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS movimentacoes_bancarias (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                conta_bancaria_id UUID NOT NULL REFERENCES contas_bancarias(id),
+                tenant_id VARCHAR(36) NOT NULL REFERENCES tenants(id),
+                business_unit_id VARCHAR(36) NOT NULL REFERENCES business_units(id),
+                data_movimentacao TIMESTAMP NOT NULL,
+                tipo VARCHAR(20) NOT NULL,
+                valor NUMERIC(15,2) NOT NULL,
+                descricao TEXT,
+                conta_destino_id UUID REFERENCES contas_bancarias(id),
+                lancamento_diario_id UUID REFERENCES lancamentos_diarios(id),
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by UUID NOT NULL REFERENCES users(id)
+            )
+        """))
+        print("[CRIAR TABELAS] ✅ movimentacoes_bancarias")
+        
+        # Caixas
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS caixas (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id VARCHAR(36) NOT NULL REFERENCES tenants(id),
+                business_unit_id VARCHAR(36) NOT NULL REFERENCES business_units(id),
+                nome VARCHAR(100) NOT NULL,
+                descricao TEXT,
+                saldo_inicial NUMERIC(15,2) NOT NULL DEFAULT 0,
+                saldo_atual NUMERIC(15,2) NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by UUID NOT NULL REFERENCES users(id)
+            )
+        """))
+        print("[CRIAR TABELAS] ✅ caixas")
+        
+        # Movimentações de Caixa
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS movimentacoes_caixa (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                caixa_id UUID NOT NULL REFERENCES caixas(id),
+                tenant_id VARCHAR(36) NOT NULL REFERENCES tenants(id),
+                business_unit_id VARCHAR(36) NOT NULL REFERENCES business_units(id),
+                data_movimentacao TIMESTAMP NOT NULL,
+                tipo VARCHAR(20) NOT NULL,
+                valor NUMERIC(15,2) NOT NULL,
+                descricao TEXT,
+                lancamento_diario_id UUID REFERENCES lancamentos_diarios(id),
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by UUID NOT NULL REFERENCES users(id)
+            )
+        """))
+        print("[CRIAR TABELAS] ✅ movimentacoes_caixa")
+        
+        # Investimentos
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS investimentos (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id VARCHAR(36) NOT NULL REFERENCES tenants(id),
+                business_unit_id VARCHAR(36) NOT NULL REFERENCES business_units(id),
+                tipo VARCHAR(50) NOT NULL,
+                instituicao VARCHAR(200) NOT NULL,
+                descricao TEXT,
+                valor_aplicado NUMERIC(15,2) NOT NULL,
+                valor_atual NUMERIC(15,2) NOT NULL,
+                data_aplicacao DATE NOT NULL,
+                data_vencimento DATE,
+                taxa_rendimento NUMERIC(10,4),
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by UUID NOT NULL REFERENCES users(id)
+            )
+        """))
+        print("[CRIAR TABELAS] ✅ investimentos")
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Tabelas criadas com sucesso",
+            "tabelas": [
+                "contas_bancarias",
+                "movimentacoes_bancarias",
+                "caixas",
+                "movimentacoes_caixa",
+                "investimentos"
+            ]
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"[CRIAR TABELAS ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao criar tabelas: {str(e)}"}
 
 @app.post("/api/v1/admin/criar-tabela-previsoes")
 async def criar_tabela_previsoes(
