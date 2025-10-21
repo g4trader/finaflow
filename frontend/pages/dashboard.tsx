@@ -4,9 +4,33 @@ import {
   TrendingUp, TrendingDown, DollarSign, Users, CreditCard,
   BarChart3, Calendar, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import api, { getCashFlow, getTransactions } from '../services/api';
+
+// Registrar componentes do Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface CashFlowData {
   date: string;
@@ -324,125 +348,167 @@ const Dashboard = () => {
 
         {/* Gráfico de Evolução Mensal */}
         {annualData && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-          >
+          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+        >
             <h3 className="text-lg font-semibold text-gray-900 mb-6">
               Evolução Mensal - {selectedYear}
             </h3>
             
-            {/* Gráfico de Linhas - Evolução Mensal */}
-            <div className="h-64 mb-6 relative">
-              <svg className="w-full h-full" viewBox="0 0 800 200">
-                {(() => {
-                  const maxValue = Math.max(
-                    ...annualData.monthly_breakdown.map(m => Math.max(m.receita, m.despesa, m.custo))
-                  );
-                  const data = annualData.monthly_breakdown;
-                  const width = 800;
-                  const height = 200;
-                  const padding = 40;
-                  const chartWidth = width - (padding * 2);
-                  const chartHeight = height - (padding * 2);
-                  
-                  const getX = (index: number) => padding + (index / (data.length - 1)) * chartWidth;
-                  const getY = (value: number) => height - padding - (value / maxValue) * chartHeight;
-                  
-                  // Linha Receita (Verde)
-                  const receitaPath = data.map((point, index) => 
-                    `${index === 0 ? 'M' : 'L'} ${getX(index)} ${getY(point.receita)}`
-                  ).join(' ');
-                  
-                  // Linha Despesa (Vermelho)
-                  const despesaPath = data.map((point, index) => 
-                    `${index === 0 ? 'M' : 'L'} ${getX(index)} ${getY(point.despesa)}`
-                  ).join(' ');
-                  
-                  // Linha Custo (Laranja)
-                  const custoPath = data.map((point, index) => 
-                    `${index === 0 ? 'M' : 'L'} ${getX(index)} ${getY(point.custo)}`
-                  ).join(' ');
-                  
-                  return (
-                    <>
-                      {/* Grid lines */}
-                      {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => (
-                        <line
-                          key={index}
-                          x1={padding}
-                          y1={padding + ratio * chartHeight}
-                          x2={width - padding}
-                          y2={padding + ratio * chartHeight}
-                          stroke="#f3f4f6"
-                          strokeWidth="1"
-                        />
-                      ))}
-                      
-                      {/* Linha Receita */}
-                      <path
-                        d={receitaPath}
-                        fill="none"
-                        stroke="#10b981"
-                        strokeWidth="3"
-                      />
-                      
-                      {/* Linha Despesa */}
-                      <path
-                        d={despesaPath}
-                        fill="none"
-                        stroke="#ef4444"
-                        strokeWidth="3"
-                      />
-                      
-                      {/* Linha Custo */}
-                      <path
-                        d={custoPath}
-                        fill="none"
-                        stroke="#f97316"
-                        strokeWidth="3"
-                      />
-                      
-                      {/* Pontos */}
-                      {data.map((point, index) => (
-                        <g key={index}>
-                          <circle cx={getX(index)} cy={getY(point.receita)} r="4" fill="#10b981" />
-                          <circle cx={getX(index)} cy={getY(point.despesa)} r="4" fill="#ef4444" />
-                          <circle cx={getX(index)} cy={getY(point.custo)} r="4" fill="#f97316" />
-                        </g>
-                      ))}
-                    </>
-                  );
-                })()}
-              </svg>
-              
-              {/* Labels dos meses */}
-              <div className="absolute bottom-0 left-0 right-0 flex justify-between px-10">
-                {annualData.monthly_breakdown.map((month) => (
-                  <span key={month.mes} className="text-xs text-gray-500">
-                    {month.mes_nome.substring(0, 3)}
-                  </span>
-                ))}
-              </div>
+            {/* Gráfico Moderno - Evolução Mensal */}
+            <div className="h-80 mb-6">
+              <Line
+                data={{
+                  labels: annualData.monthly_breakdown.map(month => month.mes_nome.substring(0, 3)),
+                  datasets: [
+                    {
+                      label: 'Receitas',
+                      data: annualData.monthly_breakdown.map(month => month.receita),
+                      borderColor: '#10b981',
+                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                      borderWidth: 3,
+                      fill: true,
+                      tension: 0.4,
+                      pointBackgroundColor: '#10b981',
+                      pointBorderColor: '#ffffff',
+                      pointBorderWidth: 2,
+                      pointRadius: 6,
+                      pointHoverRadius: 8,
+                    },
+                    {
+                      label: 'Despesas',
+                      data: annualData.monthly_breakdown.map(month => month.despesa),
+                      borderColor: '#ef4444',
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                      borderWidth: 3,
+                      fill: true,
+                      tension: 0.4,
+                      pointBackgroundColor: '#ef4444',
+                      pointBorderColor: '#ffffff',
+                      pointBorderWidth: 2,
+                      pointRadius: 6,
+                      pointHoverRadius: 8,
+                    },
+                    {
+                      label: 'Custos',
+                      data: annualData.monthly_breakdown.map(month => month.custo),
+                      borderColor: '#f97316',
+                      backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                      borderWidth: 3,
+                      fill: true,
+                      tension: 0.4,
+                      pointBackgroundColor: '#f97316',
+                      pointBorderColor: '#ffffff',
+                      pointBorderWidth: 2,
+                      pointRadius: 6,
+                      pointHoverRadius: 8,
+                    }
+                  ]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'top' as const,
+                      labels: {
+                        usePointStyle: true,
+                        padding: 20,
+                        font: {
+                          size: 14,
+                          weight: 'bold'
+                        }
+                      }
+                    },
+                    tooltip: {
+                      mode: 'index',
+                      intersect: false,
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      titleColor: '#ffffff',
+                      bodyColor: '#ffffff',
+                      borderColor: '#e5e7eb',
+                      borderWidth: 1,
+                      cornerRadius: 8,
+                      displayColors: true,
+                      callbacks: {
+                        label: function(context) {
+                          const label = context.dataset.label || '';
+                          const value = context.parsed.y;
+                          return `${label}: ${new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL'
+                          }).format(value)}`;
+                        }
+                      }
+                    }
+                  },
+                  scales: {
+                    x: {
+                      display: true,
+                      title: {
+                        display: true,
+                        text: 'Mês',
+                        font: {
+                          size: 14,
+                          weight: 'bold'
+                        }
+                      },
+                      grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
+                      },
+                      ticks: {
+                        font: {
+                          size: 12
+                        }
+                      }
+                    },
+                    y: {
+                      display: true,
+                      title: {
+                        display: true,
+                        text: 'Valor (R$)',
+                        font: {
+                          size: 14,
+                          weight: 'bold'
+                        }
+                      },
+                      grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
+                      },
+                      ticks: {
+                        font: {
+                          size: 12
+                        },
+                        callback: function(value) {
+                          return new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                          }).format(value as number);
+                        }
+                      }
+                    }
+                  },
+                  interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                  },
+                  elements: {
+                    point: {
+                      hoverBorderWidth: 3
+                    }
+                  }
+                }}
+              />
             </div>
 
-            {/* Legenda */}
-            <div className="flex items-center justify-center space-x-6 text-sm">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span>Receitas</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span>Despesas</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                <span>Custos</span>
-              </div>
-            </div>
           </motion.div>
         )}
 
@@ -580,8 +646,8 @@ const Dashboard = () => {
                     <div key={idx} className="text-xs text-purple-100 flex justify-between">
                       <span>{inv.tipo}</span>
                       <span>{formatCurrency(inv.valor)}</span>
-                    </div>
-                  ))}
+              </div>
+            ))}
                 </div>
               )}
             </div>
