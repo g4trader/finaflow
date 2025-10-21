@@ -95,8 +95,8 @@ const Dashboard = () => {
       
       // Usar endpoint que funciona (cash-flow dos últimos 30 dias)
       const [cashFlowResponse, saldoResponse] = await Promise.all([
-        api.get('/financial/cash-flow').then(r => r.data),
-        api.get('/saldo-disponivel').then(r => r.data).catch(() => ({ saldo_disponivel: { total_geral: 0, contas_bancarias: { total: 0, detalhes: [] }, caixas: { total: 0, detalhes: [] }, investimentos: { total: 0, detalhes: [] } } }))
+        api.get('/api/v1/financial/cash-flow').then(r => r.data),
+        api.get('/api/v1/saldo-disponivel').then(r => r.data).catch(() => ({ saldo_disponivel: { total_geral: 0, contas_bancarias: { total: 0, detalhes: [] }, caixas: { total: 0, detalhes: [] }, investimentos: { total: 0, detalhes: [] } } }))
       ]);
 
       // Criar dados anuais a partir dos dados dos últimos 30 dias
