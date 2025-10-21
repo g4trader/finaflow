@@ -6043,6 +6043,87 @@ async def importar_plano_contas_planilha(
         traceback.print_exc()
         return {"success": False, "message": f"Erro ao importar: {str(e)}"}
 
+@app.post("/api/v1/admin/criar-tabelas-financeiras-simples")
+async def criar_tabelas_financeiras_simples(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Criar tabelas sem FKs primeiro"""
+    try:
+        from sqlalchemy import text
+        
+        # Contas Bancárias (sem FKs)
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS contas_bancarias (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id VARCHAR(36) NOT NULL,
+                business_unit_id VARCHAR(36) NOT NULL,
+                banco VARCHAR(100) NOT NULL,
+                agencia VARCHAR(20),
+                numero_conta VARCHAR(50),
+                tipo VARCHAR(20) NOT NULL DEFAULT 'corrente',
+                saldo_inicial NUMERIC(15,2) NOT NULL DEFAULT 0,
+                saldo_atual NUMERIC(15,2) NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by VARCHAR(36) NOT NULL
+            )
+        """))
+        
+        # Caixas (sem FKs)
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS caixas (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id VARCHAR(36) NOT NULL,
+                business_unit_id VARCHAR(36) NOT NULL,
+                nome VARCHAR(100) NOT NULL,
+                descricao TEXT,
+                saldo_inicial NUMERIC(15,2) NOT NULL DEFAULT 0,
+                saldo_atual NUMERIC(15,2) NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by VARCHAR(36) NOT NULL
+            )
+        """))
+        
+        # Investimentos (sem FKs)
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS investimentos (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id VARCHAR(36) NOT NULL,
+                business_unit_id VARCHAR(36) NOT NULL,
+                tipo VARCHAR(50) NOT NULL,
+                instituicao VARCHAR(200) NOT NULL,
+                descricao TEXT,
+                valor_aplicado NUMERIC(15,2) NOT NULL,
+                valor_atual NUMERIC(15,2) NOT NULL,
+                data_aplicacao DATE NOT NULL,
+                data_vencimento DATE,
+                taxa_rendimento NUMERIC(10,4),
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                created_by VARCHAR(36) NOT NULL
+            )
+        """))
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Tabelas criadas com sucesso (sem FKs)",
+            "tabelas": ["contas_bancarias", "caixas", "investimentos"]
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"[CRIAR TABELAS ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro: {str(e)}"}
+
 @app.post("/api/v1/admin/criar-tabelas-financeiras")
 async def criar_tabelas_financeiras(
     current_user: dict = Depends(get_current_user),
