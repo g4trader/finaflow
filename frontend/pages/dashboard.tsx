@@ -40,6 +40,12 @@ const Dashboard = () => {
     currentBalance: 0,
     transactionCount: 0
   });
+  const [saldoDisponivel, setSaldoDisponivel] = useState({
+    total_geral: 0,
+    contas_bancarias: { total: 0, detalhes: [] },
+    caixas: { total: 0, detalhes: [] },
+    investimentos: { total: 0, detalhes: [] }
+  });
 
   useEffect(() => {
     // Se o usuário precisa selecionar uma BU, redirecionar
@@ -66,7 +72,7 @@ const Dashboard = () => {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - 30);
       
-      const [cashFlowResponse, transactionsResponse] = await Promise.all([
+      const [cashFlowResponse, transactionsResponse, saldoResponse] = await Promise.all([
         getCashFlow({
           start_date: startDate.toISOString(),
           end_date: endDate.toISOString(),
@@ -75,11 +81,13 @@ const Dashboard = () => {
         getTransactions({
           start_date: startDate.toISOString(),
           end_date: endDate.toISOString()
-        })
+        }),
+        fetch('/api/saldo-disponivel').then(r => r.json()).catch(() => ({ saldo_disponivel: { total_geral: 0, contas_bancarias: { total: 0 }, caixas: { total: 0 }, investimentos: { total: 0 } } }))
       ]);
 
       setCashFlowData(cashFlowResponse);
       setRecentTransactions(transactionsResponse.slice(0, 10));
+      setSaldoDisponivel(saldoResponse.saldo_disponivel || saldoResponse);
 
       // Calcular métricas
       const totalRevenue = cashFlowResponse.reduce((sum: number, item: CashFlowData) => sum + item.total_revenue, 0);
@@ -264,6 +272,66 @@ const Dashboard = () => {
             </div>
           </motion.div>
         </div>
+
+        {/* Saldo Disponível */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg border border-purple-700 p-6 text-white"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">💰 Saldo Disponível</h3>
+            <span className="text-3xl font-bold">{formatCurrency(saldoDisponivel.total_geral)}</span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white bg-opacity-20 rounded-lg p-4">
+              <p className="text-purple-100 text-sm mb-1">Contas Bancárias</p>
+              <p className="text-2xl font-bold">{formatCurrency(saldoDisponivel.contas_bancarias?.total || 0)}</p>
+              {saldoDisponivel.contas_bancarias?.detalhes && saldoDisponivel.contas_bancarias.detalhes.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {saldoDisponivel.contas_bancarias.detalhes.slice(0, 3).map((conta: any, idx: number) => (
+                    <div key={idx} className="text-xs text-purple-100 flex justify-between">
+                      <span>{conta.banco}</span>
+                      <span>{formatCurrency(conta.saldo)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white bg-opacity-20 rounded-lg p-4">
+              <p className="text-purple-100 text-sm mb-1">Caixa / Dinheiro</p>
+              <p className="text-2xl font-bold">{formatCurrency(saldoDisponivel.caixas?.total || 0)}</p>
+              {saldoDisponivel.caixas?.detalhes && saldoDisponivel.caixas.detalhes.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {saldoDisponivel.caixas.detalhes.slice(0, 3).map((caixa: any, idx: number) => (
+                    <div key={idx} className="text-xs text-purple-100 flex justify-between">
+                      <span>{caixa.nome}</span>
+                      <span>{formatCurrency(caixa.saldo)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white bg-opacity-20 rounded-lg p-4">
+              <p className="text-purple-100 text-sm mb-1">Investimentos</p>
+              <p className="text-2xl font-bold">{formatCurrency(saldoDisponivel.investimentos?.total || 0)}</p>
+              {saldoDisponivel.investimentos?.detalhes && saldoDisponivel.investimentos.detalhes.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {saldoDisponivel.investimentos.detalhes.slice(0, 3).map((inv: any, idx: number) => (
+                    <div key={idx} className="text-xs text-purple-100 flex justify-between">
+                      <span>{inv.tipo}</span>
+                      <span>{formatCurrency(inv.valor)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
 
         {/* Gráfico de Fluxo de Caixa */}
         <motion.div
