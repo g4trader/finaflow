@@ -5457,6 +5457,54 @@ async def get_cash_flow_previsto_realizado(
 # ENDPOINTS DE LIMPEZA E IMPORTAÇÃO (ADMIN)
 # ============================================================================
 
+@app.post("/api/v1/admin/importar-plano-contas-planilha")
+async def importar_plano_contas_planilha(
+    request: dict,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Importar plano de contas diretamente da planilha Google Sheets"""
+    try:
+        from app.services.llm_plano_contas_importer import LLMPlanoContasImporter
+        
+        spreadsheet_id = request.get("spreadsheet_id")
+        if not spreadsheet_id:
+            return {"success": False, "message": "spreadsheet_id é obrigatório"}
+        
+        tenant_id = str(current_user["tenant_id"])
+        business_unit_id = str(current_user["business_unit_id"])
+        
+        print(f"[IMPORT PLANO] Iniciando importação do plano de contas...")
+        print(f"[IMPORT PLANO] Tenant: {tenant_id}")
+        print(f"[IMPORT PLANO] BU: {business_unit_id}")
+        
+        # Importar
+        importer = LLMPlanoContasImporter()
+        result = importer.import_plano_contas(
+            spreadsheet_id,
+            tenant_id,
+            business_unit_id,
+            db
+        )
+        
+        if result.get("success"):
+            return {
+                "success": True,
+                "message": f"Plano de contas importado: {result['grupos_criados']} grupos, {result['subgrupos_criados']} subgrupos, {result['contas_criadas']} contas",
+                "details": result
+            }
+        else:
+            return {
+                "success": False,
+                "message": result.get("error", "Erro desconhecido")
+            }
+        
+    except Exception as e:
+        print(f"[IMPORT PLANO ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": f"Erro ao importar: {str(e)}"}
+
 @app.post("/api/v1/admin/criar-tabela-previsoes")
 async def criar_tabela_previsoes(
     current_user: dict = Depends(get_current_user),
@@ -5652,6 +5700,43 @@ async def limpar_todos_lancamentos(
     except Exception as e:
         db.rollback()
         return {"success": False, "message": f"Erro ao limpar lançamentos: {str(e)}"}
+
+@app.post("/api/v1/admin/limpar-plano-contas")
+async def limpar_plano_contas(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ADMIN: Limpar todo o plano de contas do tenant"""
+    try:
+        from sqlalchemy import text
+        
+        tenant_id = str(current_user["tenant_id"])
+        
+        # Limpar em ordem (contas, subgrupos, grupos)
+        print(f"[LIMPAR PLANO] Limpando plano de contas do tenant {tenant_id}")
+        
+        # Contas
+        delete_contas = text("DELETE FROM chart_accounts WHERE tenant_id = :tenant_id")
+        result_contas = db.execute(delete_contas, {"tenant_id": tenant_id})
+        
+        # Subgrupos
+        delete_subgrupos = text("DELETE FROM chart_account_subgroups WHERE tenant_id = :tenant_id")
+        result_subgrupos = db.execute(delete_subgrupos, {"tenant_id": tenant_id})
+        
+        # Grupos
+        delete_grupos = text("DELETE FROM chart_account_groups WHERE tenant_id = :tenant_id")
+        result_grupos = db.execute(delete_grupos, {"tenant_id": tenant_id})
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Plano de contas limpo com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao limpar plano de contas: {str(e)}"}
 
 @app.post("/api/v1/admin/limpar-via-sql")
 async def limpar_via_sql(
