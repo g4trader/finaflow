@@ -5082,101 +5082,198 @@ async def get_daily_cash_flow(
         # Estrutura hierárquica: {grupo: {subgrupo: {conta: {dia: valor}}}}
         cash_flow_hierarchy = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(float))))
         
+        # Separar por tipo de transação
+        receitas_por_dia = defaultdict(float)
+        custos_por_dia = defaultdict(float)
+        despesas_por_dia = defaultdict(float)
+        deducoes_por_dia = defaultdict(float)
+        investimentos_por_dia = defaultdict(float)
+        mov_nao_operacionais_por_dia = defaultdict(float)
+        
         # Processar lançamentos
         for lanc in lancamentos:
             dia = lanc.data_movimentacao.day
             grupo_nome = lanc.grupo.name if lanc.grupo else "Outros"
             subgrupo_nome = lanc.subgrupo.name if lanc.subgrupo else "Outros"
             conta_nome = lanc.conta.name if lanc.conta else "Diversos"
+            valor = float(lanc.valor)
             
-            cash_flow_hierarchy[grupo_nome][subgrupo_nome][conta_nome][dia] += float(lanc.valor)
+            cash_flow_hierarchy[grupo_nome][subgrupo_nome][conta_nome][dia] += valor
+            
+            # Categorizar por tipo
+            grupo_lower = grupo_nome.lower()
+            if 'receita' in grupo_lower and 'deduc' not in grupo_lower:
+                receitas_por_dia[dia] += valor
+            elif 'dedu' in grupo_lower:
+                deducoes_por_dia[dia] += valor
+            elif 'custo' in grupo_lower:
+                custos_por_dia[dia] += valor
+            elif 'invest' in grupo_lower:
+                investimentos_por_dia[dia] += valor
+            elif 'não operacional' in grupo_lower or 'movimenta' in grupo_lower:
+                mov_nao_operacionais_por_dia[dia] += valor
+            else:
+                despesas_por_dia[dia] += valor
         
         # Calcular número de dias no mês
         days_in_month = calendar.monthrange(year, month)[1]
         
-        # Nomes dos meses
-        meses = [
-            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-        ]
-        
         # Formatar resposta com hierarquia completa
         resultado = []
-        totais_grupo = {}
         
-        for grupo_nome in sorted(cash_flow_hierarchy.keys()):
-            # Adicionar grupo principal (nível 0)
-            grupo_item = {
-                "categoria": grupo_nome,
-                "nivel": 0,
-                "dias": {dia: 0 for dia in range(1, days_in_month + 1)}
-            }
-            
-            subgrupos_data = cash_flow_hierarchy[grupo_nome]
-            
-            for subgrupo_nome in sorted(subgrupos_data.keys()):
-                # Adicionar subgrupo (nível 1)
-                subgrupo_item = {
-                    "categoria": subgrupo_nome,
-                    "nivel": 1,
-                    "dias": {dia: 0 for dia in range(1, days_in_month + 1)}
-                }
-                
-                contas_data = subgrupos_data[subgrupo_nome]
-                
-                for conta_nome in sorted(contas_data.keys()):
-                    # Adicionar conta (nível 2)
-                    conta_item = {
-                        "categoria": conta_nome,
-                        "nivel": 2,
-                        "dias": {}
+        # Ordem dos grupos conforme planilha
+        ordem_grupos = [
+            "Receita", "Receita Financeira", "Deduções", "Custos", 
+            "Despesas Operacionais", "Investimentos", 
+            "Movimentações Não Operacionais"
+        ]
+        
+        # Processar grupos na ordem correta
+        grupos_processados = set()
+        
+        for grupo_ordem in ordem_grupos:
+            for grupo_nome in cash_flow_hierarchy.keys():
+                if grupo_nome not in grupos_processados and grupo_ordem.lower() in grupo_nome.lower():
+                    grupos_processados.add(grupo_nome)
+                    
+                    # Adicionar grupo
+                    grupo_item = {
+                        "categoria": grupo_nome,
+                        "nivel": 0,
+                        "tipo": "grupo",
+                        "dias": {dia: 0 for dia in range(1, days_in_month + 1)}
                     }
+                    resultado.append(grupo_item)
                     
+                    subgrupos_data = cash_flow_hierarchy[grupo_nome]
+                    
+                    for subgrupo_nome in sorted(subgrupos_data.keys()):
+                        # Adicionar subgrupo
+                        subgrupo_item = {
+                            "categoria": subgrupo_nome,
+                            "nivel": 1,
+                            "tipo": "subgrupo",
+                            "dias": {dia: 0 for dia in range(1, days_in_month + 1)}
+                        }
+                        resultado.append(subgrupo_item)
+                        
+                        contas_data = subgrupos_data[subgrupo_nome]
+                        
+                        for conta_nome in sorted(contas_data.keys()):
+                            # Adicionar conta
+                            conta_item = {
+                                "categoria": conta_nome,
+                                "nivel": 2,
+                                "tipo": "conta",
+                                "dias": {}
+                            }
+                            
+                            for dia in range(1, days_in_month + 1):
+                                valor = contas_data[conta_nome].get(dia, 0)
+                                conta_item["dias"][dia] = round(valor, 2)
+                                subgrupo_item["dias"][dia] += valor
+                                grupo_item["dias"][dia] += valor
+                            
+                            resultado.append(conta_item)
+                    
+                    # Atualizar totais do grupo
                     for dia in range(1, days_in_month + 1):
-                        valor = contas_data[conta_nome].get(dia, 0)
-                        conta_item["dias"][dia] = round(valor, 2)
-                        
-                        # Acumular no subgrupo
-                        subgrupo_item["dias"][dia] += valor
-                        
-                        # Acumular no grupo
-                        grupo_item["dias"][dia] += valor
-                    
-                    resultado.append(conta_item)
-                
-                # Adicionar subgrupo após suas contas
-                for dia in range(1, days_in_month + 1):
-                    subgrupo_item["dias"][dia] = round(subgrupo_item["dias"][dia], 2)
-                
-                # Inserir subgrupo antes das contas (encontrar posição)
-                # Encontrar índice da primeira conta deste subgrupo
-                idx = len(resultado) - len(contas_data)
-                resultado.insert(idx, subgrupo_item)
-            
-            # Arredondar dias do grupo
-            for dia in range(1, days_in_month + 1):
-                grupo_item["dias"][dia] = round(grupo_item["dias"][dia], 2)
-            
-            # Inserir grupo no início de suas linhas
-            idx = len(resultado) - sum(len(cash_flow_hierarchy[grupo_nome][sg]) + 1 for sg in cash_flow_hierarchy[grupo_nome].keys())
-            resultado.insert(idx, grupo_item)
+                        grupo_item["dias"][dia] = round(grupo_item["dias"][dia], 2)
         
-        # Adicionar linha de TOTAL GERAL
-        total = {
-            "categoria": "TOTAL",
+        # Adicionar grupos que não estavam na ordem
+        for grupo_nome in cash_flow_hierarchy.keys():
+            if grupo_nome not in grupos_processados:
+                grupos_processados.add(grupo_nome)
+                # Similar ao código acima
+        
+        # Adicionar linhas calculadas
+        # Receita Líquida = Receita - Deduções
+        receita_liquida = {
+            "categoria": "Receita Líquida",
             "nivel": 0,
+            "tipo": "calculado",
+            "dias": {}
+        }
+        for dia in range(1, days_in_month + 1):
+            valor = receitas_por_dia.get(dia, 0) - deducoes_por_dia.get(dia, 0)
+            receita_liquida["dias"][dia] = round(valor, 2)
+        
+        # Inserir após deduções
+        idx_deducoes = next((i for i, r in enumerate(resultado) if 'dedu' in r['categoria'].lower() and r['nivel'] == 0), -1)
+        if idx_deducoes >= 0:
+            resultado.insert(idx_deducoes + 1, receita_liquida)
+        
+        # Lucro Bruto = Receita Líquida - Custos
+        lucro_bruto = {
+            "categoria": "Lucro Bruto",
+            "nivel": 0,
+            "tipo": "calculado",
+            "dias": {}
+        }
+        for dia in range(1, days_in_month + 1):
+            valor = receita_liquida["dias"].get(dia, 0) - custos_por_dia.get(dia, 0)
+            lucro_bruto["dias"][dia] = round(valor, 2)
+        
+        # Inserir após custos
+        idx_custos = next((i for i, r in enumerate(resultado) if 'custo' in r['categoria'].lower() and r['nivel'] == 0), -1)
+        if idx_custos >= 0:
+            resultado.insert(idx_custos + 1, lucro_bruto)
+        
+        # Desembolso Total
+        desembolso_total = {
+            "categoria": "Desembolso Total",
+            "nivel": 0,
+            "tipo": "calculado",
+            "dias": {}
+        }
+        for dia in range(1, days_in_month + 1):
+            valor = custos_por_dia.get(dia, 0) + despesas_por_dia.get(dia, 0) + investimentos_por_dia.get(dia, 0)
+            desembolso_total["dias"][dia] = round(valor, 2)
+        resultado.append(desembolso_total)
+        
+        # LUCRO OPERACIONAL = Lucro Bruto - Despesas - Investimentos
+        lucro_operacional = {
+            "categoria": "LUCRO OPERACIONAL",
+            "nivel": 0,
+            "tipo": "calculado",
+            "dias": {}
+        }
+        for dia in range(1, days_in_month + 1):
+            valor = lucro_bruto["dias"].get(dia, 0) - despesas_por_dia.get(dia, 0) - investimentos_por_dia.get(dia, 0)
+            lucro_operacional["dias"][dia] = round(valor, 2)
+        resultado.append(lucro_operacional)
+        
+        # Fluxo (Variação) = Entradas - Saídas
+        fluxo_variacao = {
+            "categoria": "Fluxo (Variação)",
+            "nivel": 0,
+            "tipo": "calculado",
+            "dias": {}
+        }
+        saldo_acumulado = 0
+        inicio_mes = {
+            "categoria": "Início do mês",
+            "nivel": 0,
+            "tipo": "saldo",
+            "dias": {}
+        }
+        fim_mes = {
+            "categoria": "Fim do mês",
+            "nivel": 0,
+            "tipo": "saldo",
             "dias": {}
         }
         
         for dia in range(1, days_in_month + 1):
-            total_dia = sum(
-                item["dias"].get(dia, 0)
-                for item in resultado
-                if item["nivel"] == 0 and item["categoria"] != "TOTAL"
-            )
-            total["dias"][dia] = round(total_dia, 2)
+            inicio_mes["dias"][dia] = round(saldo_acumulado, 2)
+            variacao = receitas_por_dia.get(dia, 0) - (custos_por_dia.get(dia, 0) + despesas_por_dia.get(dia, 0) + deducoes_por_dia.get(dia, 0))
+            fluxo_variacao["dias"][dia] = round(variacao, 2)
+            saldo_acumulado += variacao
+            fim_mes["dias"][dia] = round(saldo_acumulado, 2)
         
-        resultado.append(total)
+        resultado.append(fluxo_variacao)
+        resultado.append(inicio_mes)
+        resultado.append(fim_mes)
         
         print(f"[DAILY CASH FLOW] Gerado fluxo com {len(resultado)} categorias e {days_in_month} dias")
         

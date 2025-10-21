@@ -155,12 +155,32 @@ const DailyCashFlow: React.FC = () => {
                 ) : (
                   cashFlowData.map((row, idx) => {
                     const totalLinha = Object.values(row.dias).reduce((sum, val) => sum + val, 0);
-                    const isTotal = row.categoria === 'TOTAL';
-                    const isGrupo = row.nivel === 0;
+                    const tipo = row.tipo || 'conta';
+                    
+                    // Determinar estilo baseado no tipo
+                    let rowClass = 'hover:bg-gray-50';
+                    let cellClass = 'bg-white';
+                    
+                    if (tipo === 'calculado') {
+                      rowClass = 'bg-yellow-50 font-bold border-t border-b border-yellow-200';
+                      cellClass = 'bg-yellow-50 font-bold';
+                    } else if (tipo === 'saldo') {
+                      rowClass = 'bg-green-50 font-bold border-t-2 border-green-400';
+                      cellClass = 'bg-green-50 font-bold';
+                    } else if (row.categoria === 'TOTAL' || row.categoria.includes('TOTAL')) {
+                      rowClass = 'bg-blue-50 font-bold border-t-2 border-blue-400';
+                      cellClass = 'bg-blue-50 font-bold';
+                    } else if (tipo === 'grupo' || row.nivel === 0) {
+                      rowClass = 'bg-gray-100 font-semibold';
+                      cellClass = 'bg-gray-100 font-semibold';
+                    } else if (tipo === 'subgrupo' || row.nivel === 1) {
+                      rowClass = 'bg-gray-50 font-medium';
+                      cellClass = 'bg-gray-50 font-medium';
+                    }
                     
                     return (
-                      <tr key={idx} className={`hover:bg-gray-50 ${isTotal ? 'bg-blue-50 font-bold border-t-2 border-blue-400' : isGrupo ? 'bg-gray-50 font-semibold' : ''}`}>
-                        <td className={`px-6 py-3 text-sm sticky left-0 z-10 ${isTotal ? 'bg-blue-50 font-bold' : isGrupo ? 'bg-gray-50 font-semibold' : 'bg-white'}`}>
+                      <tr key={idx} className={rowClass}>
+                        <td className={`px-6 py-3 text-sm sticky left-0 z-10 ${cellClass}`}>
                           <span style={{ marginLeft: `${row.nivel * 20}px` }}>
                             {row.categoria}
                           </span>
@@ -179,7 +199,7 @@ const DailyCashFlow: React.FC = () => {
                             </td>
                           );
                         })}
-                        <td className={`px-6 py-3 text-sm text-right font-bold border-l-2 border-gray-400 sticky right-0 z-10 ${isTotal ? 'bg-blue-50' : isGrupo ? 'bg-gray-50' : 'bg-white'}`}>
+                        <td className={`px-6 py-3 text-sm text-right font-bold border-l-2 border-gray-400 sticky right-0 z-10 ${cellClass}`}>
                           {formatCurrency(totalLinha)}
                         </td>
                       </tr>
@@ -232,14 +252,65 @@ const DailyCashFlow: React.FC = () => {
 
         {/* Legenda */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4">Como Usar</h3>
-          <div className="space-y-2 text-sm text-gray-600">
-            <p>• Use as setas ou o seletor de mês para navegar entre os períodos</p>
-            <p>• Cada coluna representa um dia do mês</p>
-            <p>• Os valores são calculados automaticamente dos <strong>Lançamentos Financeiros</strong></p>
-            <p>• A coluna <strong>Total</strong> mostra a soma de todos os dias</p>
-            <p>• Categorias em <strong>negrito</strong> são grupos principais</p>
-            <p>• Categorias identadas são subgrupos ou contas</p>
+          <h3 className="text-lg font-semibold mb-4">Legenda e Estrutura</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Tipos de Linha */}
+            <div>
+              <h4 className="font-medium text-gray-700 mb-3">Tipos de Linha</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-6 bg-gray-100 border rounded"></div>
+                  <span><strong>Grupos</strong> (Receita, Custos, Despesas)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-6 bg-gray-50 border rounded"></div>
+                  <span className="ml-4"><strong>Subgrupos</strong> (ex: Despesas Admin)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-6 bg-white border rounded"></div>
+                  <span className="ml-8">Contas (ex: Água, Salário)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-6 bg-yellow-50 border border-yellow-200 rounded"></div>
+                  <span><strong>Calculados</strong> (Receita Líquida, Lucro)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-6 bg-green-50 border border-green-400 rounded"></div>
+                  <span><strong>Saldos</strong> (Início/Fim do mês)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-6 bg-blue-50 border border-blue-400 rounded"></div>
+                  <span><strong>TOTAL</strong> (Totalizador geral)</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Como Usar */}
+            <div>
+              <h4 className="font-medium text-gray-700 mb-3">Como Usar</h4>
+              <div className="space-y-2 text-sm text-gray-600">
+                <p>• Navegue entre meses usando as setas ou seletor</p>
+                <p>• Cada coluna = um dia do mês</p>
+                <p>• Valores calculados dos <strong>Lançamentos Financeiros</strong></p>
+                <p>• <strong>Atualização automática</strong> ao criar novos lançamentos</p>
+                <p>• Coluna <strong>Total</strong> = soma de todos os dias</p>
+                <p>• Linhas <strong>calculadas</strong> mostram indicadores (Lucro, Receita Líquida)</p>
+                <p>• Seção <strong>Saldos</strong> mostra evolução do caixa</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <h4 className="font-medium text-gray-700 mb-2">Indicadores Calculados</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+              <p>• <strong>Receita Líquida</strong> = Receita - Deduções</p>
+              <p>• <strong>Lucro Bruto</strong> = Receita Líquida - Custos</p>
+              <p>• <strong>Desembolso Total</strong> = Custos + Despesas + Investimentos</p>
+              <p>• <strong>Lucro Operacional</strong> = Lucro Bruto - Despesas - Investimentos</p>
+              <p>• <strong>Fluxo (Variação)</strong> = Receitas - Saídas</p>
+              <p>• <strong>Fim do mês</strong> = Início + Variação acumulada</p>
+            </div>
           </div>
         </div>
       </div>
