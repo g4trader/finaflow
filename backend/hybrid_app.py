@@ -2696,6 +2696,7 @@ async def delete_lancamento_diario(
 ):
     """Excluir lançamento diário"""
     try:
+        from datetime import datetime
         from app.models.lancamento_diario import LancamentoDiario
         
         # Buscar lançamento
@@ -2708,10 +2709,8 @@ async def delete_lancamento_diario(
         if not lancamento:
             return {"success": False, "message": "Lançamento não encontrado"}
         
-        # Soft delete
-        lancamento.is_active = False
-        lancamento.updated_at = datetime.now()
-        
+        # Hard delete (remover completamente)
+        db.delete(lancamento)
         db.commit()
         
         return {
@@ -2720,6 +2719,7 @@ async def delete_lancamento_diario(
         }
         
     except Exception as e:
+        db.rollback()
         return {"success": False, "message": f"Erro ao excluir lançamento: {str(e)}"}
 
 # ============================================================================
