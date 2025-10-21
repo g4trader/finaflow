@@ -4815,8 +4815,8 @@ async def importar_lancamentos_planilha(
         if not spreadsheet_id:
             return {"success": False, "message": "spreadsheet_id é obrigatório"}
         
-        tenant_id = str(current_user["tenant_id"])
-        business_unit_id = str(current_user["business_unit_id"])
+        tenant_id = current_user["tenant_id"]  # Manter como UUID/string
+        business_unit_id = current_user["business_unit_id"]  # Manter como UUID/string
         user_id = current_user.get("sub")
         
         print(f"[IMPORT] Iniciando importação de lançamentos...")
@@ -4830,11 +4830,12 @@ async def importar_lancamentos_planilha(
             return {"success": False, "message": "Falha na autenticação com Google Sheets"}
         
         # Importar apenas lançamentos diários
+        # Passar db como Session, não como string
         result = importer._import_daily_transactions(
             spreadsheet_id,
-            tenant_id,
-            business_unit_id,
-            db,
+            str(tenant_id),
+            str(business_unit_id),
+            db,  # Session do SQLAlchemy
             user_id
         )
         
