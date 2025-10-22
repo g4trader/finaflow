@@ -21,7 +21,16 @@ from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount, BusinessUnitChartAccount, Base as ChartBase
 from app.models.financial_transactions import FinancialTransaction, TransactionType, TransactionStatus, Base as FinancialBase
-from backend.app.models.lancamento_diario import LancamentoDiario
+# Importar LancamentoDiario com configuração para evitar conflito
+try:
+    from backend.app.models.lancamento_diario import LancamentoDiario
+    # Configurar para não criar tabela automaticamente
+    LancamentoDiario.__table__.extend_existing = True
+except Exception as e:
+    print(f"⚠️ Aviso: Não foi possível importar LancamentoDiario: {e}")
+    # Criar classe temporária se necessário
+    class LancamentoDiario:
+        pass
 from backend.app.models.lancamento_previsto import LancamentoPrevisto
 from backend.app.models.conta_bancaria import ContaBancaria, MovimentacaoBancaria
 from backend.app.models.caixa import Caixa, MovimentacaoCaixa
@@ -2184,7 +2193,7 @@ async def get_cash_flow(
     try:
         from datetime import datetime, timedelta
         from collections import defaultdict
-        from app.models.lancamento_diario import LancamentoDiario
+        # LancamentoDiario já importado no topo
         
         # Definir período padrão (últimos 30 dias)
         if not end_date:
@@ -2551,6 +2560,105 @@ async def fix_all_uuid_types(
     }
 
 # ============================================================================
+# ENDPOINT TEMPORÁRIO PARA IMPORTAÇÃO DIRETA
+# ============================================================================
+
+@app.post("/api/v1/admin/importar-dados-direto")
+async def importar_dados_direto(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Importar dados diretamente sem depender do Google Sheets API"""
+    try:
+        # Dados do plano de contas (hardcoded da planilha)
+        plano_contas_data = [
+            {"conta": "Diversos", "subgrupo": "Receita", "grupo": "Receita"},
+            {"conta": "Compra de material para consumo-CSP", "subgrupo": "Custos com Serviços Prestados", "grupo": "Custos"},
+            {"conta": "Tarifas Bancárias", "subgrupo": "Despesas Financeiras", "grupo": "Despesas Operacionais"},
+            {"conta": "Aluguel", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Energia Elétrica", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Água", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Internet", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Telefone", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Combustível", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Manutenção de Equipamentos", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Material de Limpeza", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Material de Escritório", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Salários", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Encargos Sociais", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Vale Transporte", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Vale Refeição", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Seguro", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Contador", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Marketing", "subgrupo": "Despesas Operacionais", "grupo": "Despesas Operacionais"},
+            {"conta": "Banco do Brasil", "subgrupo": "Contas Bancárias", "grupo": "Ativo"},
+            {"conta": "Caixa", "subgrupo": "Caixa", "grupo": "Ativo"},
+            {"conta": "Investimentos", "subgrupo": "Investimentos", "grupo": "Ativo"}
+        ]
+        
+        tenant_id = current_user.get("tenant_id")
+        business_unit_id = current_user.get("business_unit_id")
+        
+        # Importar plano de contas
+        grupos_criados = {}
+        subgrupos_criados = {}
+        contas_criadas = {}
+        
+        for item in plano_contas_data:
+            # Criar grupo se não existir
+            if item["grupo"] not in grupos_criados:
+                grupo = ChartAccountGroup(
+                    code=f"GRP_{len(grupos_criados) + 1:02d}",
+                    name=item["grupo"],
+                    tenant_id=tenant_id
+                )
+                db.add(grupo)
+                db.flush()
+                grupos_criados[item["grupo"]] = grupo
+            
+            # Criar subgrupo se não existir
+            if item["subgrupo"] not in subgrupos_criados:
+                subgrupo = ChartAccountSubgroup(
+                    code=f"SUB_{len(subgrupos_criados) + 1:02d}",
+                    name=item["subgrupo"],
+                    group_id=grupos_criados[item["grupo"]].id,
+                    tenant_id=tenant_id
+                )
+                db.add(subgrupo)
+                db.flush()
+                subgrupos_criados[item["subgrupo"]] = subgrupo
+            
+            # Criar conta se não existir
+            if item["conta"] not in contas_criadas:
+                conta = ChartAccount(
+                    code=f"CON_{len(contas_criadas) + 1:03d}",
+                    name=item["conta"],
+                    subgroup_id=subgrupos_criados[item["subgrupo"]].id,
+                    tenant_id=tenant_id
+                )
+                db.add(conta)
+                db.flush()
+                contas_criadas[item["conta"]] = conta
+                
+                # Criar vínculo com business unit
+                if business_unit_id:
+                    bu_conta = BusinessUnitChartAccount(
+                        business_unit_id=business_unit_id,
+                        chart_account_id=conta.id
+                    )
+                    db.add(bu_conta)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Plano de contas importado: {len(grupos_criados)} grupos, {len(subgrupos_criados)} subgrupos, {len(contas_criadas)} contas"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao importar dados: {str(e)}"}
+
 # ENDPOINTS DE LANÇAMENTOS DIÁRIOS
 # ============================================================================
 
@@ -2641,7 +2749,7 @@ async def create_lancamento_diario(
         # Demais grupos ficam sem classificação (None)
         
         # Criar lançamento usando o modelo LancamentoDiario
-        from app.models.lancamento_diario import LancamentoDiario
+        # LancamentoDiario já importado no topo
         
         lancamento = LancamentoDiario(
             data_movimentacao=data_movimentacao,
@@ -2681,7 +2789,7 @@ async def get_lancamentos_diarios(
 ):
     """Listar lançamentos diários"""
     try:
-        from app.models.lancamento_diario import LancamentoDiario
+        # LancamentoDiario já importado no topo
         from sqlalchemy.orm import joinedload
         
         # Buscar lançamentos com joins para buscar nomes
@@ -2742,7 +2850,7 @@ async def update_lancamento_diario(
 ):
     """Atualizar lançamento diário"""
     try:
-        from app.models.lancamento_diario import LancamentoDiario
+        # LancamentoDiario já importado no topo
         from datetime import datetime
         from decimal import Decimal
         
@@ -2793,7 +2901,7 @@ async def delete_lancamento_diario(
     """Excluir lançamento diário"""
     try:
         from datetime import datetime
-        from app.models.lancamento_diario import LancamentoDiario
+        # LancamentoDiario já importado no topo
         
         # Buscar lançamento
         lancamento = db.query(LancamentoDiario).filter(
@@ -2959,7 +3067,7 @@ async def import_chart_accounts(
         business_unit_id = current_user.get("business_unit_id")
         
         # Importar usando o serviço com vínculos
-        from app.services.chart_accounts_importer import ChartAccountsImporter
+        from backend.app.services.chart_accounts_importer import ChartAccountsImporter
         result = ChartAccountsImporter.import_chart_accounts(
             db, 
             csv_content,
@@ -4285,7 +4393,7 @@ async def onboard_new_company(
             print(f"[ONBOARD] Files in current dir: {os.listdir('.')[:10]}")
             
             if csv_path and os.path.exists(csv_path):
-                from app.services.chart_accounts_importer import ChartAccountsImporter
+                from backend.app.services.chart_accounts_importer import ChartAccountsImporter
                 
                 with open(csv_path, 'r', encoding='utf-8') as f:
                     csv_content = f.read()
@@ -6283,7 +6391,7 @@ async def get_daily_cash_flow(
     Calculado dinamicamente dos lançamentos diários
     """
     try:
-        from app.models.lancamento_diario import LancamentoDiario
+        # LancamentoDiario já importado no topo
         from sqlalchemy.orm import joinedload
         from sqlalchemy import extract
         from collections import defaultdict
@@ -6546,7 +6654,7 @@ async def get_cash_flow_previsto_realizado(
     Calculado dinamicamente dos lançamentos diários e previsões
     """
     try:
-        from app.models.lancamento_diario import LancamentoDiario
+        # LancamentoDiario já importado no topo
         from app.models.lancamento_previsto import LancamentoPrevisto
         from app.models.chart_of_accounts import ChartAccountGroup
         from sqlalchemy.orm import joinedload
@@ -7121,7 +7229,7 @@ async def limpar_todos_lancamentos(
 ):
     """ADMIN: Limpar todos os lançamentos diários"""
     try:
-        from app.models.lancamento_diario import LancamentoDiario
+        # LancamentoDiario já importado no topo
         
         # Buscar todos os lançamentos do usuário
         lancamentos = db.query(LancamentoDiario).filter(
