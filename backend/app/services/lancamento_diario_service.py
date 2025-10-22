@@ -3,13 +3,13 @@ from datetime import datetime
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, asc
-# from app.models.lancamento_diario import (
-#     LancamentoDiario, 
-#     TransactionType, 
-#     TransactionStatus,
-#     LancamentoDiarioCreate,
-#     LancamentoDiarioUpdate
-# )
+from app.models.lancamento_diario import (
+    LancamentoDiario, 
+    TransactionType, 
+    TransactionStatus,
+    LancamentoDiarioCreate,
+    LancamentoDiarioUpdate
+)
 from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
 from app.models.auth import User
 
@@ -160,60 +160,85 @@ class LancamentoDiarioService:
     ) -> Dict:
         """Busca lançamentos diários com filtros"""
         try:
-            # Query base
-            query = db.query(LancamentoDiario).filter(
-                LancamentoDiario.tenant_id == tenant_id,
-                LancamentoDiario.business_unit_id == business_unit_id,
-                LancamentoDiario.is_active == True
-            )
+            # Usar SQL direto para evitar conflito SQLAlchemy
+            from sqlalchemy import text
+            
+            # Construir query SQL
+            where_conditions = [
+                "tenant_id = :tenant_id",
+                "business_unit_id = :business_unit_id", 
+                "is_active = true"
+            ]
+            params = {
+                "tenant_id": tenant_id,
+                "business_unit_id": business_unit_id
+            }
             
             # Aplicar filtros
             if start_date:
-                query = query.filter(LancamentoDiario.data_movimentacao >= start_date)
+                where_conditions.append("data_movimentacao >= :start_date")
+                params["start_date"] = start_date
             if end_date:
-                query = query.filter(LancamentoDiario.data_movimentacao <= end_date)
+                where_conditions.append("data_movimentacao <= :end_date")
+                params["end_date"] = end_date
             if conta_id:
-                query = query.filter(LancamentoDiario.conta_id == conta_id)
+                where_conditions.append("conta_id = :conta_id")
+                params["conta_id"] = conta_id
             if subgrupo_id:
-                query = query.filter(LancamentoDiario.subgrupo_id == subgrupo_id)
+                where_conditions.append("subgrupo_id = :subgrupo_id")
+                params["subgrupo_id"] = subgrupo_id
             if grupo_id:
-                query = query.filter(LancamentoDiario.grupo_id == grupo_id)
+                where_conditions.append("grupo_id = :grupo_id")
+                params["grupo_id"] = grupo_id
             if transaction_type:
-                query = query.filter(LancamentoDiario.transaction_type == transaction_type)
+                where_conditions.append("transaction_type = :transaction_type")
+                params["transaction_type"] = transaction_type.value if hasattr(transaction_type, 'value') else str(transaction_type)
             
-            # Contar total
-            total = query.count()
+            where_clause = " AND ".join(where_conditions)
             
-            # Paginação
+            # Query para contar total
+            count_query = text(f"SELECT COUNT(*) FROM lancamentos_diarios WHERE {where_clause}")
+            total = db.execute(count_query, params).scalar()
+            
+            # Query para buscar dados com paginação
             offset = (page - 1) * per_page
-            lancamentos = query.order_by(desc(LancamentoDiario.data_movimentacao)).offset(offset).limit(per_page).all()
+            data_query = text(f"""
+                SELECT * FROM lancamentos_diarios 
+                WHERE {where_clause}
+                ORDER BY data_movimentacao DESC
+                LIMIT :limit OFFSET :offset
+            """)
+            params.update({"limit": per_page, "offset": offset})
+            
+            result = db.execute(data_query, params)
+            lancamentos = result.fetchall()
             
             # Converter para response
             lancamentos_response = []
-            for lancamento in lancamentos:
+            for row in lancamentos:
                 lancamentos_response.append({
-                    "id": lancamento.id,
-                    "data_movimentacao": lancamento.data_movimentacao.isoformat(),
-                    "valor": str(lancamento.valor),
-                    "liquidacao": lancamento.liquidacao.isoformat() if lancamento.liquidacao else None,
-                    "observacoes": lancamento.observacoes,
-                    "conta_id": lancamento.conta_id,
-                    "conta_nome": lancamento.conta.name,
-                    "conta_codigo": lancamento.conta.code,
-                    "subgrupo_id": lancamento.subgrupo_id,
-                    "subgrupo_nome": lancamento.subgrupo.name,
-                    "subgrupo_codigo": lancamento.subgrupo.code,
-                    "grupo_id": lancamento.grupo_id,
-                    "grupo_nome": lancamento.grupo.name,
-                    "grupo_codigo": lancamento.grupo.code,
-                    "transaction_type": lancamento.transaction_type.value,
-                    "status": lancamento.status.value,
-                    "tenant_id": lancamento.tenant_id,
-                    "business_unit_id": lancamento.business_unit_id,
-                    "created_by": lancamento.created_by,
-                    "is_active": lancamento.is_active,
-                    "created_at": lancamento.created_at.isoformat(),
-                    "updated_at": lancamento.updated_at.isoformat()
+                    "id": row.id,
+                    "data_movimentacao": row.data_movimentacao.isoformat() if row.data_movimentacao else None,
+                    "valor": str(row.valor),
+                    "liquidacao": row.liquidacao.isoformat() if row.liquidacao else None,
+                    "observacoes": row.observacoes,
+                    "conta_id": row.conta_id,
+                    "conta_nome": row.conta_name if hasattr(row, 'conta_name') else None,
+                    "conta_codigo": row.conta_code if hasattr(row, 'conta_code') else None,
+                    "subgrupo_id": row.subgrupo_id,
+                    "subgrupo_nome": row.subgrupo_name if hasattr(row, 'subgrupo_name') else None,
+                    "subgrupo_codigo": row.subgrupo_code if hasattr(row, 'subgrupo_code') else None,
+                    "grupo_id": row.grupo_id,
+                    "grupo_nome": row.grupo_name if hasattr(row, 'grupo_name') else None,
+                    "grupo_codigo": row.grupo_code if hasattr(row, 'grupo_code') else None,
+                    "transaction_type": row.transaction_type,
+                    "status": row.status,
+                    "tenant_id": row.tenant_id,
+                    "business_unit_id": row.business_unit_id,
+                    "created_by": row.created_by,
+                    "is_active": row.is_active,
+                    "created_at": row.created_at.isoformat() if row.created_at else None,
+                    "updated_at": row.updated_at.isoformat() if row.updated_at else None
                 })
             
             return {
