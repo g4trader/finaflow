@@ -7,7 +7,7 @@ import os
 from contextlib import asynccontextmanager
 
 from app.database import create_tables
-from app.api import auth, financial, test_auth, import_api
+from app.api import auth, financial, test_auth, import_api, transactions
 from app.routes import permissions
 from app.models.auth import Base
 from app.models.financial import Base as FinancialBase
@@ -96,6 +96,8 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(financial.router, prefix="/api/v1")
 app.include_router(test_auth.router, prefix="/api/v1")
 app.include_router(import_api.router, prefix="/api/v1")
+app.include_router(transactions.router, prefix="/api/v1")
+app.include_router(transactions.router)
 app.include_router(permissions.router)
 
 # Rota raiz

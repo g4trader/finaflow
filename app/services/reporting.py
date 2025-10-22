@@ -1,46 +1,46 @@
-"""Utilities for reporting related queries."""
+"""Utilities for reporting related queries backed by PostgreSQL."""
 
 from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List
 
 import asyncio
-from app.db.bq_client import query
+from sqlalchemy.orm import Session
 
-CASH_FLOW_TABLE = "CashFlow"
+from app.database import SessionLocal
+from app.models.financial import CashFlow
 
 
 async def cash_flow_summary(group_by: str, tenant_id: str) -> Any:
-    """Return cash-flow aggregates grouped by the provided period.
+    """Return cash-flow aggregates grouped by the provided period."""
 
-    The function fetches cash-flow records from the database and groups them
-    by either ``month`` or ``day``. Each group contains the sum of the
-    ``predicted`` and ``realized`` values.
+    if group_by not in {"month", "day"}:
+        raise ValueError("group_by must be 'month' or 'day'")
 
-    Args:
-        group_by: ``"month"`` or ``"day"`` defining aggregation granularity.
-        tenant_id: Identifier used to filter results by tenant.
+    return await asyncio.to_thread(_calculate_cash_flow, group_by, tenant_id)
 
-    Returns:
-        A list of dictionaries with ``period``, ``predicted`` and ``realized``
-        totals ordered by the period.
-    """
 
-    rows = await asyncio.to_thread(query, CASH_FLOW_TABLE, {"tenant_id": tenant_id})
+def _calculate_cash_flow(group_by: str, tenant_id: str) -> List[Dict[str, float]]:
+    """Fetch cash-flow data from the relational database and aggregate it."""
 
-    totals: Dict[str, Dict[str, float]] = defaultdict(lambda: {"predicted": 0.0, "realized": 0.0})
+    with SessionLocal() as session:  # type: Session
+        rows = (
+            session.query(CashFlow)
+            .filter(CashFlow.tenant_id == tenant_id)
+            .order_by(CashFlow.date)
+            .all()
+        )
+
+    totals: Dict[str, Dict[str, float]] = defaultdict(
+        lambda: {"predicted": 0.0, "realized": 0.0}
+    )
 
     for row in rows:
-        dt = datetime.fromisoformat(str(row["date"]))
-        if group_by == "day":
-            key = dt.strftime("%Y-%m-%d")
-        elif group_by == "month":
-            key = dt.strftime("%Y-%m")
-        else:
-            raise ValueError("group_by must be 'month' or 'day'")
+        dt: datetime = row.date
+        key = dt.strftime("%Y-%m-%d" if group_by == "day" else "%Y-%m")
 
-        totals[key]["predicted"] += float(row.get("predicted", 0))
-        totals[key]["realized"] += float(row.get("realized", 0))
+        totals[key]["predicted"] += float(row.total_revenue or 0)
+        totals[key]["realized"] += float(row.total_expenses or 0)
 
     return [
         {"period": period, **values}
