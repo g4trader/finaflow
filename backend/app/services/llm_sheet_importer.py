@@ -146,7 +146,7 @@ class LLMSheetImporter:
                 return {"success": False, "error": "Coluna 'Conta' não encontrada"}
             
             # Importar lançamentos diários
-            from app.models.lancamento_diario import LancamentoDiario, TransactionType, TransactionStatus
+            # from app.models.lancamento_diario import LancamentoDiario, TransactionType, TransactionStatus
             from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
             
             transactions_created = 0
@@ -225,7 +225,7 @@ class LLMSheetImporter:
                     descricao = f"Lançamento - {conta_name}"
                 
                 # Criar lançamento diário
-                from app.models.lancamento_diario import LancamentoDiario
+                # from app.models.lancamento_diario import LancamentoDiario
                 
                 # Determinar tipo baseado apenas nos grupos específicos
                 transaction_type_enum = None  # Sem classificação por padrão
