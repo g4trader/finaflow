@@ -6663,6 +6663,18 @@ async def limpar_via_sql(
         """)
         count_before = db.execute(count_query, {"tenant_id": tenant_id, "bu_id": business_unit_id}).scalar()
         
+        # Primeiro, corrigir a coluna transaction_type para permitir NULL
+        try:
+            alter_query = text("""
+                ALTER TABLE lancamentos_diarios 
+                ALTER COLUMN transaction_type DROP NOT NULL
+            """)
+            db.execute(alter_query)
+            print("✅ Coluna transaction_type corrigida para permitir NULL")
+        except Exception as alter_error:
+            print(f"⚠️ Aviso ao corrigir coluna: {str(alter_error)}")
+            # Continuar mesmo se a correção falhar
+        
         # Deletar via SQL direto
         delete_query = text("""
             DELETE FROM lancamentos_diarios 

@@ -172,15 +172,11 @@ def main():
     if not select_business_unit(token):
         return
     
-    # 3. Corrigir coluna transaction_type
-    if not fix_transaction_type_column(token):
-        return
-    
-    # 4. Limpar lançamentos existentes
+    # 3. Limpar lançamentos existentes (já corrige a coluna transaction_type)
     if not limpar_lancamentos(token):
         return
     
-    # 5. Importar novos lançamentos
+    # 4. Importar novos lançamentos
     if not importar_lancamentos(token):
         return
     
