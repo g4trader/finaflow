@@ -241,7 +241,7 @@ const FinancialForecasts: React.FC = () => {
   };
 
   // Filtrar previsões
-  const filteredPrevisoes = previsoes.filter(prev => {
+  const filteredPrevisoes = (previsoes || []).filter(prev => {
     // Filtro de busca
     if (searchTerm && !prev.observacoes?.toLowerCase().includes(searchTerm.toLowerCase()) &&
         !prev.conta_nome.toLowerCase().includes(searchTerm.toLowerCase())) {
@@ -271,14 +271,14 @@ const FinancialForecasts: React.FC = () => {
   const currentPrevisoes = filteredPrevisoes.slice(startIndex, endIndex);
 
   // Filtrar subgrupos baseado no grupo selecionado
-  const filteredSubgrupos = planoContas?.subgrupos.filter(
+  const filteredSubgrupos = (planoContas?.subgrupos || []).filter(
     sub => !selectedGrupo || sub.group_id === selectedGrupo
-  ) || [];
+  );
 
   // Filtrar contas baseado no subgrupo selecionado
-  const filteredContas = planoContas?.contas.filter(
+  const filteredContas = (planoContas?.contas || []).filter(
     conta => !selectedSubgrupo || conta.subgroup_id === selectedSubgrupo
-  ) || [];
+  );
 
   return (
     <Layout>
@@ -383,7 +383,7 @@ const FinancialForecasts: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Todos os grupos</option>
-                {planoContas?.grupos.map(grupo => (
+                {(planoContas?.grupos || []).map(grupo => (
                   <option key={grupo.id} value={grupo.id}>
                     {grupo.code} - {grupo.name}
                   </option>
@@ -677,7 +677,7 @@ const FinancialForecasts: React.FC = () => {
                       required
                     >
                       <option value="">Selecione um grupo</option>
-                      {planoContas?.grupos.map(grupo => (
+                      {(planoContas?.grupos || []).map(grupo => (
                         <option key={grupo.id} value={grupo.id}>
                           {grupo.code} - {grupo.name}
                         </option>
@@ -697,7 +697,7 @@ const FinancialForecasts: React.FC = () => {
                       disabled={!formData.grupo_id}
                     >
                       <option value="">Selecione um subgrupo</option>
-                      {planoContas?.subgrupos
+                      {(planoContas?.subgrupos || [])
                         .filter(sub => sub.group_id === formData.grupo_id)
                         .map(sub => (
                           <option key={sub.id} value={sub.id}>
@@ -719,7 +719,7 @@ const FinancialForecasts: React.FC = () => {
                       disabled={!formData.subgrupo_id}
                     >
                       <option value="">Selecione uma conta</option>
-                      {planoContas?.contas
+                      {(planoContas?.contas || [])
                         .filter(conta => conta.subgroup_id === formData.subgrupo_id)
                         .map(conta => (
                           <option key={conta.id} value={conta.id}>
