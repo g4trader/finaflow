@@ -23,7 +23,8 @@ import {
   BookOpen,
   FileSpreadsheet,
   Activity,
-  Calendar
+  Calendar,
+  FileText
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -148,6 +149,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       description: 'Gestão de contas bancárias'
     },
     {
+      icon: <FileText className="w-5 h-5" />,
+      label: 'Extrato Contas Bancárias',
+      href: '/extrato-contas-bancarias',
+      active: isItemActive('/extrato-contas-bancarias', 'Extrato Contas Bancárias'),
+      description: 'Extrato diário das contas bancárias'
+    },
+    {
       icon: <Wallet className="w-5 h-5" />,
       label: 'Caixa / Dinheiro',
       href: '/caixa',
@@ -160,6 +168,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       href: '/investimentos',
       active: isItemActive('/investimentos', 'Investimentos'),
       description: 'Gestão de investimentos e aplicações'
+    },
+    {
+      icon: <BarChart3 className="w-5 h-5" />,
+      label: 'Totalizadores Mensais',
+      href: '/totalizadores-mensais',
+      active: isItemActive('/totalizadores-mensais', 'Totalizadores Mensais'),
+      description: 'Totalizadores mensais de todas as contas'
     },
     {
       icon: <BarChart3 className="w-5 h-5" />,

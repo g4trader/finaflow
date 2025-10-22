@@ -5654,6 +5654,372 @@ async def get_saldo_disponivel(
         return {"success": False, "message": f"Erro ao calcular saldo: {str(e)}"}
 
 # ============================================================================
+# ENDPOINTS DE EXTRATO DIÁRIO E TOTALIZADORES MENSAIS
+# ============================================================================
+
+@app.get("/api/v1/contas-bancarias/extrato-diario")
+async def get_extrato_diario_contas_bancarias(
+    data_inicio: str = None,
+    data_fim: str = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter extrato diário das contas bancárias"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        business_unit_id_str = str(current_user["business_unit_id"])
+        
+        # Se não especificadas, usar últimos 30 dias
+        if not data_inicio:
+            from datetime import datetime, timedelta
+            data_inicio = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        if not data_fim:
+            from datetime import datetime
+            data_fim = datetime.now().strftime("%Y-%m-%d")
+        
+        # Buscar lançamentos diários relacionados a contas bancárias
+        lancamentos = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id_str,
+            LancamentoDiario.business_unit_id == business_unit_id_str,
+            LancamentoDiario.is_active == True,
+            LancamentoDiario.data_movimentacao >= data_inicio,
+            LancamentoDiario.data_movimentacao <= data_fim
+        ).order_by(LancamentoDiario.data_movimentacao.desc()).all()
+        
+        # Agrupar por data
+        extrato_por_data = {}
+        for lancamento in lancamentos:
+            data_str = lancamento.data_movimentacao.strftime("%Y-%m-%d")
+            if data_str not in extrato_por_data:
+                extrato_por_data[data_str] = {
+                    "data": data_str,
+                    "entradas": 0,
+                    "saidas": 0,
+                    "saldo_dia": 0,
+                    "lancamentos": []
+                }
+            
+            valor = float(lancamento.valor)
+            if lancamento.transaction_type == "RECEITA":
+                extrato_por_data[data_str]["entradas"] += valor
+            elif lancamento.transaction_type in ["DESPESA", "CUSTO"]:
+                extrato_por_data[data_str]["saidas"] += valor
+            
+            extrato_por_data[data_str]["lancamentos"].append({
+                "id": lancamento.id,
+                "conta": lancamento.conta.name if lancamento.conta else "N/A",
+                "descricao": lancamento.observacoes or "Lançamento",
+                "valor": valor,
+                "tipo": lancamento.transaction_type,
+                "liquidacao": lancamento.liquidacao
+            })
+        
+        # Calcular saldo diário
+        saldo_acumulado = 0
+        for data_str in sorted(extrato_por_data.keys(), reverse=True):
+            extrato_por_data[data_str]["saldo_dia"] = saldo_acumulado + extrato_por_data[data_str]["entradas"] - extrato_por_data[data_str]["saidas"]
+            saldo_acumulado = extrato_por_data[data_str]["saldo_dia"]
+        
+        return {
+            "success": True,
+            "periodo": {"inicio": data_inicio, "fim": data_fim},
+            "extrato": list(extrato_por_data.values())
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar extrato: {str(e)}"}
+
+@app.get("/api/v1/contas-bancarias/totalizadores-mensais")
+async def get_totalizadores_mensais_contas_bancarias(
+    ano: int = 2025,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter totalizadores mensais das contas bancárias"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        business_unit_id_str = str(current_user["business_unit_id"])
+        
+        # Inicializar dados mensais
+        totalizadores_mensais = {}
+        for mes in range(1, 13):
+            totalizadores_mensais[mes] = {
+                "mes": mes,
+                "entradas": 0,
+                "saidas": 0,
+                "saldo_final": 0,
+                "quantidade_lancamentos": 0
+            }
+        
+        # Buscar lançamentos do ano
+        lancamentos = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id_str,
+            LancamentoDiario.business_unit_id == business_unit_id_str,
+            LancamentoDiario.is_active == True,
+            LancamentoDiario.data_movimentacao >= f"{ano}-01-01",
+            LancamentoDiario.data_movimentacao <= f"{ano}-12-31"
+        ).all()
+        
+        # Processar lançamentos
+        for lancamento in lancamentos:
+            mes = lancamento.data_movimentacao.month
+            valor = float(lancamento.valor)
+            
+            totalizadores_mensais[mes]["quantidade_lancamentos"] += 1
+            
+            if lancamento.transaction_type == "RECEITA":
+                totalizadores_mensais[mes]["entradas"] += valor
+            elif lancamento.transaction_type in ["DESPESA", "CUSTO"]:
+                totalizadores_mensais[mes]["saidas"] += valor
+        
+        # Calcular saldo final mensal
+        saldo_acumulado = 0
+        for mes in range(1, 13):
+            saldo_acumulado += totalizadores_mensais[mes]["entradas"] - totalizadores_mensais[mes]["saidas"]
+            totalizadores_mensais[mes]["saldo_final"] = saldo_acumulado
+        
+        return {
+            "success": True,
+            "ano": ano,
+            "totalizadores": list(totalizadores_mensais.values())
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar totalizadores: {str(e)}"}
+
+@app.get("/api/v1/caixa/extrato-diario")
+async def get_extrato_diario_caixa(
+    data_inicio: str = None,
+    data_fim: str = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter extrato diário do caixa"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        business_unit_id_str = str(current_user["business_unit_id"])
+        
+        # Se não especificadas, usar últimos 30 dias
+        if not data_inicio:
+            from datetime import datetime, timedelta
+            data_inicio = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        if not data_fim:
+            from datetime import datetime
+            data_fim = datetime.now().strftime("%Y-%m-%d")
+        
+        # Buscar lançamentos diários relacionados ao caixa
+        lancamentos = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id_str,
+            LancamentoDiario.business_unit_id == business_unit_id_str,
+            LancamentoDiario.is_active == True,
+            LancamentoDiario.data_movimentacao >= data_inicio,
+            LancamentoDiario.data_movimentacao <= data_fim
+        ).order_by(LancamentoDiario.data_movimentacao.desc()).all()
+        
+        # Agrupar por data
+        extrato_por_data = {}
+        for lancamento in lancamentos:
+            data_str = lancamento.data_movimentacao.strftime("%Y-%m-%d")
+            if data_str not in extrato_por_data:
+                extrato_por_data[data_str] = {
+                    "data": data_str,
+                    "entradas": 0,
+                    "saidas": 0,
+                    "saldo_dia": 0,
+                    "lancamentos": []
+                }
+            
+            valor = float(lancamento.valor)
+            if lancamento.transaction_type == "RECEITA":
+                extrato_por_data[data_str]["entradas"] += valor
+            elif lancamento.transaction_type in ["DESPESA", "CUSTO"]:
+                extrato_por_data[data_str]["saidas"] += valor
+            
+            extrato_por_data[data_str]["lancamentos"].append({
+                "id": lancamento.id,
+                "conta": lancamento.conta.name if lancamento.conta else "N/A",
+                "descricao": lancamento.observacoes or "Lançamento",
+                "valor": valor,
+                "tipo": lancamento.transaction_type,
+                "liquidacao": lancamento.liquidacao
+            })
+        
+        # Calcular saldo diário
+        saldo_acumulado = 0
+        for data_str in sorted(extrato_por_data.keys(), reverse=True):
+            extrato_por_data[data_str]["saldo_dia"] = saldo_acumulado + extrato_por_data[data_str]["entradas"] - extrato_por_data[data_str]["saidas"]
+            saldo_acumulado = extrato_por_data[data_str]["saldo_dia"]
+        
+        return {
+            "success": True,
+            "periodo": {"inicio": data_inicio, "fim": data_fim},
+            "extrato": list(extrato_por_data.values())
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar extrato: {str(e)}"}
+
+@app.get("/api/v1/caixa/totalizadores-mensais")
+async def get_totalizadores_mensais_caixa(
+    ano: int = 2025,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter totalizadores mensais do caixa"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        business_unit_id_str = str(current_user["business_unit_id"])
+        
+        # Inicializar dados mensais
+        totalizadores_mensais = {}
+        for mes in range(1, 13):
+            totalizadores_mensais[mes] = {
+                "mes": mes,
+                "entradas": 0,
+                "saidas": 0,
+                "saldo_final": 0,
+                "quantidade_lancamentos": 0
+            }
+        
+        # Buscar lançamentos do ano
+        lancamentos = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id_str,
+            LancamentoDiario.business_unit_id == business_unit_id_str,
+            LancamentoDiario.is_active == True,
+            LancamentoDiario.data_movimentacao >= f"{ano}-01-01",
+            LancamentoDiario.data_movimentacao <= f"{ano}-12-31"
+        ).all()
+        
+        # Processar lançamentos
+        for lancamento in lancamentos:
+            mes = lancamento.data_movimentacao.month
+            valor = float(lancamento.valor)
+            
+            totalizadores_mensais[mes]["quantidade_lancamentos"] += 1
+            
+            if lancamento.transaction_type == "RECEITA":
+                totalizadores_mensais[mes]["entradas"] += valor
+            elif lancamento.transaction_type in ["DESPESA", "CUSTO"]:
+                totalizadores_mensais[mes]["saidas"] += valor
+        
+        # Calcular saldo final mensal
+        saldo_acumulado = 0
+        for mes in range(1, 13):
+            saldo_acumulado += totalizadores_mensais[mes]["entradas"] - totalizadores_mensais[mes]["saidas"]
+            totalizadores_mensais[mes]["saldo_final"] = saldo_acumulado
+        
+        return {
+            "success": True,
+            "ano": ano,
+            "totalizadores": list(totalizadores_mensais.values())
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar totalizadores: {str(e)}"}
+
+@app.get("/api/v1/investimentos/extrato-diario")
+async def get_extrato_diario_investimentos(
+    data_inicio: str = None,
+    data_fim: str = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter extrato diário dos investimentos"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        business_unit_id_str = str(current_user["business_unit_id"])
+        
+        # Se não especificadas, usar últimos 30 dias
+        if not data_inicio:
+            from datetime import datetime, timedelta
+            data_inicio = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        if not data_fim:
+            from datetime import datetime
+            data_fim = datetime.now().strftime("%Y-%m-%d")
+        
+        # Buscar investimentos ativos
+        investimentos = db.query(Investimento).filter(
+            Investimento.tenant_id == tenant_id_str,
+            Investimento.business_unit_id == business_unit_id_str,
+            Investimento.is_active == True
+        ).all()
+        
+        # Criar extrato baseado nos investimentos
+        extrato = []
+        for investimento in investimentos:
+            extrato.append({
+                "data": investimento.data_aplicacao.strftime("%Y-%m-%d") if investimento.data_aplicacao else "N/A",
+                "tipo": investimento.tipo,
+                "instituicao": investimento.instituicao,
+                "valor_aplicado": float(investimento.valor_aplicado or 0),
+                "valor_atual": float(investimento.valor_atual or 0),
+                "rentabilidade": float(investimento.valor_atual or 0) - float(investimento.valor_aplicado or 0),
+                "observacoes": investimento.observacoes
+            })
+        
+        return {
+            "success": True,
+            "periodo": {"inicio": data_inicio, "fim": data_fim},
+            "extrato": extrato
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar extrato: {str(e)}"}
+
+@app.get("/api/v1/investimentos/totalizadores-mensais")
+async def get_totalizadores_mensais_investimentos(
+    ano: int = 2025,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter totalizadores mensais dos investimentos"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        business_unit_id_str = str(current_user["business_unit_id"])
+        
+        # Inicializar dados mensais
+        totalizadores_mensais = {}
+        for mes in range(1, 13):
+            totalizadores_mensais[mes] = {
+                "mes": mes,
+                "total_aplicado": 0,
+                "total_atual": 0,
+                "rentabilidade": 0,
+                "quantidade": 0
+            }
+        
+        # Buscar investimentos ativos
+        investimentos = db.query(Investimento).filter(
+            Investimento.tenant_id == tenant_id_str,
+            Investimento.business_unit_id == business_unit_id_str,
+            Investimento.is_active == True
+        ).all()
+        
+        # Processar investimentos
+        for investimento in investimentos:
+            if investimento.data_aplicacao:
+                mes = investimento.data_aplicacao.month
+                if mes in totalizadores_mensais:
+                    totalizadores_mensais[mes]["total_aplicado"] += float(investimento.valor_aplicado or 0)
+                    totalizadores_mensais[mes]["total_atual"] += float(investimento.valor_atual or 0)
+                    totalizadores_mensais[mes]["quantidade"] += 1
+        
+        # Calcular rentabilidade mensal
+        for mes in range(1, 13):
+            totalizadores_mensais[mes]["rentabilidade"] = (
+                totalizadores_mensais[mes]["total_atual"] - totalizadores_mensais[mes]["total_aplicado"]
+            )
+        
+        return {
+            "success": True,
+            "ano": ano,
+            "totalizadores": list(totalizadores_mensais.values())
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar totalizadores: {str(e)}"}
+
+# ============================================================================
 # ENDPOINT DE FLUXO DE CAIXA (PREVISTO X REALIZADO)
 # ============================================================================
 

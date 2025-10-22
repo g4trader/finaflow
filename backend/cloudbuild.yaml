@@ -3,7 +3,6 @@ options:
 
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    dir: 'backend'
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/finaflow-backend', '.']
 
   - name: 'gcr.io/cloud-builders/docker'
