@@ -149,9 +149,10 @@ const Transactions: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.get('/api/v1/lancamentos-diarios');
-      setLancamentos(response.data.lancamentos || []);
+      setLancamentos(response.data?.lancamentos || []);
     } catch (error) {
       console.error('Erro ao carregar lançamentos:', error);
+      setLancamentos([]); // Garantir que sempre seja um array
     } finally {
       setLoading(false);
     }
@@ -246,7 +247,7 @@ const Transactions: React.FC = () => {
   };
 
   // Filtrar lançamentos
-  const filteredLancamentos = lancamentos.filter(lanc => {
+  const filteredLancamentos = (lancamentos || []).filter(lanc => {
     // Filtro de busca
     if (searchTerm && !lanc.observacoes?.toLowerCase().includes(searchTerm.toLowerCase()) &&
         !lanc.conta_nome.toLowerCase().includes(searchTerm.toLowerCase())) {

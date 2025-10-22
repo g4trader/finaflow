@@ -12,8 +12,8 @@ def test_login():
     
     # Dados de login
     login_data = {
-        'username': 'lucianoterres',
-        'password': 'K8RBlmLZn16h'
+        'username': 'lucianoterresrosa',
+        'password': 'xs95LIa9ZduX'
     }
     
     try:

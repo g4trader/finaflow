@@ -93,8 +93,8 @@ def analisar_sistema():
     try:
         # Fazer login
         login_data = {
-            'username': 'lucianoterres',
-            'password': 'K8RBlmLZn16h'
+            'username': 'lucianoterresrosa',
+            'password': 'xs95LIa9ZduX'
         }
         
         response = requests.post('https://finaflow-backend-642830139828.us-central1.run.app/api/v1/auth/login', 
