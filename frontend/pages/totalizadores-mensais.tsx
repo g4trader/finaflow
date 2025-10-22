@@ -62,8 +62,8 @@ export default function TotalizadoresMensais() {
       return acc;
     }, { entradas: 0, saidas: 0, lancamentos: 0 });
     
-    totais.saldoFinal = totalizadores[totalizadores.length - 1]?.saldo_final || 0;
-    return totais;
+    const saldoFinal = totalizadores[totalizadores.length - 1]?.saldo_final || 0;
+    return { ...totais, saldoFinal };
   };
 
   const totaisAnuais = calcularTotaisAnuais();
