@@ -40,9 +40,9 @@ class Tenant(Base):
     users = relationship("User", back_populates="tenant")
     business_units = relationship("BusinessUnit", back_populates="tenant")
     user_access = relationship("UserTenantAccess", back_populates="tenant")
-    contas_bancarias = relationship("ContaBancaria", back_populates="tenant", lazy="dynamic", passive_deletes=True)
-    caixas = relationship("Caixa", back_populates="tenant", lazy="dynamic", passive_deletes=True)
-    investimentos = relationship("Investimento", back_populates="tenant", lazy="dynamic", passive_deletes=True)
+    # contas_bancarias = relationship("ContaBancaria", back_populates="tenant", lazy="dynamic", passive_deletes=True)
+    # caixas = relationship("Caixa", back_populates="tenant", lazy="dynamic", passive_deletes=True)
+    # investimentos = relationship("Investimento", back_populates="tenant", lazy="dynamic", passive_deletes=True)
 
 class BusinessUnit(Base):
     __tablename__ = "business_units"
@@ -60,9 +60,9 @@ class BusinessUnit(Base):
     users = relationship("User", back_populates="business_unit")
     departments = relationship("Department", back_populates="business_unit")
     user_access = relationship("UserBusinessUnitAccess", back_populates="business_unit")
-    contas_bancarias = relationship("ContaBancaria", back_populates="business_unit", lazy="dynamic", passive_deletes=True)
-    caixas = relationship("Caixa", back_populates="business_unit", lazy="dynamic", passive_deletes=True)
-    investimentos = relationship("Investimento", back_populates="business_unit", lazy="dynamic", passive_deletes=True)
+    # contas_bancarias = relationship("ContaBancaria", back_populates="business_unit", lazy="dynamic", passive_deletes=True)
+    # caixas = relationship("Caixa", back_populates="business_unit", lazy="dynamic", passive_deletes=True)
+    # investimentos = relationship("Investimento", back_populates="business_unit", lazy="dynamic", passive_deletes=True)
 
 
 class Department(Base):
