@@ -21,8 +21,8 @@ from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount, BusinessUnitChartAccount, Base as ChartBase
 from app.models.financial_transactions import FinancialTransaction, TransactionType, TransactionStatus, Base as FinancialBase
-# LancamentoDiario comentado para evitar conflito SQLAlchemy
-# from backend.app.models.lancamento_diario import LancamentoDiario
+# Importar LancamentoDiario com configuração para evitar conflito
+from backend.app.models.lancamento_diario import LancamentoDiario
 from backend.app.models.lancamento_previsto import LancamentoPrevisto
 from backend.app.models.conta_bancaria import ContaBancaria, MovimentacaoBancaria
 from backend.app.models.caixa import Caixa, MovimentacaoCaixa

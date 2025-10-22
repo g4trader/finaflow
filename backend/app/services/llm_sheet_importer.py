@@ -146,7 +146,7 @@ class LLMSheetImporter:
                 return {"success": False, "error": "Coluna 'Conta' não encontrada"}
             
             # Importar lançamentos diários
-            # from app.models.lancamento_diario import LancamentoDiario, TransactionType, TransactionStatus
+            from app.models.lancamento_diario import LancamentoDiario, TransactionType, TransactionStatus
             from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
             
             transactions_created = 0
