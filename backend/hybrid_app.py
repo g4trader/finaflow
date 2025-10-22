@@ -2423,13 +2423,13 @@ async def check_column_types(
         );
         
         -- Índices para performance
-        CREATE INDEX IF NOT EXISTS idx_lancamentos_tenant_bu ON lancamentos_diarios(tenant_id, business_unit_id);
-        CREATE INDEX IF NOT EXISTS idx_lancamentos_data ON lancamentos_diarios(data_movimentacao);
-        CREATE INDEX IF NOT EXISTS idx_lancamentos_conta ON lancamentos_diarios(conta_id);
-        CREATE INDEX IF NOT EXISTS idx_lancamentos_subgrupo ON lancamentos_diarios(subgrupo_id);
-        CREATE INDEX IF NOT EXISTS idx_lancamentos_grupo ON lancamentos_diarios(grupo_id);
-        CREATE INDEX IF NOT EXISTS idx_lancamentos_type ON lancamentos_diarios(transaction_type);
-        CREATE INDEX IF NOT EXISTS idx_lancamentos_active ON lancamentos_diarios(is_active);
+#         CREATE INDEX IF NOT EXISTS idx_lancamentos_tenant_bu ON lancamentos_diarios(tenant_id, business_unit_id);
+#         CREATE INDEX IF NOT EXISTS idx_lancamentos_data ON lancamentos_diarios(data_movimentacao);
+#         CREATE INDEX IF NOT EXISTS idx_lancamentos_conta ON lancamentos_diarios(conta_id);
+#         CREATE INDEX IF NOT EXISTS idx_lancamentos_subgrupo ON lancamentos_diarios(subgrupo_id);
+#         CREATE INDEX IF NOT EXISTS idx_lancamentos_grupo ON lancamentos_diarios(grupo_id);
+#         CREATE INDEX IF NOT EXISTS idx_lancamentos_type ON lancamentos_diarios(transaction_type);
+#         CREATE INDEX IF NOT EXISTS idx_lancamentos_active ON lancamentos_diarios(is_active);
         """
         
         db.execute(text(migration_sql))
