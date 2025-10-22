@@ -20,6 +20,16 @@ interface DiaExtrato {
   lancamentos: Lancamento[];
 }
 
+interface ExtratoInvestimento {
+  data: string;
+  tipo: string;
+  descricao: string;
+  valor_aplicado: number;
+  valor_atual: number;
+  rentabilidade: number;
+  observacoes: string;
+}
+
 interface ContaInfo {
   id: string;
   banco?: string;
@@ -44,14 +54,14 @@ interface ExtratoResponse {
     inicio: string;
     fim: string;
   };
-  extrato: DiaExtrato[] | any[];
+  extrato: DiaExtrato[] | ExtratoInvestimento[];
 }
 
 export default function ExtratoConta() {
   const router = useRouter();
   const { tipo, id } = router.query;
   
-  const [extrato, setExtrato] = useState<DiaExtrato[]>([]);
+  const [extrato, setExtrato] = useState<DiaExtrato[] | ExtratoInvestimento[]>([]);
   const [contaInfo, setContaInfo] = useState<ContaInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [dataInicio, setDataInicio] = useState('');
@@ -174,7 +184,7 @@ export default function ExtratoConta() {
       return { entradas: 0, saidas: 0, saldoFinal: contaInfo?.valor_atual || 0 };
     }
     
-    const totais = extrato.reduce((acc, dia) => {
+    const totais = (extrato as DiaExtrato[]).reduce((acc, dia) => {
       acc.entradas += dia.entradas;
       acc.saidas += dia.saidas;
       acc.saldoFinal = dia.saldo_dia;
@@ -378,8 +388,8 @@ export default function ExtratoConta() {
                         <TrendingUpIcon className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{item.descricao}</h3>
-                        <p className="text-sm text-gray-500">{item.data}</p>
+                        <h3 className="font-semibold text-gray-900">{(item as ExtratoInvestimento).descricao}</h3>
+                        <p className="text-sm text-gray-500">{(item as ExtratoInvestimento).data}</p>
                       </div>
                     </div>
                     
@@ -387,16 +397,16 @@ export default function ExtratoConta() {
                       <div className="flex items-center gap-6">
                         <div className="text-center">
                           <p className="text-sm text-gray-500">Valor Aplicado</p>
-                          <p className="font-semibold text-gray-900">{formatarMoeda(item.valor_aplicado)}</p>
+                          <p className="font-semibold text-gray-900">{formatarMoeda((item as ExtratoInvestimento).valor_aplicado)}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-sm text-gray-500">Valor Atual</p>
-                          <p className="font-semibold text-green-600">{formatarMoeda(item.valor_atual)}</p>
+                          <p className="font-semibold text-green-600">{formatarMoeda((item as ExtratoInvestimento).valor_atual)}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-sm text-gray-500">Rentabilidade</p>
-                          <p className={`font-semibold ${item.rentabilidade >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatarMoeda(item.rentabilidade)}
+                          <p className={`font-semibold ${(item as ExtratoInvestimento).rentabilidade >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatarMoeda((item as ExtratoInvestimento).rentabilidade)}
                           </p>
                         </div>
                       </div>
@@ -411,8 +421,8 @@ export default function ExtratoConta() {
                           <Calendar className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900">{formatarData(item.data)}</h3>
-                          <p className="text-sm text-gray-500">{item.lancamentos.length} lançamento(s)</p>
+                          <h3 className="font-semibold text-gray-900">{formatarData((item as DiaExtrato).data)}</h3>
+                          <p className="text-sm text-gray-500">{(item as DiaExtrato).lancamentos.length} lançamento(s)</p>
                         </div>
                       </div>
                       
@@ -420,16 +430,16 @@ export default function ExtratoConta() {
                         <div className="flex items-center gap-4">
                           <div className="text-center">
                             <p className="text-sm text-gray-500">Entradas</p>
-                            <p className="font-semibold text-green-600">{formatarMoeda(item.entradas)}</p>
+                            <p className="font-semibold text-green-600">{formatarMoeda((item as DiaExtrato).entradas)}</p>
                           </div>
                           <div className="text-center">
                             <p className="text-sm text-gray-500">Saídas</p>
-                            <p className="font-semibold text-red-600">{formatarMoeda(item.saidas)}</p>
+                            <p className="font-semibold text-red-600">{formatarMoeda((item as DiaExtrato).saidas)}</p>
                           </div>
                           <div className="text-center">
                             <p className="text-sm text-gray-500">Saldo</p>
-                            <p className={`font-semibold ${item.saldo_dia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {formatarMoeda(item.saldo_dia)}
+                            <p className={`font-semibold ${(item as DiaExtrato).saldo_dia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatarMoeda((item as DiaExtrato).saldo_dia)}
                             </p>
                           </div>
                         </div>
@@ -438,7 +448,7 @@ export default function ExtratoConta() {
                     
                     {/* Lançamentos do dia */}
                     <div className="ml-13 space-y-2">
-                      {item.lancamentos.map((lancamento) => (
+                      {(item as DiaExtrato).lancamentos.map((lancamento) => (
                         <div key={lancamento.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-full ${getTipoColor(lancamento.tipo)}`}>
