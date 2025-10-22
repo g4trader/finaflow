@@ -389,7 +389,7 @@ const Transactions: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Todos os grupos</option>
-                {planoContas?.grupos.map(grupo => (
+                {(planoContas?.grupos || []).map(grupo => (
                   <option key={grupo.id} value={grupo.id}>
                     {grupo.code} - {grupo.name}
                   </option>
@@ -680,7 +680,7 @@ const Transactions: React.FC = () => {
                       required
                     >
                       <option value="">Selecione um grupo</option>
-                      {planoContas?.grupos.map(grupo => (
+                      {(planoContas?.grupos || []).map(grupo => (
                         <option key={grupo.id} value={grupo.id}>
                           {grupo.code} - {grupo.name}
                         </option>
