@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Calendar, ArrowLeft, TrendingUp, TrendingDown, DollarSign, Building2, Wallet, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import Layout from '../components/layout/Layout';
 import api from '../services/api';
 
 interface Lancamento {
@@ -212,7 +213,8 @@ export default function ExtratoConta() {
   }
 
   return (
-    <div className="p-6">
+    <Layout>
+      <div className="p-6">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
@@ -476,6 +478,7 @@ export default function ExtratoConta() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 }

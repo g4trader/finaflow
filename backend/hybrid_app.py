@@ -5170,6 +5170,253 @@ async def criar_conta_bancaria(
         traceback.print_exc()
         return {"success": False, "message": f"Erro ao criar conta: {str(e)}"}
 
+# ============================================================================
+# ENDPOINTS DE EXTRATO ESPECÍFICO POR CONTA (DRILLDOWN) - DEVE VIR ANTES DOS GENÉRICOS
+# ============================================================================
+
+@app.get("/api/v1/contas-bancarias/{conta_id}/extrato")
+async def get_extrato_conta_bancaria(
+    conta_id: str,
+    data_inicio: str = None,
+    data_fim: str = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter extrato específico de uma conta bancária"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        business_unit_id_str = str(current_user["business_unit_id"])
+        
+        # Verificar se a conta pertence ao usuário
+        conta = db.query(ContaBancaria).filter(
+            ContaBancaria.id == conta_id,
+            ContaBancaria.tenant_id == tenant_id_str,
+            ContaBancaria.business_unit_id == business_unit_id_str,
+            ContaBancaria.is_active == True
+        ).first()
+        
+        if not conta:
+            return {"success": False, "message": "Conta bancária não encontrada"}
+        
+        # Se não especificadas, usar últimos 30 dias
+        if not data_inicio:
+            from datetime import datetime, timedelta
+            data_inicio = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        if not data_fim:
+            from datetime import datetime
+            data_fim = datetime.now().strftime("%Y-%m-%d")
+        
+        # Buscar lançamentos específicos desta conta
+        lancamentos = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id_str,
+            LancamentoDiario.business_unit_id == business_unit_id_str,
+            LancamentoDiario.is_active == True,
+            LancamentoDiario.data_movimentacao >= data_inicio,
+            LancamentoDiario.data_movimentacao <= data_fim
+        ).order_by(LancamentoDiario.data_movimentacao.desc()).all()
+        
+        # Filtrar lançamentos que podem estar relacionados a esta conta
+        # (Por enquanto, vamos retornar todos os lançamentos, mas isso pode ser refinado)
+        extrato_por_data = {}
+        for lancamento in lancamentos:
+            data_str = lancamento.data_movimentacao.strftime("%Y-%m-%d")
+            if data_str not in extrato_por_data:
+                extrato_por_data[data_str] = {
+                    "data": data_str,
+                    "entradas": 0,
+                    "saidas": 0,
+                    "saldo_dia": 0,
+                    "lancamentos": []
+                }
+            
+            valor = float(lancamento.valor)
+            if lancamento.transaction_type == "RECEITA":
+                extrato_por_data[data_str]["entradas"] += valor
+            elif lancamento.transaction_type in ["DESPESA", "CUSTO"]:
+                extrato_por_data[data_str]["saidas"] += valor
+            
+            extrato_por_data[data_str]["lancamentos"].append({
+                "id": lancamento.id,
+                "conta": lancamento.conta.name if lancamento.conta else "N/A",
+                "descricao": lancamento.observacoes or "Lançamento",
+                "valor": valor,
+                "tipo": lancamento.transaction_type,
+                "liquidacao": lancamento.liquidacao
+            })
+        
+        # Calcular saldo diário
+        saldo_acumulado = float(conta.saldo_atual or 0)  # Começar com saldo atual da conta
+        for data_str in sorted(extrato_por_data.keys(), reverse=True):
+            extrato_por_data[data_str]["saldo_dia"] = saldo_acumulado + extrato_por_data[data_str]["entradas"] - extrato_por_data[data_str]["saidas"]
+            saldo_acumulado = extrato_por_data[data_str]["saldo_dia"]
+        
+        return {
+            "success": True,
+            "conta": {
+                "id": conta.id,
+                "banco": conta.banco,
+                "agencia": conta.agencia,
+                "conta": conta.conta,
+                "saldo_atual": float(conta.saldo_atual or 0)
+            },
+            "periodo": {"inicio": data_inicio, "fim": data_fim},
+            "extrato": list(extrato_por_data.values())
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar extrato: {str(e)}"}
+
+@app.get("/api/v1/caixa/{caixa_id}/extrato")
+async def get_extrato_caixa_especifico(
+    caixa_id: str,
+    data_inicio: str = None,
+    data_fim: str = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter extrato específico de um caixa"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        business_unit_id_str = str(current_user["business_unit_id"])
+        
+        # Verificar se o caixa pertence ao usuário
+        caixa = db.query(Caixa).filter(
+            Caixa.id == caixa_id,
+            Caixa.tenant_id == tenant_id_str,
+            Caixa.business_unit_id == business_unit_id_str,
+            Caixa.is_active == True
+        ).first()
+        
+        if not caixa:
+            return {"success": False, "message": "Caixa não encontrado"}
+        
+        # Se não especificadas, usar últimos 30 dias
+        if not data_inicio:
+            from datetime import datetime, timedelta
+            data_inicio = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        if not data_fim:
+            from datetime import datetime
+            data_fim = datetime.now().strftime("%Y-%m-%d")
+        
+        # Buscar lançamentos específicos deste caixa
+        lancamentos = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id_str,
+            LancamentoDiario.business_unit_id == business_unit_id_str,
+            LancamentoDiario.is_active == True,
+            LancamentoDiario.data_movimentacao >= data_inicio,
+            LancamentoDiario.data_movimentacao <= data_fim
+        ).order_by(LancamentoDiario.data_movimentacao.desc()).all()
+        
+        # Filtrar lançamentos que podem estar relacionados a este caixa
+        extrato_por_data = {}
+        for lancamento in lancamentos:
+            data_str = lancamento.data_movimentacao.strftime("%Y-%m-%d")
+            if data_str not in extrato_por_data:
+                extrato_por_data[data_str] = {
+                    "data": data_str,
+                    "entradas": 0,
+                    "saidas": 0,
+                    "saldo_dia": 0,
+                    "lancamentos": []
+                }
+            
+            valor = float(lancamento.valor)
+            if lancamento.transaction_type == "RECEITA":
+                extrato_por_data[data_str]["entradas"] += valor
+            elif lancamento.transaction_type in ["DESPESA", "CUSTO"]:
+                extrato_por_data[data_str]["saidas"] += valor
+            
+            extrato_por_data[data_str]["lancamentos"].append({
+                "id": lancamento.id,
+                "conta": lancamento.conta.name if lancamento.conta else "N/A",
+                "descricao": lancamento.observacoes or "Lançamento",
+                "valor": valor,
+                "tipo": lancamento.transaction_type,
+                "liquidacao": lancamento.liquidacao
+            })
+        
+        # Calcular saldo diário
+        saldo_acumulado = float(caixa.saldo_atual or 0)  # Começar com saldo atual do caixa
+        for data_str in sorted(extrato_por_data.keys(), reverse=True):
+            extrato_por_data[data_str]["saldo_dia"] = saldo_acumulado + extrato_por_data[data_str]["entradas"] - extrato_por_data[data_str]["saidas"]
+            saldo_acumulado = extrato_por_data[data_str]["saldo_dia"]
+        
+        return {
+            "success": True,
+            "caixa": {
+                "id": caixa.id,
+                "nome": caixa.nome,
+                "descricao": caixa.descricao,
+                "saldo_atual": float(caixa.saldo_atual or 0)
+            },
+            "periodo": {"inicio": data_inicio, "fim": data_fim},
+            "extrato": list(extrato_por_data.values())
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar extrato: {str(e)}"}
+
+@app.get("/api/v1/investimentos/{investimento_id}/extrato")
+async def get_extrato_investimento_especifico(
+    investimento_id: str,
+    data_inicio: str = None,
+    data_fim: str = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter extrato específico de um investimento"""
+    try:
+        tenant_id_str = str(current_user["tenant_id"])
+        business_unit_id_str = str(current_user["business_unit_id"])
+        
+        # Verificar se o investimento pertence ao usuário
+        investimento = db.query(Investimento).filter(
+            Investimento.id == investimento_id,
+            Investimento.tenant_id == tenant_id_str,
+            Investimento.business_unit_id == business_unit_id_str,
+            Investimento.is_active == True
+        ).first()
+        
+        if not investimento:
+            return {"success": False, "message": "Investimento não encontrado"}
+        
+        # Se não especificadas, usar últimos 30 dias
+        if not data_inicio:
+            from datetime import datetime, timedelta
+            data_inicio = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        if not data_fim:
+            from datetime import datetime
+            data_fim = datetime.now().strftime("%Y-%m-%d")
+        
+        # Para investimentos, vamos retornar o histórico de movimentações
+        # (Por enquanto, retornamos apenas os dados do investimento)
+        extrato = [{
+            "data": investimento.data_aplicacao.strftime("%Y-%m-%d") if investimento.data_aplicacao else "N/A",
+            "tipo": "Aplicação",
+            "descricao": f"Aplicação em {investimento.tipo}",
+            "valor_aplicado": float(investimento.valor_aplicado or 0),
+            "valor_atual": float(investimento.valor_atual or 0),
+            "rentabilidade": float(investimento.valor_atual or 0) - float(investimento.valor_aplicado or 0),
+            "observacoes": investimento.observacoes
+        }]
+        
+        return {
+            "success": True,
+            "investimento": {
+                "id": investimento.id,
+                "tipo": investimento.tipo,
+                "instituicao": investimento.instituicao,
+                "valor_aplicado": float(investimento.valor_aplicado or 0),
+                "valor_atual": float(investimento.valor_atual or 0),
+                "data_aplicacao": investimento.data_aplicacao.strftime("%Y-%m-%d") if investimento.data_aplicacao else None
+            },
+            "periodo": {"inicio": data_inicio, "fim": data_fim},
+            "extrato": extrato
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Erro ao buscar extrato: {str(e)}"}
+
 @app.get("/api/v1/contas-bancarias")
 async def listar_contas_bancarias(
     current_user: dict = Depends(get_current_user),
@@ -6019,252 +6266,6 @@ async def get_totalizadores_mensais_investimentos(
     except Exception as e:
         return {"success": False, "message": f"Erro ao buscar totalizadores: {str(e)}"}
 
-# ============================================================================
-# ENDPOINTS DE EXTRATO ESPECÍFICO POR CONTA (DRILLDOWN)
-# ============================================================================
-
-@app.get("/api/v1/contas-bancarias/{conta_id}/extrato")
-async def get_extrato_conta_bancaria(
-    conta_id: str,
-    data_inicio: str = None,
-    data_fim: str = None,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Obter extrato específico de uma conta bancária"""
-    try:
-        tenant_id_str = str(current_user["tenant_id"])
-        business_unit_id_str = str(current_user["business_unit_id"])
-        
-        # Verificar se a conta pertence ao usuário
-        conta = db.query(ContaBancaria).filter(
-            ContaBancaria.id == conta_id,
-            ContaBancaria.tenant_id == tenant_id_str,
-            ContaBancaria.business_unit_id == business_unit_id_str,
-            ContaBancaria.is_active == True
-        ).first()
-        
-        if not conta:
-            return {"success": False, "message": "Conta bancária não encontrada"}
-        
-        # Se não especificadas, usar últimos 30 dias
-        if not data_inicio:
-            from datetime import datetime, timedelta
-            data_inicio = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-        if not data_fim:
-            from datetime import datetime
-            data_fim = datetime.now().strftime("%Y-%m-%d")
-        
-        # Buscar lançamentos específicos desta conta
-        lancamentos = db.query(LancamentoDiario).filter(
-            LancamentoDiario.tenant_id == tenant_id_str,
-            LancamentoDiario.business_unit_id == business_unit_id_str,
-            LancamentoDiario.is_active == True,
-            LancamentoDiario.data_movimentacao >= data_inicio,
-            LancamentoDiario.data_movimentacao <= data_fim
-        ).order_by(LancamentoDiario.data_movimentacao.desc()).all()
-        
-        # Filtrar lançamentos que podem estar relacionados a esta conta
-        # (Por enquanto, vamos retornar todos os lançamentos, mas isso pode ser refinado)
-        extrato_por_data = {}
-        for lancamento in lancamentos:
-            data_str = lancamento.data_movimentacao.strftime("%Y-%m-%d")
-            if data_str not in extrato_por_data:
-                extrato_por_data[data_str] = {
-                    "data": data_str,
-                    "entradas": 0,
-                    "saidas": 0,
-                    "saldo_dia": 0,
-                    "lancamentos": []
-                }
-            
-            valor = float(lancamento.valor)
-            if lancamento.transaction_type == "RECEITA":
-                extrato_por_data[data_str]["entradas"] += valor
-            elif lancamento.transaction_type in ["DESPESA", "CUSTO"]:
-                extrato_por_data[data_str]["saidas"] += valor
-            
-            extrato_por_data[data_str]["lancamentos"].append({
-                "id": lancamento.id,
-                "conta": lancamento.conta.name if lancamento.conta else "N/A",
-                "descricao": lancamento.observacoes or "Lançamento",
-                "valor": valor,
-                "tipo": lancamento.transaction_type,
-                "liquidacao": lancamento.liquidacao
-            })
-        
-        # Calcular saldo diário
-        saldo_acumulado = float(conta.saldo_atual or 0)  # Começar com saldo atual da conta
-        for data_str in sorted(extrato_por_data.keys(), reverse=True):
-            extrato_por_data[data_str]["saldo_dia"] = saldo_acumulado + extrato_por_data[data_str]["entradas"] - extrato_por_data[data_str]["saidas"]
-            saldo_acumulado = extrato_por_data[data_str]["saldo_dia"]
-        
-        return {
-            "success": True,
-            "conta": {
-                "id": conta.id,
-                "banco": conta.banco,
-                "agencia": conta.agencia,
-                "conta": conta.conta,
-                "saldo_atual": float(conta.saldo_atual or 0)
-            },
-            "periodo": {"inicio": data_inicio, "fim": data_fim},
-            "extrato": list(extrato_por_data.values())
-        }
-        
-    except Exception as e:
-        return {"success": False, "message": f"Erro ao buscar extrato: {str(e)}"}
-
-@app.get("/api/v1/caixa/{caixa_id}/extrato")
-async def get_extrato_caixa_especifico(
-    caixa_id: str,
-    data_inicio: str = None,
-    data_fim: str = None,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Obter extrato específico de um caixa"""
-    try:
-        tenant_id_str = str(current_user["tenant_id"])
-        business_unit_id_str = str(current_user["business_unit_id"])
-        
-        # Verificar se o caixa pertence ao usuário
-        caixa = db.query(Caixa).filter(
-            Caixa.id == caixa_id,
-            Caixa.tenant_id == tenant_id_str,
-            Caixa.business_unit_id == business_unit_id_str,
-            Caixa.is_active == True
-        ).first()
-        
-        if not caixa:
-            return {"success": False, "message": "Caixa não encontrado"}
-        
-        # Se não especificadas, usar últimos 30 dias
-        if not data_inicio:
-            from datetime import datetime, timedelta
-            data_inicio = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-        if not data_fim:
-            from datetime import datetime
-            data_fim = datetime.now().strftime("%Y-%m-%d")
-        
-        # Buscar lançamentos específicos deste caixa
-        lancamentos = db.query(LancamentoDiario).filter(
-            LancamentoDiario.tenant_id == tenant_id_str,
-            LancamentoDiario.business_unit_id == business_unit_id_str,
-            LancamentoDiario.is_active == True,
-            LancamentoDiario.data_movimentacao >= data_inicio,
-            LancamentoDiario.data_movimentacao <= data_fim
-        ).order_by(LancamentoDiario.data_movimentacao.desc()).all()
-        
-        # Filtrar lançamentos que podem estar relacionados a este caixa
-        extrato_por_data = {}
-        for lancamento in lancamentos:
-            data_str = lancamento.data_movimentacao.strftime("%Y-%m-%d")
-            if data_str not in extrato_por_data:
-                extrato_por_data[data_str] = {
-                    "data": data_str,
-                    "entradas": 0,
-                    "saidas": 0,
-                    "saldo_dia": 0,
-                    "lancamentos": []
-                }
-            
-            valor = float(lancamento.valor)
-            if lancamento.transaction_type == "RECEITA":
-                extrato_por_data[data_str]["entradas"] += valor
-            elif lancamento.transaction_type in ["DESPESA", "CUSTO"]:
-                extrato_por_data[data_str]["saidas"] += valor
-            
-            extrato_por_data[data_str]["lancamentos"].append({
-                "id": lancamento.id,
-                "conta": lancamento.conta.name if lancamento.conta else "N/A",
-                "descricao": lancamento.observacoes or "Lançamento",
-                "valor": valor,
-                "tipo": lancamento.transaction_type,
-                "liquidacao": lancamento.liquidacao
-            })
-        
-        # Calcular saldo diário
-        saldo_acumulado = float(caixa.saldo_atual or 0)  # Começar com saldo atual do caixa
-        for data_str in sorted(extrato_por_data.keys(), reverse=True):
-            extrato_por_data[data_str]["saldo_dia"] = saldo_acumulado + extrato_por_data[data_str]["entradas"] - extrato_por_data[data_str]["saidas"]
-            saldo_acumulado = extrato_por_data[data_str]["saldo_dia"]
-        
-        return {
-            "success": True,
-            "caixa": {
-                "id": caixa.id,
-                "nome": caixa.nome,
-                "descricao": caixa.descricao,
-                "saldo_atual": float(caixa.saldo_atual or 0)
-            },
-            "periodo": {"inicio": data_inicio, "fim": data_fim},
-            "extrato": list(extrato_por_data.values())
-        }
-        
-    except Exception as e:
-        return {"success": False, "message": f"Erro ao buscar extrato: {str(e)}"}
-
-@app.get("/api/v1/investimentos/{investimento_id}/extrato")
-async def get_extrato_investimento_especifico(
-    investimento_id: str,
-    data_inicio: str = None,
-    data_fim: str = None,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Obter extrato específico de um investimento"""
-    try:
-        tenant_id_str = str(current_user["tenant_id"])
-        business_unit_id_str = str(current_user["business_unit_id"])
-        
-        # Verificar se o investimento pertence ao usuário
-        investimento = db.query(Investimento).filter(
-            Investimento.id == investimento_id,
-            Investimento.tenant_id == tenant_id_str,
-            Investimento.business_unit_id == business_unit_id_str,
-            Investimento.is_active == True
-        ).first()
-        
-        if not investimento:
-            return {"success": False, "message": "Investimento não encontrado"}
-        
-        # Se não especificadas, usar últimos 30 dias
-        if not data_inicio:
-            from datetime import datetime, timedelta
-            data_inicio = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-        if not data_fim:
-            from datetime import datetime
-            data_fim = datetime.now().strftime("%Y-%m-%d")
-        
-        # Para investimentos, vamos retornar o histórico de movimentações
-        # (Por enquanto, retornamos apenas os dados do investimento)
-        extrato = [{
-            "data": investimento.data_aplicacao.strftime("%Y-%m-%d") if investimento.data_aplicacao else "N/A",
-            "tipo": "Aplicação",
-            "descricao": f"Aplicação em {investimento.tipo}",
-            "valor_aplicado": float(investimento.valor_aplicado or 0),
-            "valor_atual": float(investimento.valor_atual or 0),
-            "rentabilidade": float(investimento.valor_atual or 0) - float(investimento.valor_aplicado or 0),
-            "observacoes": investimento.observacoes
-        }]
-        
-        return {
-            "success": True,
-            "investimento": {
-                "id": investimento.id,
-                "tipo": investimento.tipo,
-                "instituicao": investimento.instituicao,
-                "valor_aplicado": float(investimento.valor_aplicado or 0),
-                "valor_atual": float(investimento.valor_atual or 0),
-                "data_aplicacao": investimento.data_aplicacao.strftime("%Y-%m-%d") if investimento.data_aplicacao else None
-            },
-            "periodo": {"inicio": data_inicio, "fim": data_fim},
-            "extrato": extrato
-        }
-        
-    except Exception as e:
-        return {"success": False, "message": f"Erro ao buscar extrato: {str(e)}"}
 
 # ============================================================================
 # ENDPOINT DE FLUXO DE CAIXA (PREVISTO X REALIZADO)
