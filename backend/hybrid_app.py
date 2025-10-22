@@ -25,7 +25,9 @@ from app.models.financial_transactions import FinancialTransaction, TransactionT
 try:
     from backend.app.models.lancamento_diario import LancamentoDiario
     # Configurar para não criar tabela automaticamente
-    LancamentoDiario.__table__.extend_existing = True
+    if hasattr(LancamentoDiario, '__table__'):
+        LancamentoDiario.__table__.extend_existing = True
+        print("✅ LancamentoDiario configurado com extend_existing=True")
 except Exception as e:
     print(f"⚠️ Aviso: Não foi possível importar LancamentoDiario: {e}")
     # Criar classe temporária se necessário
