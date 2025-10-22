@@ -41,7 +41,7 @@ class LancamentoDiario(Base):
     grupo_id = Column(String(36), ForeignKey("chart_account_groups.id"), nullable=False)  # Grupo
     
     # Tipo de transação baseado no Grupo (calculado automaticamente)
-    transaction_type = Column(Enum(TransactionType), nullable=False)
+    transaction_type = Column(Enum(TransactionType), nullable=True)
     status = Column(Enum(TransactionStatus), default=TransactionStatus.PENDENTE)
     
     # Vinculação com empresa/BU
