@@ -4,12 +4,12 @@ from typing import Optional, List
 from datetime import datetime
 from app.database import get_db
 from app.models.auth import get_current_user
-from app.models.lancamento_diario import (
-    LancamentoDiarioCreate, 
-    LancamentoDiarioUpdate,
-    LancamentoDiarioResponse,
-    TransactionType
-)
+# from app.models.lancamento_diario import (
+#     LancamentoDiarioCreate, 
+#     LancamentoDiarioUpdate,
+#     LancamentoDiarioResponse,
+#     TransactionType
+# )
 from app.services.lancamento_diario_service import LancamentoDiarioService
 
 router = APIRouter()

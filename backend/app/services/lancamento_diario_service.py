@@ -3,13 +3,13 @@ from datetime import datetime
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, asc
-from app.models.lancamento_diario import (
-    LancamentoDiario, 
-    TransactionType, 
-    TransactionStatus,
-    LancamentoDiarioCreate,
-    LancamentoDiarioUpdate
-)
+# from app.models.lancamento_diario import (
+#     LancamentoDiario, 
+#     TransactionType, 
+#     TransactionStatus,
+#     LancamentoDiarioCreate,
+#     LancamentoDiarioUpdate
+# )
 from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
 from app.models.auth import User
 
