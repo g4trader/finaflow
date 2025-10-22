@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/layout/Layout';
 import api from '../services/api';
-import { Wallet, Plus, Edit2, Trash2, DollarSign } from 'lucide-react';
+import { Wallet, Plus, Edit2, Trash2, DollarSign, FileText } from 'lucide-react';
 
 interface Caixa {
   id: string;
@@ -15,6 +16,7 @@ interface Caixa {
 
 export default function CaixaPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [caixas, setCaixas] = useState<Caixa[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -88,6 +90,10 @@ export default function CaixaPage() {
       console.error('Erro ao remover caixa:', error);
       alert('Erro ao remover caixa');
     }
+  };
+
+  const handleVerExtrato = (id: string) => {
+    router.push(`/extrato-conta?tipo=caixa&id=${id}`);
   };
 
   const formatCurrency = (value: number) => {
@@ -172,14 +178,23 @@ export default function CaixaPage() {
                   </div>
                   <div className="flex gap-2">
                     <button
+                      onClick={() => handleVerExtrato(caixa.id)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                      title="Ver Extrato"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleEdit(caixa)}
                       className="p-2 text-green-600 hover:bg-green-50 rounded"
+                      title="Editar"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(caixa.id)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded"
+                      title="Excluir"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

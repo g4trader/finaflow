@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/layout/Layout';
 import api from '../services/api';
-import { TrendingUp, Plus, DollarSign, Calendar, Percent } from 'lucide-react';
+import { TrendingUp, Plus, DollarSign, Calendar, Percent, FileText } from 'lucide-react';
 
 interface Investimento {
   id: string;
@@ -26,6 +27,7 @@ interface Resumo {
 
 export default function Investimentos() {
   const { user } = useAuth();
+  const router = useRouter();
   const [investimentos, setInvestimentos] = useState<Investimento[]>([]);
   const [resumo, setResumo] = useState<Resumo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +97,10 @@ export default function Investimentos() {
       console.error('Erro ao salvar investimento:', error);
       alert('Erro ao salvar investimento');
     }
+  };
+
+  const handleVerExtrato = (id: string) => {
+    router.push(`/extrato-conta?tipo=investimentos&id=${id}`);
   };
 
   const getTipoLabel = (tipo: string) => {
@@ -232,6 +238,9 @@ export default function Investimentos() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Vencimento
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ações
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -268,6 +277,15 @@ export default function Investimentos() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(inv.data_vencimento)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => handleVerExtrato(inv.id)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                            title="Ver Extrato"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     );

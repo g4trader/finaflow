@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/layout/Layout';
 import api from '../services/api';
-import { Building2, Plus, Edit2, Trash2, DollarSign } from 'lucide-react';
+import { Building2, Plus, Edit2, Trash2, DollarSign, FileText } from 'lucide-react';
 
 interface ContaBancaria {
   id: string;
@@ -17,6 +18,7 @@ interface ContaBancaria {
 
 export default function ContasBancarias() {
   const { user } = useAuth();
+  const router = useRouter();
   const [contas, setContas] = useState<ContaBancaria[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -96,6 +98,10 @@ export default function ContasBancarias() {
       console.error('Erro ao remover conta:', error);
       alert('Erro ao remover conta bancária');
     }
+  };
+
+  const handleVerExtrato = (id: string) => {
+    router.push(`/extrato-conta?tipo=contas-bancarias&id=${id}`);
   };
 
   const getTipoLabel = (tipo: string) => {
@@ -190,14 +196,23 @@ export default function ContasBancarias() {
                   </div>
                   <div className="flex gap-2">
                     <button
+                      onClick={() => handleVerExtrato(conta.id)}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded"
+                      title="Ver Extrato"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleEdit(conta)}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                      title="Editar"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(conta.id)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded"
+                      title="Excluir"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
