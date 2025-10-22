@@ -2360,26 +2360,26 @@ async def check_column_types(
             "error": str(e)
         }
 
-@app.post("/api/v1/admin/create-lancamentos-diarios-table")
-async def create_lancamentos_diarios_table(
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Criar tabela de lançamentos diários"""
-    try:
-        if current_user.get("role") != "super_admin":
-            raise HTTPException(status_code=403, detail="Apenas super_admin")
-        
-        from sqlalchemy import text
-        
-        results = []
-        
-        # Executar migração
-        results.append("1️⃣ Criando tabela lancamentos_diarios...")
-        
-        # Ler arquivo de migração
-        migration_sql = """
-        CREATE TABLE IF NOT EXISTS lancamentos_diarios (
+# @app.post("/api/v1/admin/create-lancamentos-diarios-table")
+# async def create_lancamentos_diarios_table(
+#     current_user: dict = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """Criar tabela de lançamentos diários"""
+#     try:
+#         if current_user.get("role") != "super_admin":
+#             raise HTTPException(status_code=403, detail="Apenas super_admin")
+#         
+#         from sqlalchemy import text
+#         
+#         results = []
+#         
+#         # Executar migração
+#         results.append("1️⃣ Criando tabela lancamentos_diarios...")
+#         
+#         # Ler arquivo de migração
+#         migration_sql = """
+# #         CREATE TABLE IF NOT EXISTS lancamentos_diarios (
             id VARCHAR(36) PRIMARY KEY,
             
             -- Campos obrigatórios da planilha
