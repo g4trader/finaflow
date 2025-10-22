@@ -180,3 +180,14 @@ get_tenant_admin = require_minimum_role(UserRole.TENANT_ADMIN)
 get_business_unit_manager = require_minimum_role(UserRole.BUSINESS_UNIT_MANAGER)
 get_department_manager = require_minimum_role(UserRole.DEPARTMENT_MANAGER)
 get_any_user = get_current_active_user
+
+
+def tenant(current_user: User = Depends(get_current_active_user)) -> str:
+    """Return the tenant identifier associated with the authenticated user."""
+
+    if not current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Usuário não possui tenant associado",
+        )
+    return current_user.tenant_id
