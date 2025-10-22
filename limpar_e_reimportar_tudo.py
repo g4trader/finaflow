@@ -53,7 +53,7 @@ print()
 # 3. Verificar limpeza
 print("3️⃣ VERIFICANDO LIMPEZA...")
 response = requests.get(f"{BACKEND_URL}/api/v1/lancamentos-diarios", headers=headers, timeout=10)
-lanc_count = len(response.json()["lancamentos"])
+lanc_count = len(response.json().get("lancamentos", []))
 response = requests.get(f"{BACKEND_URL}/api/v1/lancamentos-previstos", headers=headers, timeout=10)
 prev_count = len(response.json().get("previsoes", []))
 print(f"   Lançamentos: {lanc_count}")

@@ -150,3 +150,4 @@ Verificar e corrigir o código de `frontend/pages/login.tsx` para garantir que:
 **Gerado por**: Teste Automatizado Selenium  
 **Arquivo de teste**: `test_user_flow.py`
 
+

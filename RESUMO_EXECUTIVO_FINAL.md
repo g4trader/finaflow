@@ -225,3 +225,4 @@ O sistema está **90% funcional** - só falta resolver o login via interface com
 **Taxa de sucesso**: 71-87%
 
 
+

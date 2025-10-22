@@ -34,5 +34,5 @@ USER appuser
 EXPOSE 8080
 
 # Comando para iniciar a aplicação
-CMD ["python", "hybrid_app.py"]
+CMD ["python", "hybrid_app_working.py"]
 

@@ -113,3 +113,4 @@ Screenshots salvos em: `screenshots_UX_IMPROVEMENTS/`
 
 **Sistema 100% funcional com UX melhorada!** 🎉
 
+

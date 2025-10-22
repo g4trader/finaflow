@@ -86,3 +86,4 @@ print(f"\n🔗 Teste manual: {BACKEND_URL}/api/v1/auth/test")
 print(f"🔗 Frontend: https://finaflow.vercel.app/login")
 
 
+

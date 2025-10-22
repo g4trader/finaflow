@@ -242,3 +242,4 @@ O sistema FINAFlow foi migrado e deployado com sucesso!
 **Status**: ✅ Deploy Concluído - Aguardando atualização do Vercel
 
 
+

@@ -188,3 +188,4 @@ Todos os arquivos criados:
 **Próximo passo**: Configurar NEXT_PUBLIC_API_URL no projeto Vercel
 
 
+

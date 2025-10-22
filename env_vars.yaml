@@ -1,0 +1,4 @@
+DATABASE_URL: "postgresql://finaflow_user:finaflow_password@/finaflow_db?host=/cloudsql/trivihair:us-central1:finaflow-db"
+SECRET_KEY: "finaflow-secret-key-2024"
+ALLOWED_HOSTS: "localhost,127.0.0.1,finaflow.vercel.app"
+CORS_ORIGINS: "https://finaflow.vercel.app,http://localhost:3000"

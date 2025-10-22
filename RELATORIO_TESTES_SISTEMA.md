@@ -265,3 +265,4 @@ O sistema está pronto para uso após atualizar a variável `NEXT_PUBLIC_API_URL
 **Versão**: 1.0
 
 
+

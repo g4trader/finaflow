@@ -203,3 +203,4 @@ PGPASSWORD=finaflow_password psql -h 34.41.169.224 -U finaflow_user -d finaflow_
 **⚠️ MANTENHA ESTE ARQUIVO SEGURO E CONFIDENCIAL**
 
 
+

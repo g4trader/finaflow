@@ -65,3 +65,4 @@ Até resolver o problema do backend, o usuário pode:
 5. Considerar rollback para versão anterior que funcionava
 
 
+
