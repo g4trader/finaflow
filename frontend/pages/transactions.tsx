@@ -277,14 +277,14 @@ const Transactions: React.FC = () => {
   const currentLancamentos = filteredLancamentos.slice(startIndex, endIndex);
 
   // Filtrar subgrupos baseado no grupo selecionado
-  const filteredSubgrupos = planoContas?.subgrupos.filter(
+  const filteredSubgrupos = (planoContas?.subgrupos || []).filter(
     sub => !selectedGrupo || sub.group_id === selectedGrupo
-  ) || [];
+  );
 
   // Filtrar contas baseado no subgrupo selecionado
-  const filteredContas = planoContas?.contas.filter(
+  const filteredContas = (planoContas?.contas || []).filter(
     conta => !selectedSubgrupo || conta.subgroup_id === selectedSubgrupo
-  ) || [];
+  );
 
   return (
     <Layout>
@@ -700,7 +700,7 @@ const Transactions: React.FC = () => {
                       disabled={!formData.grupo_id}
                     >
                       <option value="">Selecione um subgrupo</option>
-                      {planoContas?.subgrupos
+                      {(planoContas?.subgrupos || [])
                         .filter(sub => sub.group_id === formData.grupo_id)
                         .map(sub => (
                           <option key={sub.id} value={sub.id}>
@@ -722,7 +722,7 @@ const Transactions: React.FC = () => {
                       disabled={!formData.subgrupo_id}
                     >
                       <option value="">Selecione uma conta</option>
-                      {planoContas?.contas
+                      {(planoContas?.contas || [])
                         .filter(conta => conta.subgroup_id === formData.subgrupo_id)
                         .map(conta => (
                           <option key={conta.id} value={conta.id}>
