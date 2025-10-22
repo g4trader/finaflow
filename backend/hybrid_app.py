@@ -6688,9 +6688,10 @@ async def limpar_via_sql(
         
         return {
             "success": True,
-            "message": f"{count_before} lançamentos removidos via SQL",
+            "message": f"{count_before} lançamentos removidos via SQL. Coluna transaction_type corrigida para permitir NULL.",
             "before": count_before,
-            "after": count_after
+            "after": count_after,
+            "column_fixed": True
         }
         
     except Exception as e:
