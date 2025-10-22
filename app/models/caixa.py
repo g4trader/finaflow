@@ -41,8 +41,8 @@ class Caixa(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     
     # Relationships
-    tenant = relationship("Tenant", back_populates="caixas")
-    business_unit = relationship("BusinessUnit", back_populates="caixas")
+    tenant = relationship("Tenant")
+    business_unit = relationship("BusinessUnit")
     movimentacoes = relationship("MovimentacaoCaixa", back_populates="caixa")
     created_by_user = relationship("User")
     

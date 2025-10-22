@@ -52,8 +52,8 @@ class ContaBancaria(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     
     # Relationships
-    tenant = relationship("Tenant", back_populates="contas_bancarias")
-    business_unit = relationship("BusinessUnit", back_populates="contas_bancarias")
+    tenant = relationship("Tenant")
+    business_unit = relationship("BusinessUnit")
     movimentacoes = relationship("MovimentacaoBancaria", back_populates="conta_bancaria", foreign_keys="MovimentacaoBancaria.conta_bancaria_id")
     created_by_user = relationship("User")
     

@@ -56,8 +56,8 @@ class Investimento(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     
     # Relationships
-    tenant = relationship("Tenant", back_populates="investimentos")
-    business_unit = relationship("BusinessUnit", back_populates="investimentos")
+    tenant = relationship("Tenant")
+    business_unit = relationship("BusinessUnit")
     created_by_user = relationship("User")
     
     __table_args__ = (
