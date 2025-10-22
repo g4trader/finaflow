@@ -107,11 +107,11 @@ const Dashboard: React.FC = () => {
               onYearChange={setYear}
               disabled={yearLoading || loading}
             />
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <Calendar className="w-4 h-4" />
-              <span>{new Date().toLocaleDateString('pt-BR')}</span>
-            </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-500">
+            <Calendar className="w-4 h-4" />
+            <span>{new Date().toLocaleDateString('pt-BR')}</span>
           </div>
+        </div>
         </div>
 
         {/* Cards Principais */}

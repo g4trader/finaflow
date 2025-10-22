@@ -50,7 +50,7 @@ export default function Investimentos() {
   const fetchInvestimentos = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/investimentos');
+      const response = await api.get('/api/v1/investimentos');
       if (response.data.success) {
         setInvestimentos(response.data.investimentos);
       }
@@ -63,7 +63,7 @@ export default function Investimentos() {
 
   const fetchResumo = async () => {
     try {
-      const response = await api.get('/investimentos/resumo');
+      const response = await api.get('/api/v1/investimentos/resumo');
       if (response.data.success) {
         setResumo(response.data.resumo);
       }
@@ -76,7 +76,7 @@ export default function Investimentos() {
     e.preventDefault();
     
     try {
-      await api.post('/investimentos', formData);
+      await api.post('/api/v1/investimentos', formData);
       
       setShowModal(false);
       setFormData({

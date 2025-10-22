@@ -33,7 +33,7 @@ export default function CaixaPage() {
   const fetchCaixas = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/caixa');
+      const response = await api.get('/api/v1/caixa');
       if (response.data.success) {
         setCaixas(response.data.caixas);
       }
@@ -49,9 +49,9 @@ export default function CaixaPage() {
     
     try {
       if (editingCaixa) {
-        await api.put(`/caixa/${editingCaixa.id}`, formData);
+        await api.put(`/api/v1/caixa/${editingCaixa.id}`, formData);
       } else {
-        await api.post('/caixa', formData);
+        await api.post('/api/v1/caixa', formData);
       }
       
       setShowModal(false);
@@ -82,7 +82,7 @@ export default function CaixaPage() {
     if (!confirm('Deseja realmente remover este caixa?')) return;
     
     try {
-      await api.delete(`/caixa/${id}`);
+      await api.delete(`/api/v1/caixa/${id}`);
       fetchCaixas();
     } catch (error) {
       console.error('Erro ao remover caixa:', error);

@@ -37,7 +37,7 @@ export default function ContasBancarias() {
   const fetchContas = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/contas-bancarias');
+      const response = await api.get('/api/v1/contas-bancarias');
       if (response.data.success) {
         setContas(response.data.contas);
       }
@@ -53,9 +53,9 @@ export default function ContasBancarias() {
     
     try {
       if (editingConta) {
-        await api.put(`/contas-bancarias/${editingConta.id}`, formData);
+        await api.put(`/api/v1/contas-bancarias/${editingConta.id}`, formData);
       } else {
-        await api.post('/contas-bancarias', formData);
+        await api.post('/api/v1/contas-bancarias', formData);
       }
       
       setShowModal(false);
@@ -90,7 +90,7 @@ export default function ContasBancarias() {
     if (!confirm('Deseja realmente remover esta conta?')) return;
     
     try {
-      await api.delete(`/contas-bancarias/${id}`);
+      await api.delete(`/api/v1/contas-bancarias/${id}`);
       fetchContas();
     } catch (error) {
       console.error('Erro ao remover conta:', error);
