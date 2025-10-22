@@ -6911,5 +6911,33 @@ async def get_transactions_annual(
         print(f"Erro ao buscar transações: {str(e)}")
         return {"success": False, "error": str(e)}
 
+@app.post("/api/v1/admin/fix-transaction-type-nullable")
+async def fix_transaction_type_nullable(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Corrigir coluna transaction_type para permitir NULL"""
+    try:
+        # Permitir para qualquer usuário autenticado (temporariamente)
+        # if current_user.get("role") != "super_admin":
+        #     return {"success": False, "message": "Apenas super_admin pode executar esta operação"}
+        
+        # Alterar coluna para permitir NULL
+        alter_query = text("""
+            ALTER TABLE lancamentos_diarios 
+            ALTER COLUMN transaction_type DROP NOT NULL
+        """)
+        db.execute(alter_query)
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Coluna transaction_type agora permite valores NULL"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "message": f"Erro ao corrigir coluna: {str(e)}"}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)

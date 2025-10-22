@@ -56,6 +56,25 @@ def select_business_unit(token):
     print("✅ Usando business unit do token")
     return True
 
+def fix_transaction_type_column(token):
+    """Corrigir coluna transaction_type para permitir NULL"""
+    print("🔧 Corrigindo coluna transaction_type...")
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = requests.post(
+        f"{BACKEND_URL}/api/v1/admin/fix-transaction-type-nullable", 
+        headers=headers
+    )
+    
+    if response.status_code == 200:
+        data = response.json()
+        print(f"✅ {data.get('message', 'Coluna corrigida com sucesso')}")
+        return True
+    else:
+        print(f"❌ Erro ao corrigir coluna: {response.status_code} - {response.text}")
+        return False
+
 def limpar_lancamentos(token):
     """Limpar todos os lançamentos diários existentes"""
     print("🧹 Limpando lançamentos diários existentes...")
@@ -153,11 +172,15 @@ def main():
     if not select_business_unit(token):
         return
     
-    # 3. Limpar lançamentos existentes
+    # 3. Corrigir coluna transaction_type
+    if not fix_transaction_type_column(token):
+        return
+    
+    # 4. Limpar lançamentos existentes
     if not limpar_lancamentos(token):
         return
     
-    # 4. Importar novos lançamentos
+    # 5. Importar novos lançamentos
     if not importar_lancamentos(token):
         return
     
