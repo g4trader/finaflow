@@ -1052,6 +1052,50 @@ async def debug_import(db: Session = Depends(get_db)):
     except Exception as e:
         return {"error": str(e)}
 
+@app.post("/api/v1/admin/create-test-transaction")
+async def create_test_transaction(db: Session = Depends(get_db)):
+    """Criar uma transação de teste"""
+    try:
+        # Buscar dados básicos
+        tenant = db.query(Tenant).first()
+        user = db.query(User).first()
+        business_unit = db.query(BusinessUnit).first()
+        chart_account = db.query(ChartAccount).first()
+        liquidation_account = db.query(LiquidationAccount).first()
+        
+        if not all([tenant, user, business_unit, chart_account, liquidation_account]):
+            return {"error": "Dados básicos não encontrados"}
+        
+        # Criar transação de teste
+        transaction = FinancialTransaction(
+            reference="TEST-001",
+            tenant_id=tenant.id,
+            business_unit_id=business_unit.id,
+            chart_account_id=chart_account.id,
+            liquidation_account_id=liquidation_account.id,
+            transaction_date=datetime.datetime.now(),
+            amount=100.00,
+            description="Transação de teste",
+            transaction_type="receita",
+            status="aprovada",
+            created_by=user.id,
+            approved_by=user.id,
+            created_at=datetime.datetime.now(),
+            updated_at=datetime.datetime.now()
+        )
+        
+        db.add(transaction)
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Transação de teste criada com sucesso",
+            "transaction_id": str(transaction.id)
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
+
 # Endpoints de autenticação
 @app.post("/api/v1/auth/login")
 async def login(credentials: dict, db: Session = Depends(get_db)):
