@@ -354,10 +354,21 @@ async def get_cash_flow(db: Session = Depends(get_db)):
         
         return {
             "periodo": "Últimos 12 meses",
+            "revenue": receitas,
+            "expenses": despesas,
+            "profit": receitas - despesas,
             "total_receitas": receitas,
             "total_despesas": despesas,
             "saldo": receitas - despesas,
-            "transaction_count": len(transactions)
+            "transaction_count": len(transactions),
+            "monthly_data": [
+                {
+                    "month": "01",
+                    "revenue": receitas,
+                    "expenses": despesas,
+                    "profit": receitas - despesas
+                }
+            ]
         }
     except Exception as e:
         return {"error": str(e)}
@@ -391,6 +402,14 @@ async def get_lancamentos_diarios(year: int = 2025, limit: int = 10, db: Session
         
         return {
             "lancamentos": [{
+                "id": str(t.id),
+                "description": t.description,
+                "amount": t.amount,
+                "transaction_type": t.transaction_type,
+                "transaction_date": t.transaction_date.isoformat(),
+                "status": t.status
+            } for t in transactions],
+            "data": [{
                 "id": str(t.id),
                 "description": t.description,
                 "amount": t.amount,
