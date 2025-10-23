@@ -550,6 +550,214 @@ async def create_default_liquidation_accounts(db: Session = Depends(get_db)):
         db.rollback()
         return {"error": str(e)}
 
+@app.post("/api/v1/admin/create-chart-accounts")
+async def create_chart_accounts(db: Session = Depends(get_db)):
+    """Criar plano de contas completo baseado na planilha"""
+    try:
+        # Buscar tenant padrão
+        tenant = db.query(Tenant).first()
+        if not tenant:
+            return {"error": "Nenhum tenant encontrado. Execute primeiro /api/v1/admin/create-test-data"}
+        
+        # Importar plano de contas
+        from backend.app.services.chart_accounts_importer import ChartAccountsImporter
+        result = ChartAccountsImporter.create_default_chart_accounts(db, tenant.id)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Plano de contas criado com sucesso",
+            "created": result
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
+
+@app.get("/api/v1/chart-accounts")
+async def get_chart_accounts(db: Session = Depends(get_db)):
+    """Listar plano de contas hierárquico"""
+    try:
+        # Buscar grupos
+        groups = db.query(ChartAccountGroup).filter(ChartAccountGroup.is_active == True).all()
+        
+        result = []
+        for group in groups:
+            group_data = {
+                "id": str(group.id),
+                "code": group.code,
+                "name": group.name,
+                "description": group.description,
+                "subgroups": []
+            }
+            
+            # Buscar subgrupos do grupo
+            subgroups = db.query(ChartAccountSubgroup).filter(
+                ChartAccountSubgroup.group_id == group.id,
+                ChartAccountSubgroup.is_active == True
+            ).all()
+            
+            for subgroup in subgroups:
+                subgroup_data = {
+                    "id": str(subgroup.id),
+                    "code": subgroup.code,
+                    "name": subgroup.name,
+                    "description": subgroup.description,
+                    "accounts": []
+                }
+                
+                # Buscar contas do subgrupo
+                accounts = db.query(ChartAccount).filter(
+                    ChartAccount.subgroup_id == subgroup.id,
+                    ChartAccount.is_active == True
+                ).all()
+                
+                for account in accounts:
+                    account_data = {
+                        "id": str(account.id),
+                        "code": account.code,
+                        "name": account.name,
+                        "description": account.description,
+                        "account_type": account.account_type
+                    }
+                    subgroup_data["accounts"].append(account_data)
+                
+                group_data["subgroups"].append(subgroup_data)
+            
+            result.append(group_data)
+        
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/v1/cash-flow-by-liquidation")
+async def get_cash_flow_by_liquidation(year: int = 2025, db: Session = Depends(get_db)):
+    """Fluxo de caixa detalhado por conta de liquidação"""
+    try:
+        # Buscar todas as contas de liquidação
+        liquidation_accounts = db.query(LiquidationAccount).filter(
+            LiquidationAccount.is_active == True
+        ).all()
+        
+        result = []
+        for account in liquidation_accounts:
+            # Buscar transações da conta no ano
+            transactions = db.query(FinancialTransaction).filter(
+                FinancialTransaction.liquidation_account_id == account.id,
+                FinancialTransaction.transaction_date >= f"{year}-01-01",
+                FinancialTransaction.transaction_date <= f"{year}-12-31"
+            ).all()
+            
+            # Calcular totais
+            total_credits = sum(t.amount for t in transactions if t.transaction_type == "receita")
+            total_debits = sum(t.amount for t in transactions if t.transaction_type == "despesa")
+            net_flow = total_credits - total_debits
+            
+            account_data = {
+                "account_id": str(account.id),
+                "account_code": account.code,
+                "account_name": account.name,
+                "account_type": account.account_type,
+                "bank_name": account.bank_name,
+                "current_balance": float(account.current_balance),
+                "total_credits": total_credits,
+                "total_debits": total_debits,
+                "net_flow": net_flow,
+                "transaction_count": len(transactions),
+                "transactions": [{
+                    "id": str(t.id),
+                    "date": t.transaction_date.isoformat(),
+                    "description": t.description,
+                    "amount": float(t.amount),
+                    "type": t.transaction_type,
+                    "reference": t.reference
+                } for t in transactions[:10]]  # Últimas 10 transações
+            }
+            result.append(account_data)
+        
+        return {
+            "year": year,
+            "accounts": result,
+            "summary": {
+                "total_accounts": len(result),
+                "total_credits": sum(a["total_credits"] for a in result),
+                "total_debits": sum(a["total_debits"] for a in result),
+                "net_flow": sum(a["net_flow"] for a in result)
+            }
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/v1/liquidation-account-statement/{account_id}")
+async def get_liquidation_account_statement(account_id: str, year: int = 2025, month: int = None, db: Session = Depends(get_db)):
+    """Extrato detalhado de uma conta de liquidação específica"""
+    try:
+        # Buscar conta
+        account = db.query(LiquidationAccount).filter(
+            LiquidationAccount.id == account_id
+        ).first()
+        
+        if not account:
+            return {"error": "Conta de liquidação não encontrada"}
+        
+        # Construir filtro de data
+        date_filter = FinancialTransaction.transaction_date >= f"{year}-01-01"
+        date_filter = date_filter & (FinancialTransaction.transaction_date <= f"{year}-12-31")
+        
+        if month:
+            date_filter = date_filter & (FinancialTransaction.transaction_date >= f"{year}-{month:02d}-01")
+            date_filter = date_filter & (FinancialTransaction.transaction_date <= f"{year}-{month:02d}-31")
+        
+        # Buscar transações
+        transactions = db.query(FinancialTransaction).filter(
+            FinancialTransaction.liquidation_account_id == account_id,
+            date_filter
+        ).order_by(FinancialTransaction.transaction_date.desc()).all()
+        
+        # Calcular saldo inicial (simulado)
+        opening_balance = float(account.current_balance) - sum(
+            t.amount if t.transaction_type == "receita" else -t.amount 
+            for t in transactions
+        )
+        
+        # Calcular totais
+        total_credits = sum(t.amount for t in transactions if t.transaction_type == "receita")
+        total_debits = sum(t.amount for t in transactions if t.transaction_type == "despesa")
+        closing_balance = opening_balance + total_credits - total_debits
+        
+        return {
+            "account": {
+                "id": str(account.id),
+                "code": account.code,
+                "name": account.name,
+                "account_type": account.account_type,
+                "bank_name": account.bank_name
+            },
+            "period": {
+                "year": year,
+                "month": month,
+                "opening_balance": opening_balance,
+                "closing_balance": closing_balance
+            },
+            "summary": {
+                "total_credits": total_credits,
+                "total_debits": total_debits,
+                "net_movement": total_credits - total_debits,
+                "transaction_count": len(transactions)
+            },
+            "transactions": [{
+                "id": str(t.id),
+                "date": t.transaction_date.isoformat(),
+                "description": t.description,
+                "amount": float(t.amount),
+                "type": t.transaction_type,
+                "reference": t.reference,
+                "status": t.status
+            } for t in transactions]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 # Endpoints de autenticação
 @app.post("/api/v1/auth/login")
 async def login(credentials: dict, db: Session = Depends(get_db)):

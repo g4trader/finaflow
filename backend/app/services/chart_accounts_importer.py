@@ -2,283 +2,160 @@ import csv
 import io
 from typing import List, Dict, Tuple
 from sqlalchemy.orm import Session
-from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount
+from backend.app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount
 
 class ChartAccountsImporter:
-    """Serviço para importar plano de contas do CSV"""
+    """Serviço para importar plano de contas baseado na planilha Google Sheets"""
     
     @staticmethod
-    def parse_csv_content(csv_content: str) -> List[Dict]:
-        """Parse do conteúdo CSV"""
-        accounts_data = []
+    def create_default_chart_accounts(db: Session, tenant_id: str):
+        """Criar plano de contas padrão baseado na planilha"""
         
-        # Ler o CSV
-        csv_file = io.StringIO(csv_content)
-        reader = csv.DictReader(csv_file)
+        # Estrutura baseada na planilha
+        chart_structure = {
+            "Receita": {
+                "Receita": ["Diversos", "Serviço Ivone"],
+                "Receita Financeira": ["Outras Receitas Financeiras"]
+            },
+            "Custos": {
+                "Custos com Serviços Prestados": ["Compra de material para consumo-CSP", "Serviços de terceiros-CSP"],
+                "Custos com Mão de Obra": ["Salário"]
+            },
+            "Despesas Operacionais": {
+                "Despesas Financeiras": ["Tarifas Bancárias", "Aluguel de Máquinas de Cartão"],
+                "Despesas com Pessoal": ["Pró-Labore-ADM"],
+                "Despesas Administrativas": ["Serviços de terceiros-ADM", "Seguros", "Telefone e Internet-ADM"],
+                "Despesas Comerciais": ["Brindes", "Gasolina / Combustível-COM"]
+            },
+            "Movimentações Não Operacionais": {
+                "Saídas não Operacionais": ["Outras saídas não operacionais"]
+            }
+        }
         
-        for row in reader:
-            # Verificar se deve usar a conta
-            if row.get('Escolha', '').strip().lower() == 'usar':
-                accounts_data.append({
-                    'conta': row.get('Conta', '').strip(),
-                    'subgrupo': row.get('Subgrupo', '').strip(),
-                    'grupo': row.get('Grupo', '').strip(),
-                    'descricao': row.get('Descricao', '').strip() if 'Descricao' in row else None
-                })
+        created_groups = {}
+        created_subgroups = {}
+        created_accounts = {}
         
-        return accounts_data
-    
-    @staticmethod
-    def determine_account_type(grupo: str, subgrupo: str) -> str:
-        """Determina o tipo da conta baseado no grupo e subgrupo"""
-        grupo_lower = grupo.lower()
-        subgrupo_lower = subgrupo.lower()
+        # Criar grupos
+        for group_name in chart_structure.keys():
+            group = ChartAccountGroup(
+                id=f"group_{group_name.lower().replace(' ', '_')}",
+                tenant_id=tenant_id,
+                code=ChartAccountsImporter._generate_group_code(group_name),
+                name=group_name,
+                description=f"Grupo {group_name}",
+                is_active=True
+            )
+            db.add(group)
+            created_groups[group_name] = group
         
-        if 'receita' in grupo_lower or 'receita' in subgrupo_lower:
-            return 'Receita'
-        elif 'custo' in grupo_lower or 'custo' in subgrupo_lower:
-            return 'Custo'
-        elif 'despesa' in grupo_lower or 'despesa' in subgrupo_lower:
-            return 'Despesa'
-        elif 'investimento' in grupo_lower:
-            return 'Investimento'
-        elif 'movimentação' in grupo_lower or 'entrada' in grupo_lower or 'saída' in grupo_lower:
-            return 'Movimentação'
-        else:
-            return 'Outro'
-    
-    @staticmethod
-    def generate_code(name: str, existing_codes: List[str]) -> str:
-        """Gera um código único baseado no nome"""
-        # Remover caracteres especiais e espaços
-        clean_name = ''.join(c for c in name if c.isalnum() or c.isspace()).strip()
+        db.flush()
         
-        # Pegar as primeiras letras de cada palavra
-        words = clean_name.split()
-        if len(words) == 1:
-            code = words[0][:3].upper()
-        else:
-            code = ''.join(word[0] for word in words[:3]).upper()
+        # Criar subgrupos
+        for group_name, subgroups in chart_structure.items():
+            group = created_groups[group_name]
+            for subgroup_name, accounts in subgroups.items():
+                subgroup = ChartAccountSubgroup(
+                    id=f"subgroup_{subgroup_name.lower().replace(' ', '_').replace('/', '_')}",
+                    tenant_id=tenant_id,
+                    code=ChartAccountsImporter._generate_subgroup_code(subgroup_name),
+                    name=subgroup_name,
+                    description=f"Subgrupo {subgroup_name}",
+                    group_id=group.id,
+                    is_active=True
+                )
+                db.add(subgroup)
+                created_subgroups[subgroup_name] = subgroup
         
-        # Garantir que o código seja único
-        base_code = code
-        counter = 1
-        while code in existing_codes:
-            code = f"{base_code}{counter}"
-            counter += 1
+        db.flush()
         
-        return code
-    
-    @staticmethod
-    def import_chart_accounts(db: Session, csv_content: str, tenant_id: str = None, business_unit_id: str = None) -> Dict:
-        """Importa o plano de contas do CSV"""
-        try:
-            # Converter IDs para UUID
-            import uuid
-            if tenant_id and isinstance(tenant_id, str):
-                try:
-                    tenant_id = uuid.UUID(tenant_id)
-                except:
-                    pass
-            
-            if business_unit_id and isinstance(business_unit_id, str):
-                try:
-                    business_unit_id = uuid.UUID(business_unit_id)
-                except:
-                    pass
-            
-            print(f"[IMPORT] tenant_id={tenant_id} (converted to UUID)")
-            print(f"[IMPORT] business_unit_id={business_unit_id} (converted to UUID)")
-            
-            # Parse do CSV
-            accounts_data = ChartAccountsImporter.parse_csv_content(csv_content)
-            print(f"[IMPORT DEBUG] CSV parsed: {len(accounts_data)} accounts found")
-            
-            if not accounts_data:
-                return {"success": False, "message": "Nenhuma conta válida encontrada no CSV"}
-            
-            # Coletar códigos existentes APENAS DO TENANT ATUAL (ou globais)
-            print(f"[IMPORT] Fetching existing codes...")
-            
-            existing_group_codes = [g.code for g in db.query(ChartAccountGroup).filter(
-                (ChartAccountGroup.tenant_id == tenant_id) | (ChartAccountGroup.tenant_id == None)
-            ).all()]
-            print(f"[IMPORT] Found {len(existing_group_codes)} existing group codes")
-            
-            existing_subgroup_codes = [sg.code for sg in db.query(ChartAccountSubgroup).filter(
-                (ChartAccountSubgroup.tenant_id == tenant_id) | (ChartAccountSubgroup.tenant_id == None)
-            ).all()]
-            print(f"[IMPORT] Found {len(existing_subgroup_codes)} existing subgroup codes")
-            
-            existing_account_codes = [a.code for a in db.query(ChartAccount).filter(
-                (ChartAccount.tenant_id == tenant_id) | (ChartAccount.tenant_id == None)
-            ).all()]
-            print(f"[IMPORT] Found {len(existing_account_codes)} existing account codes")
-            
-            # Processar grupos
-            groups_created = 0
-            groups_updated = 0
-            group_mapping = {}  # nome -> id
-            
-            print(f"[IMPORT] Processing groups...")
-            try:
-                for account in accounts_data:
-                    grupo = account['grupo']
-                    
-                    if grupo not in group_mapping:
-                        # Verificar se o grupo já existe PARA ESTE TENANT
-                        try:
-                            existing_group = db.query(ChartAccountGroup).filter(
-                                ChartAccountGroup.name == grupo,
-                                (ChartAccountGroup.tenant_id == tenant_id) | (ChartAccountGroup.tenant_id == None)
-                            ).first()
-                        except Exception as e:
-                            print(f"[IMPORT ERROR] Query failed for group '{grupo}': {str(e)}")
-                            raise
-                        
-                        if existing_group:
-                            group_mapping[grupo] = existing_group.id
-                            groups_updated += 1
-                        else:
-                            # Criar novo grupo
-                            code = ChartAccountsImporter.generate_code(grupo, existing_group_codes)
-                            try:
-                                new_group = ChartAccountGroup(
-                                    code=code,
-                                    name=grupo,
-                                    description=f"Grupo: {grupo}",
-                                    tenant_id=tenant_id  # Vincular ao tenant
-                                )
-                                db.add(new_group)
-                                db.flush()  # Para obter o ID
-                                
-                                group_mapping[grupo] = new_group.id
-                                existing_group_codes.append(code)
-                                groups_created += 1
-                                print(f"[IMPORT] Created group: {grupo}")
-                            except Exception as e:
-                                print(f"[IMPORT ERROR] Failed to create group '{grupo}': {str(e)}")
-                                raise
-            except Exception as e:
-                print(f"[IMPORT ERROR] Group processing failed: {str(e)}")
-                raise
-            
-            # Processar subgrupos
-            subgroups_created = 0
-            subgroups_updated = 0
-            subgroup_mapping = {}  # (grupo, subgrupo) -> id
-            
-            for account in accounts_data:
-                grupo = account['grupo']
-                subgrupo = account['subgrupo']
-                group_id = group_mapping[grupo]
-                
-                key = (grupo, subgrupo)
-                if key not in subgroup_mapping:
-                    # Verificar se o subgrupo já existe PARA ESTE TENANT
-                    existing_subgroup = db.query(ChartAccountSubgroup).filter(
-                        ChartAccountSubgroup.name == subgrupo,
-                        ChartAccountSubgroup.group_id == group_id,
-                        (ChartAccountSubgroup.tenant_id == tenant_id) | (ChartAccountSubgroup.tenant_id == None)
-                    ).first()
-                    
-                    if existing_subgroup:
-                        subgroup_mapping[key] = existing_subgroup.id
-                        subgroups_updated += 1
-                    else:
-                        # Criar novo subgrupo
-                        code = ChartAccountsImporter.generate_code(subgrupo, existing_subgroup_codes)
-                        new_subgroup = ChartAccountSubgroup(
-                            code=code,
-                            name=subgrupo,
-                            description=f"Subgrupo: {subgrupo}",
-                            group_id=group_id,
-                            tenant_id=tenant_id  # Vincular ao tenant
-                        )
-                        db.add(new_subgroup)
-                        db.flush()  # Para obter o ID
-                        
-                        subgroup_mapping[key] = new_subgroup.id
-                        existing_subgroup_codes.append(code)
-                        subgroups_created += 1
-            
-            # Processar contas
-            accounts_created = 0
-            accounts_updated = 0
-            
-            for account in accounts_data:
-                grupo = account['grupo']
-                subgrupo = account['subgrupo']
-                conta = account['conta']
-                descricao = account['descricao']
-                
-                group_id = group_mapping[grupo]
-                subgroup_id = subgroup_mapping[(grupo, subgrupo)]
-                
-                # Determinar tipo da conta
-                account_type = ChartAccountsImporter.determine_account_type(grupo, subgrupo)
-                
-                # Verificar se a conta já existe PARA ESTE TENANT
-                existing_account = db.query(ChartAccount).filter(
-                    ChartAccount.name == conta,
-                    ChartAccount.subgroup_id == subgroup_id,
-                    (ChartAccount.tenant_id == tenant_id) | (ChartAccount.tenant_id == None)
-                ).first()
-                
-                if existing_account:
-                    # Atualizar conta existente
-                    existing_account.description = descricao or existing_account.description
-                    existing_account.account_type = account_type
-                    accounts_updated += 1
-                else:
-                    # Criar nova conta
-                    code = ChartAccountsImporter.generate_code(conta, existing_account_codes)
-                    new_account = ChartAccount(
-                        code=code,
-                        name=conta,
-                        description=descricao,
-                        subgroup_id=subgroup_id,
-                        account_type=account_type,
-                        tenant_id=tenant_id  # Vincular ao tenant
+        # Criar contas
+        for group_name, subgroups in chart_structure.items():
+            for subgroup_name, accounts in subgroups.items():
+                subgroup = created_subgroups[subgroup_name]
+                for account_name in accounts:
+                    account = ChartAccount(
+                        id=f"account_{account_name.lower().replace(' ', '_').replace('/', '_').replace('-', '_')}",
+                        tenant_id=tenant_id,
+                        code=ChartAccountsImporter._generate_account_code(account_name),
+                        name=account_name,
+                        description=f"Conta {account_name}",
+                        subgroup_id=subgroup.id,
+                        account_type=ChartAccountsImporter._determine_account_type(group_name, subgroup_name),
+                        is_active=True
                     )
-                    db.add(new_account)
-                    db.flush()  # IMPORTANTE: Flush para obter o ID antes de criar vínculo
-                    
-                    existing_account_codes.append(code)
-                    accounts_created += 1
-                    
-                    # Criar vínculo com Business Unit (se fornecido)
-                    if business_unit_id:
-                        from app.models.chart_of_accounts import BusinessUnitChartAccount
-                        bu_account_link = BusinessUnitChartAccount(
-                            business_unit_id=business_unit_id,
-                            chart_account_id=new_account.id,
-                            is_custom=False
-                        )
-                        db.add(bu_account_link)
-            
-            # Commit das mudanças
-            print(f"[IMPORT] Committing: {groups_created} grupos, {subgroups_created} subgrupos, {accounts_created} contas")
-            db.commit()
-            print(f"[IMPORT] ✅ Commit successful!")
-            
-            return {
-                "success": True,
-                "message": "Plano de contas importado com sucesso",
-                "summary": {
-                    "groups_created": groups_created,
-                    "groups_updated": groups_updated,
-                    "subgroups_created": subgroups_created,
-                    "subgroups_updated": subgroups_updated,
-                    "accounts_created": accounts_created,
-                    "accounts_updated": accounts_updated,
-                    "total_processed": len(accounts_data)
-                }
-            }
-            
-        except Exception as e:
-            db.rollback()
-            return {
-                "success": False,
-                "message": f"Erro ao importar plano de contas: {str(e)}"
-            }
+                    db.add(account)
+                    created_accounts[account_name] = account
+        
+        db.flush()
+        
+        return {
+            "groups": len(created_groups),
+            "subgroups": len(created_subgroups),
+            "accounts": len(created_accounts)
+        }
+    
+    @staticmethod
+    def _generate_group_code(group_name: str) -> str:
+        """Gerar código para grupo"""
+        codes = {
+            "Receita": "1",
+            "Custos": "2", 
+            "Despesas Operacionais": "3",
+            "Movimentações Não Operacionais": "4"
+        }
+        return codes.get(group_name, "9")
+    
+    @staticmethod
+    def _generate_subgroup_code(subgroup_name: str) -> str:
+        """Gerar código para subgrupo"""
+        # Códigos baseados na estrutura da planilha
+        codes = {
+            "Receita": "01",
+            "Receita Financeira": "02",
+            "Custos com Serviços Prestados": "01",
+            "Custos com Mão de Obra": "02",
+            "Despesas Financeiras": "01",
+            "Despesas com Pessoal": "02",
+            "Despesas Administrativas": "03",
+            "Despesas Comerciais": "04",
+            "Saídas não Operacionais": "01"
+        }
+        return codes.get(subgroup_name, "99")
+    
+    @staticmethod
+    def _generate_account_code(account_name: str) -> str:
+        """Gerar código para conta"""
+        # Códigos sequenciais baseados no nome
+        codes = {
+            "Diversos": "001",
+            "Serviço Ivone": "002",
+            "Outras Receitas Financeiras": "001",
+            "Compra de material para consumo-CSP": "001",
+            "Serviços de terceiros-CSP": "002",
+            "Salário": "001",
+            "Tarifas Bancárias": "001",
+            "Aluguel de Máquinas de Cartão": "002",
+            "Pró-Labore-ADM": "001",
+            "Serviços de terceiros-ADM": "001",
+            "Seguros": "002",
+            "Telefone e Internet-ADM": "003",
+            "Brindes": "001",
+            "Gasolina / Combustível-COM": "002",
+            "Outras saídas não operacionais": "001"
+        }
+        return codes.get(account_name, "999")
+    
+    @staticmethod
+    def _determine_account_type(group_name: str, subgroup_name: str) -> str:
+        """Determinar tipo da conta baseado no grupo e subgrupo"""
+        if "Receita" in group_name:
+            return "receita"
+        elif "Custo" in group_name:
+            return "custo"
+        elif "Despesa" in group_name:
+            return "despesa"
+        elif "Movimentação" in group_name:
+            return "movimentacao"
+        else:
+            return "outro"
