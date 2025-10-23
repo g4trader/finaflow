@@ -134,19 +134,19 @@ async def import_google_sheets_data(db: Session = Depends(get_db)):
                 # Converter data
                 data_movimentacao = datetime.datetime.strptime(row["data"], "%d/%m/%Y")
                 
-                       # Buscar tenant, usuário, business unit, conta contábil e conta de liquidação
-                       tenant = db.query(Tenant).first()
-                       user = db.query(User).first()
-                       business_unit = db.query(BusinessUnit).first()
-                       
-                       # Buscar conta contábil baseada no nome da conta da planilha
-                       chart_account = db.query(ChartAccount).filter(
-                           ChartAccount.name == row["conta"]
-                       ).first()
-                       
-                       # Se não encontrar, usar a primeira conta disponível
-                       if not chart_account:
-                           chart_account = db.query(ChartAccount).first()
+                # Buscar tenant, usuário, business unit, conta contábil e conta de liquidação
+                tenant = db.query(Tenant).first()
+                user = db.query(User).first()
+                business_unit = db.query(BusinessUnit).first()
+                
+                # Buscar conta contábil baseada no nome da conta da planilha
+                chart_account = db.query(ChartAccount).filter(
+                    ChartAccount.name == row["conta"]
+                ).first()
+                
+                # Se não encontrar, usar a primeira conta disponível
+                if not chart_account:
+                    chart_account = db.query(ChartAccount).first()
                 
                 # Buscar conta de liquidação baseada no campo "liquidacao" da planilha
                 liquidation_account = None
