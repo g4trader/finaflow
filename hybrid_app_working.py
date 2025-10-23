@@ -1072,7 +1072,6 @@ async def create_test_transaction(db: Session = Depends(get_db)):
             tenant_id=tenant.id,
             business_unit_id=business_unit.id,
             chart_account_id=chart_account.id,
-            liquidation_account_id=liquidation_account.id,
             transaction_date=datetime.datetime.now(),
             amount=100.00,
             description="Transação de teste",
