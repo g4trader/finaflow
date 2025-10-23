@@ -1028,6 +1028,30 @@ async def get_liquidation_account_statement(account_id: str, year: int = 2025, m
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/api/v1/admin/debug-import")
+async def debug_import(db: Session = Depends(get_db)):
+    """Debug da importação"""
+    try:
+        # Verificar dados básicos
+        tenant = db.query(Tenant).first()
+        user = db.query(User).first()
+        business_unit = db.query(BusinessUnit).first()
+        chart_account = db.query(ChartAccount).first()
+        liquidation_account = db.query(LiquidationAccount).first()
+        
+        return {
+            "tenant": str(tenant.id) if tenant else None,
+            "user": str(user.id) if user else None,
+            "business_unit": str(business_unit.id) if business_unit else None,
+            "chart_account": str(chart_account.id) if chart_account else None,
+            "liquidation_account": str(liquidation_account.id) if liquidation_account else None,
+            "chart_accounts_count": db.query(ChartAccount).count(),
+            "liquidation_accounts_count": db.query(LiquidationAccount).count(),
+            "transactions_count": db.query(FinancialTransaction).count()
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 # Endpoints de autenticação
 @app.post("/api/v1/auth/login")
 async def login(credentials: dict, db: Session = Depends(get_db)):
