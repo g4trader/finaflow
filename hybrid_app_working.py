@@ -718,6 +718,27 @@ def _determine_account_type(group_name: str, subgroup_name: str) -> str:
     else:
         return "outro"
 
+@app.post("/api/v1/admin/clear-chart-accounts")
+async def clear_chart_accounts(db: Session = Depends(get_db)):
+    """Limpar plano de contas existente"""
+    try:
+        # Deletar contas
+        db.query(ChartAccount).delete()
+        # Deletar subgrupos
+        db.query(ChartAccountSubgroup).delete()
+        # Deletar grupos
+        db.query(ChartAccountGroup).delete()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Plano de contas limpo com sucesso"
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
+
 @app.get("/api/v1/chart-accounts")
 async def get_chart_accounts(db: Session = Depends(get_db)):
     """Listar plano de contas hierárquico"""
