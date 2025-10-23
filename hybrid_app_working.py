@@ -21,12 +21,16 @@ from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount, BusinessUnitChartAccount, Base as ChartBase
 from app.models.financial_transactions import FinancialTransaction, TransactionType, TransactionStatus, Base as FinancialBase
+from app.models.liquidation_accounts import LiquidationAccount, LiquidationAccountBalance, LiquidationAccountType, Base as LiquidationBase
+from app.models.scheduled_transactions import ScheduledTransaction, ScheduledTransactionExecution, Base as ScheduledBase
 
 # Criar todas as tabelas
 print("📊 Criando tabelas do banco de dados...")
 AuthBase.metadata.create_all(bind=engine)
 ChartBase.metadata.create_all(bind=engine)
 FinancialBase.metadata.create_all(bind=engine)
+LiquidationBase.metadata.create_all(bind=engine)
+ScheduledBase.metadata.create_all(bind=engine)
 
 # Criar aplicação FastAPI
 app = FastAPI(
@@ -130,11 +134,19 @@ async def import_google_sheets_data(db: Session = Depends(get_db)):
                 # Converter data
                 data_movimentacao = datetime.datetime.strptime(row["data"], "%d/%m/%Y")
                 
-                # Buscar tenant, usuário, business unit e conta contábil padrão
+                # Buscar tenant, usuário, business unit, conta contábil e conta de liquidação
                 tenant = db.query(Tenant).first()
                 user = db.query(User).first()
                 business_unit = db.query(BusinessUnit).first()
                 chart_account = db.query(ChartAccount).first()
+                
+                # Buscar conta de liquidação baseada no campo "liquidacao" da planilha
+                liquidation_account = None
+                if row.get("liquidacao"):
+                    liquidation_account = db.query(LiquidationAccount).filter(
+                        LiquidationAccount.code == row["liquidacao"],
+                        LiquidationAccount.tenant_id == tenant.id
+                    ).first()
                 
                 if not tenant or not user or not business_unit:
                     return {"success": False, "error": "Nenhum tenant, usuário ou business unit encontrado. Execute primeiro /api/v1/admin/create-test-data"}
@@ -190,6 +202,7 @@ async def import_google_sheets_data(db: Session = Depends(get_db)):
                     tenant_id=tenant.id,
                     business_unit_id=business_unit.id,  # Usar business unit existente
                     chart_account_id=chart_account.id,
+                    liquidation_account_id=liquidation_account.id if liquidation_account else None,
                     transaction_date=data_movimentacao,
                     amount=row["valor"],
                     description=f"{row['conta']} - {row['observacoes']}".strip(" -"),
@@ -420,6 +433,121 @@ async def get_lancamentos_diarios(year: int = 2025, limit: int = 10, db: Session
             "total": len(transactions)
         }
     except Exception as e:
+        return {"error": str(e)}
+
+# Endpoints de Contas de Liquidação
+@app.get("/api/v1/liquidation-accounts")
+async def get_liquidation_accounts(db: Session = Depends(get_db)):
+    """Listar contas de liquidação"""
+    try:
+        accounts = db.query(LiquidationAccount).filter(LiquidationAccount.is_active == True).all()
+        return [{
+            "id": str(a.id),
+            "code": a.code,
+            "name": a.name,
+            "description": a.description,
+            "account_type": a.account_type,
+            "bank_name": a.bank_name,
+            "account_number": a.account_number,
+            "current_balance": float(a.current_balance),
+            "currency": a.currency,
+            "is_default": a.is_default
+        } for a in accounts]
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/api/v1/liquidation-accounts")
+async def create_liquidation_account(account_data: dict, db: Session = Depends(get_db)):
+    """Criar conta de liquidação"""
+    try:
+        # Buscar tenant padrão
+        tenant = db.query(Tenant).first()
+        if not tenant:
+            return {"error": "Nenhum tenant encontrado"}
+        
+        account = LiquidationAccount(
+            id=str(uuid.uuid4()),
+            tenant_id=tenant.id,
+            code=account_data.get("code"),
+            name=account_data.get("name"),
+            description=account_data.get("description"),
+            account_type=account_data.get("account_type", "other"),
+            bank_name=account_data.get("bank_name"),
+            account_number=account_data.get("account_number"),
+            current_balance=account_data.get("current_balance", 0),
+            currency=account_data.get("currency", "BRL"),
+            is_default=account_data.get("is_default", False),
+            created_at=datetime.datetime.now(),
+            updated_at=datetime.datetime.now()
+        )
+        
+        db.add(account)
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Conta de liquidação criada com sucesso",
+            "account": {
+                "id": str(account.id),
+                "code": account.code,
+                "name": account.name
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
+
+@app.post("/api/v1/admin/create-default-liquidation-accounts")
+async def create_default_liquidation_accounts(db: Session = Depends(get_db)):
+    """Criar contas de liquidação padrão baseadas na planilha"""
+    try:
+        # Buscar tenant padrão
+        tenant = db.query(Tenant).first()
+        if not tenant:
+            return {"error": "Nenhum tenant encontrado. Execute primeiro /api/v1/admin/create-test-data"}
+        
+        # Contas padrão da planilha
+        default_accounts = [
+            {"code": "scb", "name": "SCB", "account_type": "bank_account", "bank_name": "SCB"},
+            {"code": "CEF", "name": "Caixa Econômica Federal", "account_type": "bank_account", "bank_name": "CEF"},
+            {"code": "CX", "name": "Caixa", "account_type": "cash", "bank_name": None},
+            {"code": "cef", "name": "Caixa Econômica Federal (Minúsculo)", "account_type": "bank_account", "bank_name": "CEF"},
+        ]
+        
+        created_count = 0
+        for acc_data in default_accounts:
+            # Verificar se já existe
+            existing = db.query(LiquidationAccount).filter(
+                LiquidationAccount.code == acc_data["code"],
+                LiquidationAccount.tenant_id == tenant.id
+            ).first()
+            
+            if not existing:
+                account = LiquidationAccount(
+                    id=str(uuid.uuid4()),
+                    tenant_id=tenant.id,
+                    code=acc_data["code"],
+                    name=acc_data["name"],
+                    account_type=acc_data["account_type"],
+                    bank_name=acc_data["bank_name"],
+                    current_balance=0,
+                    currency="BRL",
+                    is_default=False,
+                    created_at=datetime.datetime.now(),
+                    updated_at=datetime.datetime.now()
+                )
+                db.add(account)
+                created_count += 1
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Criadas {created_count} contas de liquidação padrão",
+            "created_count": created_count
+        }
+    except Exception as e:
+        db.rollback()
         return {"error": str(e)}
 
 # Endpoints de autenticação

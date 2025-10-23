@@ -42,6 +42,9 @@ class FinancialTransaction(Base):
     tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=False)
     business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=False)
     
+    # Conta de liquidação (scb, CEF, CX, etc.)
+    liquidation_account_id = Column(String(36), ForeignKey("liquidation_accounts.id"), nullable=True)
+    
     # Usuário que criou
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     approved_by = Column(String(36), ForeignKey("users.id"), nullable=True)
@@ -57,6 +60,7 @@ class FinancialTransaction(Base):
     chart_account = relationship("ChartAccount")
     tenant = relationship("Tenant")
     business_unit = relationship("BusinessUnit")
+    liquidation_account = relationship("LiquidationAccount", back_populates="transactions")
     creator = relationship("User", foreign_keys=[created_by])
     approver = relationship("User", foreign_keys=[approved_by])
     
