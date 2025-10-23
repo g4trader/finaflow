@@ -594,7 +594,6 @@ async def create_chart_accounts(db: Session = Depends(get_db)):
         # Criar grupos
         for group_name in chart_structure.keys():
             group = ChartAccountGroup(
-                id=f"group_{group_name.lower().replace(' ', '_')}",
                 code=_generate_group_code(group_name),
                 name=group_name,
                 description=f"Grupo {group_name}",
@@ -610,7 +609,6 @@ async def create_chart_accounts(db: Session = Depends(get_db)):
             group = created_groups[group_name]
             for subgroup_name, accounts in subgroups.items():
                 subgroup = ChartAccountSubgroup(
-                    id=f"subgroup_{subgroup_name.lower().replace(' ', '_').replace('/', '_')}",
                     code=_generate_subgroup_code(subgroup_name),
                     name=subgroup_name,
                     description=f"Subgrupo {subgroup_name}",
@@ -628,7 +626,6 @@ async def create_chart_accounts(db: Session = Depends(get_db)):
                 subgroup = created_subgroups[subgroup_name]
                 for account_name in accounts:
                     account = ChartAccount(
-                        id=f"account_{account_name.lower().replace(' ', '_').replace('/', '_').replace('-', '_')}",
                         code=_generate_account_code(account_name),
                         name=account_name,
                         description=f"Conta {account_name}",
@@ -781,7 +778,6 @@ async def reset_and_create_chart_accounts(db: Session = Depends(get_db)):
         # Criar grupos
         for group_name in chart_structure.keys():
             group = ChartAccountGroup(
-                id=f"group_{group_name.lower().replace(' ', '_')}",
                 code=_generate_group_code(group_name),
                 name=group_name,
                 description=f"Grupo {group_name}",
@@ -797,7 +793,6 @@ async def reset_and_create_chart_accounts(db: Session = Depends(get_db)):
             group = created_groups[group_name]
             for subgroup_name, accounts in subgroups.items():
                 subgroup = ChartAccountSubgroup(
-                    id=f"subgroup_{subgroup_name.lower().replace(' ', '_').replace('/', '_')}",
                     code=_generate_subgroup_code(subgroup_name),
                     name=subgroup_name,
                     description=f"Subgrupo {subgroup_name}",
@@ -815,7 +810,6 @@ async def reset_and_create_chart_accounts(db: Session = Depends(get_db)):
                 subgroup = created_subgroups[subgroup_name]
                 for account_name in accounts:
                     account = ChartAccount(
-                        id=f"account_{account_name.lower().replace(' ', '_').replace('/', '_').replace('-', '_')}",
                         code=_generate_account_code(account_name),
                         name=account_name,
                         description=f"Conta {account_name}",
