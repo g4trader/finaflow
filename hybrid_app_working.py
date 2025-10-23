@@ -739,6 +739,116 @@ async def clear_chart_accounts(db: Session = Depends(get_db)):
         db.rollback()
         return {"error": str(e)}
 
+@app.post("/api/v1/admin/reset-and-create-chart-accounts")
+async def reset_and_create_chart_accounts(db: Session = Depends(get_db)):
+    """Resetar sistema e criar plano de contas completo"""
+    try:
+        # Buscar tenant padrão
+        tenant = db.query(Tenant).first()
+        if not tenant:
+            return {"error": "Nenhum tenant encontrado. Execute primeiro /api/v1/admin/create-test-data"}
+        
+        # Limpar transações financeiras primeiro
+        db.query(FinancialTransaction).delete()
+        
+        # Limpar plano de contas
+        db.query(ChartAccount).delete()
+        db.query(ChartAccountSubgroup).delete()
+        db.query(ChartAccountGroup).delete()
+        
+        db.flush()
+        
+        # Criar plano de contas completo
+        chart_structure = {
+            "Receita": {
+                "Receita": ["Diversos", "Serviço Ivone"],
+                "Receita Financeira": ["Outras Receitas Financeiras"]
+            },
+            "Custos": {
+                "Custos com Serviços Prestados": ["Compra de material para consumo-CSP", "Serviços de terceiros-CSP"],
+                "Custos com Mão de Obra": ["Salário"]
+            },
+            "Despesas Operacionais": {
+                "Despesas Financeiras": ["Tarifas Bancárias", "Aluguel de Máquinas de Cartão"],
+                "Despesas com Pessoal": ["Pró-Labore-ADM"],
+                "Despesas Administrativas": ["Serviços de terceiros-ADM", "Seguros", "Telefone e Internet-ADM"],
+                "Despesas Comerciais": ["Brindes", "Gasolina / Combustível-COM"]
+            },
+            "Movimentações Não Operacionais": {
+                "Saídas não Operacionais": ["Outras saídas não operacionais"]
+            }
+        }
+        
+        created_groups = {}
+        created_subgroups = {}
+        created_accounts = {}
+        
+        # Criar grupos
+        for group_name in chart_structure.keys():
+            group = ChartAccountGroup(
+                id=f"group_{group_name.lower().replace(' ', '_')}",
+                tenant_id=tenant.id,
+                code=_generate_group_code(group_name),
+                name=group_name,
+                description=f"Grupo {group_name}",
+                is_active=True
+            )
+            db.add(group)
+            created_groups[group_name] = group
+        
+        db.flush()
+        
+        # Criar subgrupos
+        for group_name, subgroups in chart_structure.items():
+            group = created_groups[group_name]
+            for subgroup_name, accounts in subgroups.items():
+                subgroup = ChartAccountSubgroup(
+                    id=f"subgroup_{subgroup_name.lower().replace(' ', '_').replace('/', '_')}",
+                    tenant_id=tenant.id,
+                    code=_generate_subgroup_code(subgroup_name),
+                    name=subgroup_name,
+                    description=f"Subgrupo {subgroup_name}",
+                    group_id=group.id,
+                    is_active=True
+                )
+                db.add(subgroup)
+                created_subgroups[subgroup_name] = subgroup
+        
+        db.flush()
+        
+        # Criar contas
+        for group_name, subgroups in chart_structure.items():
+            for subgroup_name, accounts in subgroups.items():
+                subgroup = created_subgroups[subgroup_name]
+                for account_name in accounts:
+                    account = ChartAccount(
+                        id=f"account_{account_name.lower().replace(' ', '_').replace('/', '_').replace('-', '_')}",
+                        tenant_id=tenant.id,
+                        code=_generate_account_code(account_name),
+                        name=account_name,
+                        description=f"Conta {account_name}",
+                        subgroup_id=subgroup.id,
+                        account_type=_determine_account_type(group_name, subgroup_name),
+                        is_active=True
+                    )
+                    db.add(account)
+                    created_accounts[account_name] = account
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Sistema resetado e plano de contas criado com sucesso",
+            "created": {
+                "groups": len(created_groups),
+                "subgroups": len(created_subgroups),
+                "accounts": len(created_accounts)
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
+
 @app.get("/api/v1/chart-accounts")
 async def get_chart_accounts(db: Session = Depends(get_db)):
     """Listar plano de contas hierárquico"""
