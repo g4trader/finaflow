@@ -47,7 +47,6 @@ class LiquidationAccount(Base):
     # Relacionamentos
     tenant = relationship("Tenant")
     business_unit = relationship("BusinessUnit")
-    transactions = relationship("FinancialTransaction", back_populates="liquidation_account")
     
     # Constraints: código único por tenant
     __table_args__ = (

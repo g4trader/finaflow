@@ -60,7 +60,7 @@ class FinancialTransaction(Base):
     chart_account = relationship("ChartAccount")
     tenant = relationship("Tenant")
     business_unit = relationship("BusinessUnit")
-    liquidation_account = relationship("LiquidationAccount", back_populates="transactions")
+    liquidation_account = relationship("LiquidationAccount")
     creator = relationship("User", foreign_keys=[created_by])
     approver = relationship("User", foreign_keys=[approved_by])
     
