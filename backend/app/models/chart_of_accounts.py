@@ -77,6 +77,7 @@ class ChartAccount(Base):
 class BusinessUnitChartAccount(Base):
     """Relacionamento entre BU e Plano de Contas (para customizações)"""
     __tablename__ = "business_unit_chart_accounts"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     business_unit_id = Column(String(36), ForeignKey("business_units.id"), nullable=False)
