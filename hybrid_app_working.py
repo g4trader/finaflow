@@ -21,8 +21,8 @@ from app.database import get_db, engine
 from app.models.auth import User, Tenant, BusinessUnit, UserTenantAccess, UserBusinessUnitAccess, Base as AuthBase
 from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount, BusinessUnitChartAccount, Base as ChartBase
 from app.models.financial_transactions import FinancialTransaction, TransactionType, TransactionStatus, Base as FinancialBase
-from app.models.liquidation_accounts import LiquidationAccount, LiquidationAccountBalance, LiquidationAccountType, Base as LiquidationBase
-from app.models.scheduled_transactions import ScheduledTransaction, ScheduledTransactionExecution, Base as ScheduledBase
+from backend.app.models.liquidation_accounts import LiquidationAccount, LiquidationAccountBalance, LiquidationAccountType, Base as LiquidationBase
+from backend.app.models.scheduled_transactions import ScheduledTransaction, ScheduledTransactionExecution, Base as ScheduledBase
 
 # Criar todas as tabelas
 print("📊 Criando tabelas do banco de dados...")
