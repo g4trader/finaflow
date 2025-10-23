@@ -7,6 +7,7 @@ from app.database import Base
 class ChartAccountGroup(Base):
     """Grupo do Plano de Contas (1º nível)"""
     __tablename__ = "chart_account_groups"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=True)  # Null = global/compartilhado
@@ -28,6 +29,7 @@ class ChartAccountGroup(Base):
 class ChartAccountSubgroup(Base):
     """Subgrupo do Plano de Contas (2º nível)"""
     __tablename__ = "chart_account_subgroups"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=True)  # Null = global/compartilhado
@@ -51,6 +53,7 @@ class ChartAccountSubgroup(Base):
 class ChartAccount(Base):
     """Conta do Plano de Contas (3º nível)"""
     __tablename__ = "chart_accounts"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=True)  # Null = global/compartilhado
