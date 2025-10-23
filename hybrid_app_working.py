@@ -1067,8 +1067,9 @@ async def create_test_transaction(db: Session = Depends(get_db)):
             return {"error": "Dados básicos não encontrados"}
         
         # Criar transação de teste
+        import time
         transaction = FinancialTransaction(
-            reference="TEST-001",
+            reference=f"TEST-{int(time.time())}",
             tenant_id=tenant.id,
             business_unit_id=business_unit.id,
             chart_account_id=chart_account.id,
