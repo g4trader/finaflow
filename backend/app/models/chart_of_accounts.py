@@ -22,9 +22,9 @@ class ChartAccountGroup(Base):
     subgroups = relationship("ChartAccountSubgroup", back_populates="group", cascade="all, delete-orphan")
     
     # Constraints: código único por tenant (ou global se tenant_id é null)
-    __table_args__ = (
-        UniqueConstraint('code', 'tenant_id', name='uq_group_code_tenant'),
-    )
+    # __table_args__ = (
+    #     UniqueConstraint('code', 'tenant_id', name='uq_group_code_tenant'),
+    # )
 
 class ChartAccountSubgroup(Base):
     """Subgrupo do Plano de Contas (2º nível)"""
@@ -46,9 +46,9 @@ class ChartAccountSubgroup(Base):
     accounts = relationship("ChartAccount", back_populates="subgroup", cascade="all, delete-orphan")
     
     # Constraints: código único por grupo e tenant
-    __table_args__ = (
-        UniqueConstraint('code', 'group_id', 'tenant_id', name='uq_subgroup_code_group_tenant'),
-    )
+    # __table_args__ = (
+    #     UniqueConstraint('code', 'group_id', 'tenant_id', name='uq_subgroup_code_group_tenant'),
+    # )
 
 class ChartAccount(Base):
     """Conta do Plano de Contas (3º nível)"""
@@ -70,9 +70,9 @@ class ChartAccount(Base):
     subgroup = relationship("ChartAccountSubgroup", back_populates="accounts")
     
     # Constraints: código único por subgrupo e tenant
-    __table_args__ = (
-        UniqueConstraint('code', 'subgroup_id', 'tenant_id', name='uq_account_code_subgroup_tenant'),
-    )
+    # __table_args__ = (
+    #     UniqueConstraint('code', 'subgroup_id', 'tenant_id', name='uq_account_code_subgroup_tenant'),
+    # )
 
 class BusinessUnitChartAccount(Base):
     """Relacionamento entre BU e Plano de Contas (para customizações)"""
