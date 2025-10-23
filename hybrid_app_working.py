@@ -199,7 +199,6 @@ async def import_google_sheets_data(db: Session = Depends(get_db)):
                 transaction = FinancialTransaction(
                     id=str(uuid.uuid4()),
                     reference=f"GS-{row['data'].replace('/', '')}-{imported_count + 1}",  # Referência única
-                    tenant_id=tenant.id,
                     business_unit_id=business_unit.id,  # Usar business unit existente
                     chart_account_id=chart_account.id,
                     liquidation_account_id=liquidation_account.id if liquidation_account else None,
@@ -525,7 +524,6 @@ async def create_default_liquidation_accounts(db: Session = Depends(get_db)):
             if not existing:
                 account = LiquidationAccount(
                     id=str(uuid.uuid4()),
-                    tenant_id=tenant.id,
                     code=acc_data["code"],
                     name=acc_data["name"],
                     account_type=acc_data["account_type"],
@@ -597,7 +595,6 @@ async def create_chart_accounts(db: Session = Depends(get_db)):
         for group_name in chart_structure.keys():
             group = ChartAccountGroup(
                 id=f"group_{group_name.lower().replace(' ', '_')}",
-                tenant_id=tenant.id,
                 code=_generate_group_code(group_name),
                 name=group_name,
                 description=f"Grupo {group_name}",
@@ -614,7 +611,6 @@ async def create_chart_accounts(db: Session = Depends(get_db)):
             for subgroup_name, accounts in subgroups.items():
                 subgroup = ChartAccountSubgroup(
                     id=f"subgroup_{subgroup_name.lower().replace(' ', '_').replace('/', '_')}",
-                    tenant_id=tenant.id,
                     code=_generate_subgroup_code(subgroup_name),
                     name=subgroup_name,
                     description=f"Subgrupo {subgroup_name}",
@@ -633,7 +629,6 @@ async def create_chart_accounts(db: Session = Depends(get_db)):
                 for account_name in accounts:
                     account = ChartAccount(
                         id=f"account_{account_name.lower().replace(' ', '_').replace('/', '_').replace('-', '_')}",
-                        tenant_id=tenant.id,
                         code=_generate_account_code(account_name),
                         name=account_name,
                         description=f"Conta {account_name}",
@@ -787,7 +782,6 @@ async def reset_and_create_chart_accounts(db: Session = Depends(get_db)):
         for group_name in chart_structure.keys():
             group = ChartAccountGroup(
                 id=f"group_{group_name.lower().replace(' ', '_')}",
-                tenant_id=tenant.id,
                 code=_generate_group_code(group_name),
                 name=group_name,
                 description=f"Grupo {group_name}",
@@ -804,7 +798,6 @@ async def reset_and_create_chart_accounts(db: Session = Depends(get_db)):
             for subgroup_name, accounts in subgroups.items():
                 subgroup = ChartAccountSubgroup(
                     id=f"subgroup_{subgroup_name.lower().replace(' ', '_').replace('/', '_')}",
-                    tenant_id=tenant.id,
                     code=_generate_subgroup_code(subgroup_name),
                     name=subgroup_name,
                     description=f"Subgrupo {subgroup_name}",
@@ -823,7 +816,6 @@ async def reset_and_create_chart_accounts(db: Session = Depends(get_db)):
                 for account_name in accounts:
                     account = ChartAccount(
                         id=f"account_{account_name.lower().replace(' ', '_').replace('/', '_').replace('-', '_')}",
-                        tenant_id=tenant.id,
                         code=_generate_account_code(account_name),
                         name=account_name,
                         description=f"Conta {account_name}",
