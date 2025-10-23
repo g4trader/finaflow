@@ -609,7 +609,7 @@ async def create_chart_accounts(db: Session = Depends(get_db)):
             group = created_groups[group_name]
             for subgroup_name, accounts in subgroups.items():
                 subgroup = ChartAccountSubgroup(
-                    code=_generate_subgroup_code(subgroup_name),
+                    code=f"{group.code}{len(created_subgroups)+1:02d}",
                     name=subgroup_name,
                     description=f"Subgrupo {subgroup_name}",
                     group_id=group.id,
@@ -626,7 +626,7 @@ async def create_chart_accounts(db: Session = Depends(get_db)):
                 subgroup = created_subgroups[subgroup_name]
                 for account_name in accounts:
                     account = ChartAccount(
-                        code=_generate_account_code(account_name),
+                        code=f"{subgroup.code}{len(created_accounts)+1:03d}",
                         name=account_name,
                         description=f"Conta {account_name}",
                         subgroup_id=subgroup.id,
@@ -793,7 +793,7 @@ async def reset_and_create_chart_accounts(db: Session = Depends(get_db)):
             group = created_groups[group_name]
             for subgroup_name, accounts in subgroups.items():
                 subgroup = ChartAccountSubgroup(
-                    code=_generate_subgroup_code(subgroup_name),
+                    code=f"{group.code}{len(created_subgroups)+1:02d}",
                     name=subgroup_name,
                     description=f"Subgrupo {subgroup_name}",
                     group_id=group.id,
@@ -810,7 +810,7 @@ async def reset_and_create_chart_accounts(db: Session = Depends(get_db)):
                 subgroup = created_subgroups[subgroup_name]
                 for account_name in accounts:
                     account = ChartAccount(
-                        code=_generate_account_code(account_name),
+                        code=f"{subgroup.code}{len(created_accounts)+1:03d}",
                         name=account_name,
                         description=f"Conta {account_name}",
                         subgroup_id=subgroup.id,
