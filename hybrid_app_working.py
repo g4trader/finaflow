@@ -276,23 +276,28 @@ async def get_annual_summary(year: int = 2025, db: Session = Depends(get_db)):
         receitas = sum(t.amount for t in transactions if t.transaction_type == "receita")
         despesas = sum(t.amount for t in transactions if t.transaction_type == "despesa")
         
+        # Criar dados mensais (12 meses)
+        monthly_data = []
+        for month in range(1, 13):
+            month_transactions = [t for t in transactions if t.transaction_date.month == month]
+            month_receitas = sum(t.amount for t in month_transactions if t.transaction_type == "receita")
+            month_despesas = sum(t.amount for t in month_transactions if t.transaction_type == "despesa")
+            
+            monthly_data.append({
+                "month": month,
+                "revenue": month_receitas,
+                "expense": month_despesas,
+                "cost": 0  # Custos não implementados ainda
+            })
+        
         return {
             "year": year,
-            "revenue": receitas,
-            "expenses": despesas,
-            "profit": receitas - despesas,
-            "total_receitas": receitas,
-            "total_despesas": despesas,
-            "saldo": receitas - despesas,
-            "transaction_count": len(transactions),
-            "monthly_data": [
-                {
-                    "month": "01",
-                    "revenue": receitas,
-                    "expenses": despesas,
-                    "profit": receitas - despesas
-                }
-            ]
+            "totals": {
+                "revenue": receitas,
+                "expense": despesas,
+                "cost": 0  # Custos não implementados ainda
+            },
+            "monthly": monthly_data
         }
     except Exception as e:
         return {"error": str(e)}
@@ -311,11 +316,39 @@ async def get_wallet(year: int = 2025, db: Session = Depends(get_db)):
         despesas = sum(t.amount for t in transactions if t.transaction_type == "despesa")
         saldo = receitas - despesas
         
+        # Buscar contas de liquidação
+        liquidation_accounts = db.query(LiquidationAccount).filter(
+            LiquidationAccount.is_active == True
+        ).all()
+        
+        # Simular distribuição do saldo entre as contas
+        bank_accounts = []
+        cash_accounts = []
+        investment_accounts = []
+        
+        for account in liquidation_accounts:
+            if account.account_type == "bank_account":
+                bank_accounts.append({
+                    "label": account.name,
+                    "amount": saldo / len(liquidation_accounts) if liquidation_accounts else 0
+                })
+            elif account.account_type == "cash":
+                cash_accounts.append({
+                    "label": account.name,
+                    "amount": saldo / len(liquidation_accounts) if liquidation_accounts else 0
+                })
+            elif account.account_type == "investment":
+                investment_accounts.append({
+                    "label": account.name,
+                    "amount": saldo / len(liquidation_accounts) if liquidation_accounts else 0
+                })
+        
         return {
-            "saldo_disponivel": saldo,
-            "total_receitas": receitas,
-            "total_despesas": despesas,
-            "year": year
+            "year": year,
+            "bankAccounts": bank_accounts,
+            "cash": cash_accounts,
+            "investments": investment_accounts,
+            "totalAvailable": saldo
         }
     except Exception as e:
         return {"error": str(e)}
@@ -331,27 +364,28 @@ async def get_transactions(year: int = 2025, limit: int = 10, cursor: str = "", 
         
         transactions = query.limit(limit).all()
         
+        # Mapear tipos de transação para o frontend
+        def map_transaction_type(transaction_type):
+            if transaction_type == "receita":
+                return "revenue"
+            elif transaction_type == "despesa":
+                return "expense"
+            elif transaction_type == "custo":
+                return "cost"
+            else:
+                return "expense"  # default
+        
         return {
-            "transactions": [{
+            "year": year,
+            "items": [{
                 "id": str(t.id),
-                "description": t.description,
-                "amount": t.amount,
-                "transaction_type": t.transaction_type,
-                "transaction_date": t.transaction_date.isoformat(),
-                "status": t.status,
-                "type": t.transaction_type,
                 "date": t.transaction_date.isoformat(),
-                "value": t.amount
-            } for t in transactions],
-            "has_more": len(transactions) == limit,
-            "data": [{
-                "id": str(t.id),
                 "description": t.description,
-                "amount": t.amount,
-                "transaction_type": t.transaction_type,
-                "transaction_date": t.transaction_date.isoformat(),
-                "status": t.status
-            } for t in transactions]
+                "type": map_transaction_type(t.transaction_type),
+                "amount": float(t.amount),
+                "account": "Conta Padrão"  # Placeholder
+            } for t in transactions],
+            "nextCursor": str(transactions[-1].id) if transactions and len(transactions) == limit else None
         }
     except Exception as e:
         return {"error": str(e)}
