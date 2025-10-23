@@ -157,7 +157,8 @@ async def import_google_sheets_data(db: Session = Depends(get_db)):
                     ).first()
                 
                 if not tenant or not user or not business_unit:
-                    return {"success": False, "error": "Nenhum tenant, usuário ou business unit encontrado. Execute primeiro /api/v1/admin/create-test-data"}
+                    print(f"Erro: tenant={tenant}, user={user}, business_unit={business_unit}")
+                    continue
                 
                 # Se não houver conta contábil, criar uma padrão
                 if not chart_account:
@@ -910,9 +911,9 @@ async def get_cash_flow_by_liquidation(year: int = 2025, db: Session = Depends(g
         
         result = []
         for account in liquidation_accounts:
-            # Buscar transações da conta no ano
+            # Buscar transações da conta no ano (usando filtro por string)
             transactions = db.query(FinancialTransaction).filter(
-                FinancialTransaction.liquidation_account_id == account.id,
+                FinancialTransaction.liquidation_account_id == str(account.id),
                 FinancialTransaction.transaction_date >= f"{year}-01-01",
                 FinancialTransaction.transaction_date <= f"{year}-12-31"
             ).all()
@@ -979,7 +980,7 @@ async def get_liquidation_account_statement(account_id: str, year: int = 2025, m
         
         # Buscar transações
         transactions = db.query(FinancialTransaction).filter(
-            FinancialTransaction.liquidation_account_id == account_id,
+            FinancialTransaction.liquidation_account_id == str(account_id),
             date_filter
         ).order_by(FinancialTransaction.transaction_date.desc()).all()
         
