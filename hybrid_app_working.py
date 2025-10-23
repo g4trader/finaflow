@@ -130,21 +130,51 @@ async def import_google_sheets_data(db: Session = Depends(get_db)):
                 # Converter data
                 data_movimentacao = datetime.datetime.strptime(row["data"], "%d/%m/%Y")
                 
-                # Buscar tenant, usuário e conta contábil padrão
+                # Buscar tenant, usuário, business unit e conta contábil padrão
                 tenant = db.query(Tenant).first()
                 user = db.query(User).first()
+                business_unit = db.query(BusinessUnit).first()
                 chart_account = db.query(ChartAccount).first()
                 
-                if not tenant or not user:
-                    return {"success": False, "error": "Nenhum tenant ou usuário encontrado. Execute primeiro /api/v1/admin/create-test-data"}
+                if not tenant or not user or not business_unit:
+                    return {"success": False, "error": "Nenhum tenant, usuário ou business unit encontrado. Execute primeiro /api/v1/admin/create-test-data"}
                 
                 # Se não houver conta contábil, criar uma padrão
                 if not chart_account:
+                    # Criar grupo primeiro
+                    group = ChartAccountGroup(
+                        id=str(uuid.uuid4()),
+                        code="001",
+                        name="Grupo Padrão",
+                        description="Grupo padrão para importação",
+                        is_active=True,
+                        created_at=datetime.datetime.now(),
+                        updated_at=datetime.datetime.now()
+                    )
+                    db.add(group)
+                    db.flush()
+                    
+                    # Criar subgrupo
+                    subgroup = ChartAccountSubgroup(
+                        id=str(uuid.uuid4()),
+                        code="001",
+                        name="Subgrupo Padrão",
+                        description="Subgrupo padrão para importação",
+                        group_id=group.id,
+                        is_active=True,
+                        created_at=datetime.datetime.now(),
+                        updated_at=datetime.datetime.now()
+                    )
+                    db.add(subgroup)
+                    db.flush()
+                    
+                    # Criar conta contábil
                     chart_account = ChartAccount(
                         id=str(uuid.uuid4()),
                         code="001",
                         name="Conta Padrão",
                         description="Conta padrão para importação",
+                        subgroup_id=subgroup.id,
                         account_type="asset",
                         is_active=True,
                         created_at=datetime.datetime.now(),
@@ -158,7 +188,7 @@ async def import_google_sheets_data(db: Session = Depends(get_db)):
                     id=str(uuid.uuid4()),
                     reference=f"GS-{row['data'].replace('/', '')}-{imported_count + 1}",  # Referência única
                     tenant_id=tenant.id,
-                    business_unit_id="default",  # Usar business unit padrão
+                    business_unit_id=business_unit.id,  # Usar business unit existente
                     chart_account_id=chart_account.id,
                     transaction_date=data_movimentacao,
                     amount=row["valor"],
@@ -227,10 +257,21 @@ async def get_annual_summary(year: int = 2025, db: Session = Depends(get_db)):
         
         return {
             "year": year,
+            "revenue": receitas,
+            "expenses": despesas,
+            "profit": receitas - despesas,
             "total_receitas": receitas,
             "total_despesas": despesas,
             "saldo": receitas - despesas,
-            "transaction_count": len(transactions)
+            "transaction_count": len(transactions),
+            "monthly_data": [
+                {
+                    "month": "01",
+                    "revenue": receitas,
+                    "expenses": despesas,
+                    "profit": receitas - despesas
+                }
+            ]
         }
     except Exception as e:
         return {"error": str(e)}
@@ -276,9 +317,20 @@ async def get_transactions(year: int = 2025, limit: int = 10, cursor: str = "", 
                 "amount": t.amount,
                 "transaction_type": t.transaction_type,
                 "transaction_date": t.transaction_date.isoformat(),
-                "status": t.status
+                "status": t.status,
+                "type": t.transaction_type,
+                "date": t.transaction_date.isoformat(),
+                "value": t.amount
             } for t in transactions],
-            "has_more": len(transactions) == limit
+            "has_more": len(transactions) == limit,
+            "data": [{
+                "id": str(t.id),
+                "description": t.description,
+                "amount": t.amount,
+                "transaction_type": t.transaction_type,
+                "transaction_date": t.transaction_date.isoformat(),
+                "status": t.status
+            } for t in transactions]
         }
     except Exception as e:
         return {"error": str(e)}
