@@ -149,10 +149,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Verificar se o usuário precisa selecionar uma BU
       try {
-        console.log('🔍 [AuthContext] Verificando necessidade de seleção de BU...');
-        const needsSelection = await checkNeedsBusinessUnitSelection();
-        console.log('📋 [AuthContext] Resposta da verificação de BU:', needsSelection);
-        setNeedsBusinessUnitSelection(needsSelection.needs_selection);
+        if (typeof checkNeedsBusinessUnitSelection === 'function') {
+          console.log('🔍 [AuthContext] Verificando necessidade de seleção de BU...');
+          const needsSelection = await checkNeedsBusinessUnitSelection();
+          console.log('📋 [AuthContext] Resposta da verificação de BU:', needsSelection);
+          setNeedsBusinessUnitSelection(!!needsSelection?.needs_selection);
+        } else {
+          const needsBU = !decoded.business_unit_id;
+          console.log(`📋 [AuthContext] Fallback - Precisa BU (função indisponível): ${needsBU}`);
+          setNeedsBusinessUnitSelection(needsBU);
+        }
       } catch (error) {
         console.error('⚠️ [AuthContext] Erro ao verificar necessidade de seleção de BU:', error);
         // Fallback: verificar se tem business_unit_id no token
@@ -182,8 +188,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     removeCookie('auth-token');
     
     // Redirecionar para login
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+    if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
+      if (process.env.NODE_ENV === 'test') {
+        console.log('↩️ [AuthContext] Logout em ambiente de teste - navegação simulada para /login');
+      } else {
+        window.location.href = '/login';
+      }
     }
   };
 

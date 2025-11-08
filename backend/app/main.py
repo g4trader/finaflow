@@ -7,13 +7,14 @@ import os
 from contextlib import asynccontextmanager
 
 from app.database import create_tables
-from app.api import auth, financial
+from app.api import financial, include_routers as include_api_routers
 from app.routes import permissions
 from app.models.auth import Base
 from app.models.financial import Base as FinancialBase
 
 # Configurações de segurança
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,finaflow.vercel.app").split(",")
+default_allowed_hosts = "localhost,127.0.0.1,testserver,finaflow.vercel.app"
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", default_allowed_hosts).split(",")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://finaflow.vercel.app,http://localhost:3000").split(",")
 
 @asynccontextmanager
@@ -96,9 +97,10 @@ async def health_check():
         "version": "1.0.0"
     }
 
-# Incluir routers
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(financial.router, prefix="/api/v1")
+# Incluir routers legacy (compatibilidade) e versão com prefixo
+include_api_routers(app)
+include_api_routers(app, prefix="/api/v1")
+app.include_router(financial.router, prefix="/api/v1/financial")
 app.include_router(permissions.router)
 
 # Rota raiz

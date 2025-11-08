@@ -37,7 +37,19 @@ export default function Login() {
       window.location.href = '/select-business-unit';
     } catch (err: any) {
       console.error('❌ Erro no login:', err);
-      const message = err?.response?.data?.detail || err?.message || 'Username ou senha incorretos. Tente novamente.';
+      const detail = err?.response?.data?.detail;
+      let message = err?.message || 'Username ou senha incorretos. Tente novamente.';
+
+      if (Array.isArray(detail)) {
+        message = detail
+          .map((item) => item?.msg || item?.detail || JSON.stringify(item))
+          .join(' ');
+      } else if (detail && typeof detail === 'object') {
+        message = detail?.msg || detail?.detail || JSON.stringify(detail);
+      } else if (typeof detail === 'string') {
+        message = detail;
+      }
+
       setError(message);
     } finally {
       setLoading(false);

@@ -5,7 +5,13 @@ from __future__ import annotations
 import logging
 
 from google.cloud import bigquery
-from google.cloud.exceptions import GoogleCloudError
+
+try:
+    from google.cloud.exceptions import GoogleCloudError
+except ImportError:  # pragma: no cover - ambiente sem pacote completo
+    class GoogleCloudError(Exception):  # type: ignore
+        """Fallback genérico quando biblioteca de exceções não está disponível."""
+        pass
 
 from app.db.bq_client import get_client, get_settings, _format_table
 

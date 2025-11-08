@@ -1,14 +1,6 @@
 from typing import Optional
 
-try:
-    from pydantic_settings import BaseSettings
-except ImportError:  # pragma: no cover - fallback for pydantic v1
-    try:
-        from pydantic import BaseSettings  # type: ignore
-    except Exception as e:  # pragma: no cover - pydantic v2 without settings
-        raise ImportError(
-            "Install pydantic-settings for pydantic v2 support"
-        ) from e
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     JWT_SECRET: str
@@ -28,5 +20,13 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
 
-    class Config:
-        env_file = ".env"
+    GOOGLE_CLOUD_PROJECT: Optional[str] = None
+    BIGQUERY_DATASET: Optional[str] = None
+    DATABASE_URL: Optional[str] = None
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+        env_prefix="",
+        case_sensitive=False,
+    )

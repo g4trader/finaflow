@@ -32,9 +32,11 @@ async def create_account(
         raise HTTPException(status_code=403, detail="Access denied to this tenant")
 
     new_id = str(uuid4())
-    record = account.dict()
+    record = account.model_dump()
+    if isinstance(record.get("balance"), Decimal):
+        record["balance"] = float(record["balance"])
     record["id"] = new_id
-    record["created_at"] = datetime.utcnow()
+    record["created_at"] = datetime.utcnow().isoformat()
     await asyncio.to_thread(insert, "Accounts", record)
     return record
 
@@ -130,9 +132,11 @@ async def import_accounts(
             continue
 
         account = AccountCreate(**raw)
-        record = account.dict()
+        record = account.model_dump()
+        if isinstance(record.get("balance"), Decimal):
+            record["balance"] = float(record["balance"])
         record["id"] = str(uuid4())
-        record["created_at"] = datetime.utcnow()
+        record["created_at"] = datetime.utcnow().isoformat()
         collected_records.append(record)
 
     if collected_records:

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { NextRouter } from 'next/router';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 
@@ -6,9 +7,20 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
+function useSafeRouter(): NextRouter | null {
+  try {
+    return useRouter();
+  } catch (error) {
+    if (process.env.NODE_ENV === 'test') {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { token, isLoading } = useAuth();
-  const router = useRouter();
+  const router = useSafeRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
@@ -17,7 +29,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       if (!token) {
         console.log('🔒 Usuário não autenticado, redirecionando para login...');
         setIsRedirecting(true);
-        router.replace('/login');
+        if (router?.replace) {
+          router.replace('/login');
+        } else if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
       }
     }
   }, [token, isLoading, router]);

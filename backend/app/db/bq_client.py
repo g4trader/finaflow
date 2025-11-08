@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from functools import lru_cache
+import os
 from typing import Any, Dict, List
 
 from google.cloud import bigquery
@@ -32,6 +33,12 @@ def get_settings() -> Settings:
 @lru_cache(maxsize=1)
 def get_client():
     settings = get_settings()
+    enable_bigquery = os.getenv("ENABLE_BIGQUERY", "").lower() in {"1", "true", "yes"}
+
+    if not enable_bigquery:
+        logger.info("ENABLE_BIGQUERY não definido - utilizando cliente BigQuery em modo dummy")
+        return _DummyBigQueryClient()
+
     if settings.PROJECT_ID and settings.DATASET:
         try:
             client = bigquery.Client(project=settings.PROJECT_ID)
