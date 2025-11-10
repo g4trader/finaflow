@@ -113,12 +113,15 @@ class LLMPlanoContasImporter:
                     continue
                 
                 print(f"[PLANO CONTAS] Processando: {grupo_nome} > {subgrupo_nome} > {conta_nome}")
+
+                tenant_str = str(tenant_id)
                 
                 # 1. Criar/buscar Grupo
                 if grupo_nome not in grupos_map:
                     # Buscar existente
                     grupo = db.query(ChartAccountGroup).filter(
-                        ChartAccountGroup.name == grupo_nome
+                        ChartAccountGroup.name == grupo_nome,
+                        ChartAccountGroup.tenant_id == tenant_str
                     ).first()
                     
                     if not grupo:
@@ -127,6 +130,7 @@ class LLMPlanoContasImporter:
                             code=grupo_code,
                             name=grupo_nome,
                             description=f"Grupo {grupo_nome}",
+                            tenant_id=tenant_str,
                             is_active=True
                         )
                         db.add(grupo)
@@ -144,7 +148,8 @@ class LLMPlanoContasImporter:
                     # Buscar existente
                     subgrupo = db.query(ChartAccountSubgroup).filter(
                         ChartAccountSubgroup.name == subgrupo_nome,
-                        ChartAccountSubgroup.group_id == grupo.id
+                        ChartAccountSubgroup.group_id == grupo.id,
+                        ChartAccountSubgroup.tenant_id == tenant_str
                     ).first()
                     
                     if not subgrupo:
@@ -154,6 +159,7 @@ class LLMPlanoContasImporter:
                             name=subgrupo_nome,
                             description=f"Subgrupo {subgrupo_nome}",
                             group_id=grupo.id,
+                            tenant_id=tenant_str,
                             is_active=True
                         )
                         db.add(subgrupo)
@@ -169,7 +175,8 @@ class LLMPlanoContasImporter:
                 # Buscar se já existe
                 conta = db.query(ChartAccount).filter(
                     ChartAccount.name == conta_nome,
-                    ChartAccount.subgroup_id == subgrupo.id
+                    ChartAccount.subgroup_id == subgrupo.id,
+                    ChartAccount.tenant_id == tenant_str
                 ).first()
                 
                 if not conta:
@@ -193,6 +200,7 @@ class LLMPlanoContasImporter:
                         name=conta_nome,
                         description=f"Conta {conta_nome}",
                         subgroup_id=subgrupo.id,
+                        tenant_id=tenant_str,
                         account_type=account_type,
                         is_active=True
                     )

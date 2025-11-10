@@ -183,13 +183,15 @@ class LLMSheetImporter:
                 
                 # Buscar conta por nome exato primeiro
                 account = db.query(ChartAccount).filter(
-                    ChartAccount.name == conta_name
+                    ChartAccount.name == conta_name,
+                    ChartAccount.tenant_id == str(tenant_uuid)
                 ).first()
                 
                 # Se não encontrou por nome exato, buscar por similaridade
                 if not account:
                     account = db.query(ChartAccount).filter(
-                        ChartAccount.name.ilike(f"%{conta_name}%")
+                        ChartAccount.name.ilike(f"%{conta_name}%"),
+                        ChartAccount.tenant_id == str(tenant_uuid)
                     ).first()
                 
                 if not account:
@@ -369,12 +371,14 @@ class LLMSheetImporter:
                 
                 # Buscar conta
                 account = db.query(ChartAccount).filter(
-                    ChartAccount.name == conta_name
+                    ChartAccount.name == conta_name,
+                    ChartAccount.tenant_id == str(tenant_uuid)
                 ).first()
                 
                 if not account:
                     account = db.query(ChartAccount).filter(
-                        ChartAccount.name.ilike(f"%{conta_name}%")
+                        ChartAccount.name.ilike(f"%{conta_name}%"),
+                        ChartAccount.tenant_id == str(tenant_uuid)
                     ).first()
                 
                 if not account or not account.subgroup or not account.subgroup.group:
