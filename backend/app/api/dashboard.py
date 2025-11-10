@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -14,7 +14,13 @@ from app.models.auth import User
 from app.models.caixa import Caixa
 from app.models.conta_bancaria import ContaBancaria
 from app.models.investimento import Investimento
+from app.models.chart_of_accounts import (
+    ChartAccount,
+    ChartAccountGroup,
+    ChartAccountSubgroup,
+)
 from app.models.lancamento_diario import LancamentoDiario, TransactionType
+from app.models.lancamento_previsto import LancamentoPrevisto
 from app.services.dependencies import get_current_active_user
 
 router = APIRouter(tags=["dashboard"])
@@ -34,6 +40,22 @@ def _decimal_to_float(value: Optional[Decimal]) -> float:
     if value is None:
         return 0.0
     return float(value)
+
+
+MONTH_LABELS = [
+    "JANEIRO",
+    "FEVEREIRO",
+    "MARÇO",
+    "ABRIL",
+    "MAIO",
+    "JUNHO",
+    "JULHO",
+    "AGOSTO",
+    "SETEMBRO",
+    "OUTUBRO",
+    "NOVEMBRO",
+    "DEZEMBRO",
+]
 
 
 @router.get("/financial/transactions")
@@ -315,6 +337,177 @@ def cash_flow(
         )
 
     return payload
+
+
+def _empty_months() -> Dict[str, Dict[str, float]]:
+    return {
+        label: {"previsto": 0.0, "realizado": 0.0, "ah": 0.0, "av": 0.0}
+        for label in MONTH_LABELS
+    }
+
+
+@router.get("/cash-flow/previsto-realizado")
+def cash_flow_previsto_realizado(
+    year: Optional[int] = Query(default=None, ge=1900),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Compara valores previstos (planilha de previsões) e realizados (lançamentos diários)
+    agrupando por plano de contas (grupo → subgrupo → conta) por mês.
+    """
+    target_year = year or datetime.utcnow().year
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+
+    start_dt = datetime(target_year, 1, 1)
+    end_dt = datetime(target_year, 12, 31, 23, 59, 59)
+
+    def _load_entities(model, tenant_field):
+        tenant_items = (
+            db.query(model)
+            .filter(
+                tenant_field == tenant_id,
+                model.is_active.is_(True),
+            )
+            .order_by(model.code)
+            .all()
+        )
+        if tenant_items:
+            return tenant_items
+        return (
+            db.query(model)
+            .filter(
+                tenant_field.is_(None),
+                model.is_active.is_(True),
+            )
+            .order_by(model.code)
+            .all()
+        )
+
+    groups = _load_entities(ChartAccountGroup, ChartAccountGroup.tenant_id)
+    subgroups = _load_entities(ChartAccountSubgroup, ChartAccountSubgroup.tenant_id)
+    accounts = _load_entities(ChartAccount, ChartAccount.tenant_id)
+
+    subgroup_by_group: Dict[str, List[ChartAccountSubgroup]] = defaultdict(list)
+    for sub in subgroups:
+        subgroup_by_group[str(sub.group_id)].append(sub)
+
+    account_by_subgroup: Dict[str, List[ChartAccount]] = defaultdict(list)
+    for account in accounts:
+        account_by_subgroup[str(account.subgroup_id)].append(account)
+
+    rows: List[Dict[str, Any]] = []
+    group_rows: Dict[str, Dict[str, Any]] = {}
+    subgroup_rows: Dict[str, Dict[str, Any]] = {}
+    account_rows: Dict[str, Dict[str, Any]] = {}
+
+    def _make_row(name: str, level: int) -> Dict[str, Any]:
+        return {"categoria": name, "nivel": level, "meses": _empty_months()}
+
+    for group in groups:
+        group_id = str(group.id)
+        group_row = _make_row(group.name, 0)
+        rows.append(group_row)
+        group_rows[group_id] = group_row
+
+        for sub in subgroup_by_group.get(group_id, []):
+            sub_id = str(sub.id)
+            sub_row = _make_row(sub.name, 1)
+            rows.append(sub_row)
+            subgroup_rows[sub_id] = sub_row
+
+            for account in account_by_subgroup.get(sub_id, []):
+                account_id = str(account.id)
+                acc_row = _make_row(account.name, 2)
+                rows.append(acc_row)
+                account_rows[account_id] = acc_row
+
+    # Realizados
+    realizados = (
+        db.query(LancamentoDiario)
+        .filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.business_unit_id == business_unit_id,
+            LancamentoDiario.is_active.is_(True),
+            LancamentoDiario.data_movimentacao >= start_dt,
+            LancamentoDiario.data_movimentacao <= end_dt,
+        )
+        .all()
+    )
+
+    for tx in realizados:
+        month_label = MONTH_LABELS[tx.data_movimentacao.month - 1]
+        amount = _decimal_to_float(tx.valor)
+        conta_row = account_rows.get(str(tx.conta_id))
+        if conta_row:
+            conta_row["meses"][month_label]["realizado"] += amount
+        sub_row = subgroup_rows.get(str(tx.subgrupo_id))
+        if sub_row:
+            sub_row["meses"][month_label]["realizado"] += amount
+        grp_row = group_rows.get(str(tx.grupo_id))
+        if grp_row:
+            grp_row["meses"][month_label]["realizado"] += amount
+
+    # Previsto
+    previstos = (
+        db.query(LancamentoPrevisto)
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.business_unit_id == business_unit_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista >= start_dt,
+            LancamentoPrevisto.data_prevista <= end_dt,
+        )
+        .all()
+    )
+
+    for forecast in previstos:
+        month_label = MONTH_LABELS[forecast.data_prevista.month - 1]
+        amount = _decimal_to_float(forecast.valor)
+        conta_row = account_rows.get(str(forecast.conta_id))
+        if conta_row:
+            conta_row["meses"][month_label]["previsto"] += amount
+        sub_row = subgroup_rows.get(str(forecast.subgrupo_id))
+        if sub_row:
+            sub_row["meses"][month_label]["previsto"] += amount
+        grp_row = group_rows.get(str(forecast.grupo_id))
+        if grp_row:
+            grp_row["meses"][month_label]["previsto"] += amount
+
+    # Totais por mês para cálculo da análise vertical
+    total_realizado_por_mes: Dict[str, float] = {
+        label: sum(
+            row["meses"][label]["realizado"]
+            for row in rows
+            if row["nivel"] == 0
+        )
+        for label in MONTH_LABELS
+    }
+
+    for row in rows:
+        for month_label in MONTH_LABELS:
+            bucket = row["meses"][month_label]
+            previsto = bucket["previsto"]
+            realizado = bucket["realizado"]
+            if previsto > 0:
+                bucket["ah"] = (realizado / previsto) * 100
+            elif realizado > 0:
+                bucket["ah"] = 100.0
+            else:
+                bucket["ah"] = 0.0
+
+            total_mes = total_realizado_por_mes.get(month_label, 0.0)
+            if total_mes > 0:
+                bucket["av"] = (realizado / total_mes) * 100
+            else:
+                bucket["av"] = 0.0
+
+    return {
+        "success": True,
+        "year": target_year,
+        "data": rows,
+    }
 
 
 @router.get("/saldo-disponivel")
