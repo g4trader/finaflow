@@ -8,6 +8,7 @@ from app.api.dashboard import router as dashboard_router
 from app.api.forecast import router as forecast_router
 from app.api.groups import router as groups_router
 from app.api.lancamentos_diarios import router as lancamentos_diarios_router
+from app.api.lancamentos_previstos import router as lancamentos_previstos_router
 from app.api.reports import router as reports_router
 from app.api.subgroups import router as subgroups_router
 from app.api.tenants import router as tenants_router
@@ -27,6 +28,7 @@ LEGACY_ROUTERS = [
     admin_import_router,
     dashboard_router,
     lancamentos_diarios_router,
+    lancamentos_previstos_router,
 ]
 
 
