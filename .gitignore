@@ -13,6 +13,7 @@ frontend/.next/
 tests/e2e_prod_last_state.png
 tests/e2e_prod_last_dom.html
 tests/e2e_prod_browser.log
+tests/e2e_prod_screenshot.png
 
 # Google Credentials
 google_credentials.json

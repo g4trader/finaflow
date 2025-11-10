@@ -99,20 +99,30 @@ def main():
         RESULT["login_success"] = True
 
         # Selecionar BU
+        bu_card = None
         with suppress(Exception):
-            bu_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Matriz')]")))
-        if 'bu_button' not in locals():
-            # fallback para primeira opção disponível
-            bu_button = wait_for_any(
+            bu_card = wait.until(EC.element_to_be_clickable((By.XPATH, "//h3[contains(normalize-space(.), 'Matriz')]/ancestor::div[contains(@class, 'cursor-pointer')]")))
+        if bu_card is None:
+            bu_card = wait_for_any(
                 wait,
                 [
-                    (By.CSS_SELECTOR, "button[class*='business']"),
-                    (By.XPATH, "(//button)[1]")
+                    (By.CSS_SELECTOR, "div.cursor-pointer"),
+                    (By.XPATH, "(//div[contains(@class, 'cursor-pointer')])[1]")
                 ],
                 condition=EC.element_to_be_clickable,
             )
-        bu_button.click()
+        bu_card.click()
         RESULT["business_unit_selected"] = True
+
+        continue_button = wait_for_any(
+            wait,
+            [
+                (By.CSS_SELECTOR, "button[type='submit']"),
+                (By.XPATH, "//button[contains(., 'Continuar')]")
+            ],
+            condition=EC.element_to_be_clickable,
+        )
+        continue_button.click()
 
         wait.until(EC.any_of(
             EC.url_contains("dashboard"),

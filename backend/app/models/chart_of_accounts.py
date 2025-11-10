@@ -74,6 +74,11 @@ class ChartAccount(Base):
     #     UniqueConstraint('code', 'subgroup_id', 'tenant_id', name='uq_account_code_subgroup_tenant'),
     # )
 
+# Backwards compatibility aliases
+AccountGroup = ChartAccountGroup
+AccountSubgroup = ChartAccountSubgroup
+Account = ChartAccount
+
 class BusinessUnitChartAccount(Base):
     """Relacionamento entre BU e Plano de Contas (para customizações)"""
     __tablename__ = "business_unit_chart_accounts"

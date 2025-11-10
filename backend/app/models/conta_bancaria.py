@@ -39,7 +39,15 @@ class ContaBancaria(Base):
     banco = Column(String(100), nullable=False)  # Ex: "CEF", "SICOOB", "Banco do Brasil"
     agencia = Column(String(20), nullable=True)
     numero_conta = Column(String(50), nullable=True)
-    tipo = Column(SQLEnum(TipoContaBancaria), nullable=False, default=TipoContaBancaria.CORRENTE)
+    tipo = Column(
+        SQLEnum(
+            TipoContaBancaria,
+            name="tipocontabancaria",
+            native_enum=False,
+        ),
+        nullable=False,
+        default=TipoContaBancaria.CORRENTE,
+    )
     
     # Saldos
     saldo_inicial = Column(Numeric(15, 2), nullable=False, default=0)
@@ -49,7 +57,7 @@ class ContaBancaria(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     
     # Relationships
     tenant = relationship("Tenant", back_populates="contas_bancarias")
@@ -73,7 +81,14 @@ class MovimentacaoBancaria(Base):
     
     # Dados da movimentação
     data_movimentacao = Column(DateTime, nullable=False)
-    tipo = Column(SQLEnum(TipoMovimentacaoBancaria), nullable=False)
+    tipo = Column(
+        SQLEnum(
+            TipoMovimentacaoBancaria,
+            name="tipomovimentacaobancaria",
+            native_enum=False,
+        ),
+        nullable=False,
+    )
     valor = Column(Numeric(15, 2), nullable=False)
     descricao = Column(Text, nullable=True)
     
@@ -81,11 +96,11 @@ class MovimentacaoBancaria(Base):
     conta_destino_id = Column(UUID(as_uuid=True), ForeignKey("contas_bancarias.id"), nullable=True)
     
     # Vínculo com lançamento diário (opcional)
-    lancamento_diario_id = Column(UUID(as_uuid=True), ForeignKey("lancamentos_diarios.id"), nullable=True)
+    lancamento_diario_id = Column(String(36), ForeignKey("lancamentos_diarios.id"), nullable=True)
     
     # Controle
     created_at = Column(DateTime, default=datetime.now, nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     
     # Relationships
     conta_bancaria = relationship("ContaBancaria", back_populates="movimentacoes", foreign_keys=[conta_bancaria_id])

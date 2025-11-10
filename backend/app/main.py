@@ -14,7 +14,22 @@ from app.models.financial import Base as FinancialBase
 
 # Configurações de segurança
 default_allowed_hosts = "localhost,127.0.0.1,testserver,finaflow.vercel.app"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", default_allowed_hosts).split(",")
+raw_allowed_hosts = os.getenv("ALLOWED_HOSTS")
+
+if raw_allowed_hosts:
+    allowed_hosts_list = [
+        host.strip() for host in raw_allowed_hosts.replace(";", ",").split(",") if host.strip()
+    ]
+else:
+    allowed_hosts_list = [host.strip() for host in default_allowed_hosts.split(",") if host.strip()]
+
+if "*.run.app" not in allowed_hosts_list:
+    allowed_hosts_list.append("*.run.app")
+
+if "finaflow.vercel.app" not in allowed_hosts_list:
+    allowed_hosts_list.append("finaflow.vercel.app")
+
+ALLOWED_HOSTS = allowed_hosts_list
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://finaflow.vercel.app,http://localhost:3000").split(",")
 
 @asynccontextmanager

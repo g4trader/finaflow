@@ -1,33 +1,45 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 from app.database import get_db
-from app.models.auth import get_current_user
-# from app.models.lancamento_diario import (
-#     LancamentoDiarioCreate, 
-#     LancamentoDiarioUpdate,
-#     LancamentoDiarioResponse,
-#     TransactionType
-# )
+from app.models.auth import User
+from app.models.lancamento_diario import (
+    LancamentoDiarioCreate,
+    LancamentoDiarioUpdate,
+    TransactionType,
+)
+from app.services.dependencies import get_current_active_user
 from app.services.lancamento_diario_service import LancamentoDiarioService
 
 router = APIRouter()
 
+
+def _user_context(user: User) -> tuple[str, str]:
+    tenant_id = str(user.tenant_id)
+    business_unit_id = getattr(user, "business_unit_id", None)
+    if not business_unit_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Usuário precisa selecionar uma unidade de negócio antes de acessar lançamentos diários.",
+        )
+    return tenant_id, str(business_unit_id)
+
 @router.post("/api/v1/lancamentos-diarios", response_model=dict)
 async def create_lancamento_diario(
     lancamento_data: LancamentoDiarioCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Criar novo lançamento diário"""
     try:
+        tenant_id, business_unit_id = _user_context(current_user)
         result = LancamentoDiarioService.create_lancamento(
             db=db,
             lancamento_data=lancamento_data,
-            tenant_id=current_user["tenant_id"],
-            business_unit_id=current_user["business_unit_id"],
-            user_id=current_user["user_id"]
+            tenant_id=tenant_id,
+            business_unit_id=business_unit_id,
+            user_id=str(current_user.id)
         )
         
         if result["success"]:
@@ -48,7 +60,7 @@ async def get_lancamentos_diarios(
     transaction_type: Optional[TransactionType] = Query(None, description="Tipo de transação"),
     page: int = Query(1, ge=1, description="Página"),
     per_page: int = Query(50, ge=1, le=100, description="Itens por página"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Buscar lançamentos diários com filtros"""
@@ -62,10 +74,11 @@ async def get_lancamentos_diarios(
         if end_date:
             end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
         
+        tenant_id, business_unit_id = _user_context(current_user)
         result = LancamentoDiarioService.get_lancamentos(
             db=db,
-            tenant_id=current_user["tenant_id"],
-            business_unit_id=current_user["business_unit_id"],
+            tenant_id=tenant_id,
+            business_unit_id=business_unit_id,
             start_date=start_dt,
             end_date=end_dt,
             conta_id=conta_id,
@@ -86,14 +99,15 @@ async def get_lancamentos_diarios(
 
 @router.get("/api/v1/lancamentos-diarios/plano-contas", response_model=dict)
 async def get_plano_contas_hierarchy(
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Buscar hierarquia do plano de contas para formulário"""
     try:
+        tenant_id, _ = _user_context(current_user)
         result = LancamentoDiarioService.get_plano_contas_hierarchy(
             db=db,
-            tenant_id=current_user["tenant_id"]
+            tenant_id=tenant_id
         )
         
         if result["success"]:
@@ -107,17 +121,18 @@ async def get_plano_contas_hierarchy(
 @router.get("/api/v1/lancamentos-diarios/{lancamento_id}", response_model=dict)
 async def get_lancamento_diario(
     lancamento_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Buscar lançamento diário específico"""
     try:
         from app.models.lancamento_diario import LancamentoDiario
         
+        tenant_id, business_unit_id = _user_context(current_user)
         lancamento = db.query(LancamentoDiario).filter(
             LancamentoDiario.id == lancamento_id,
-            LancamentoDiario.tenant_id == current_user["tenant_id"],
-            LancamentoDiario.business_unit_id == current_user["business_unit_id"]
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.business_unit_id == business_unit_id
         ).first()
         
         if not lancamento:
@@ -160,18 +175,18 @@ async def get_lancamento_diario(
 async def update_lancamento_diario(
     lancamento_id: str,
     lancamento_data: LancamentoDiarioUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Atualizar lançamento diário"""
     try:
         from app.models.lancamento_diario import LancamentoDiario
-        
+        tenant_id, business_unit_id = _user_context(current_user)
         # Buscar lançamento
         lancamento = db.query(LancamentoDiario).filter(
             LancamentoDiario.id == lancamento_id,
-            LancamentoDiario.tenant_id == current_user["tenant_id"],
-            LancamentoDiario.business_unit_id == current_user["business_unit_id"]
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.business_unit_id == business_unit_id
         ).first()
         
         if not lancamento:
@@ -196,7 +211,7 @@ async def update_lancamento_diario(
             grupo_id = lancamento_data.grupo_id or lancamento.grupo_id
             
             is_valid, message = LancamentoDiarioService.validate_plano_contas_consistency(
-                db, conta_id, subgrupo_id, grupo_id, current_user["tenant_id"]
+                db, conta_id, subgrupo_id, grupo_id, tenant_id
             )
             
             if not is_valid:
@@ -235,17 +250,17 @@ async def update_lancamento_diario(
 @router.delete("/api/v1/lancamentos-diarios/{lancamento_id}", response_model=dict)
 async def delete_lancamento_diario(
     lancamento_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Excluir lançamento diário (soft delete)"""
     try:
         from app.models.lancamento_diario import LancamentoDiario
-        
+        tenant_id, business_unit_id = _user_context(current_user)
         lancamento = db.query(LancamentoDiario).filter(
             LancamentoDiario.id == lancamento_id,
-            LancamentoDiario.tenant_id == current_user["tenant_id"],
-            LancamentoDiario.business_unit_id == current_user["business_unit_id"]
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.business_unit_id == business_unit_id
         ).first()
         
         if not lancamento:
@@ -269,18 +284,19 @@ async def delete_lancamento_diario(
 async def get_lancamentos_resumo(
     start_date: Optional[str] = Query(None, description="Data inicial (ISO format)"),
     end_date: Optional[str] = Query(None, description="Data final (ISO format)"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Resumo dos lançamentos diários para dashboard"""
     try:
         from app.models.lancamento_diario import LancamentoDiario
         from sqlalchemy import func
+        tenant_id, business_unit_id = _user_context(current_user)
         
         # Query base
         query = db.query(LancamentoDiario).filter(
-            LancamentoDiario.tenant_id == current_user["tenant_id"],
-            LancamentoDiario.business_unit_id == current_user["business_unit_id"],
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active == True
         )
         

@@ -151,8 +151,9 @@ class LLMSheetImporter:
             
             transactions_created = 0
             
-            for row in rows:
+            for idx, row in enumerate(rows, start=2):
                 if len(row) <= max(filter(lambda x: x is not None, [col_data, col_valor, col_conta or 0])):
+                    print(f"[IMPORT] Ignorando linha diária {idx}: dados incompletos")
                     continue
                 
                 # Extrair dados da linha
@@ -161,16 +162,19 @@ class LLMSheetImporter:
                 conta_name = row[col_conta].strip() if col_conta is not None and col_conta < len(row) and row[col_conta] else ""
                 
                 if not data_str or not valor_str or not conta_name:
+                    print(f"[IMPORT] Ignorando linha diária {idx}: data inválida")
                     continue
                 
                 # Parsear data
                 transaction_date = self._parse_date(data_str)
                 if not transaction_date:
+                    print(f"[IMPORT] Ignorando linha diária {idx}: valor inválido")
                     continue
                 
                 # Parsear valor
                 amount = self._parse_amount(valor_str)
                 if amount == 0:
+                    print(f"[IMPORT] Ignorando linha diária {idx}: conta não encontrada ({conta_name})")
                     continue
                 
                 # Buscar conta por nome
@@ -179,15 +183,13 @@ class LLMSheetImporter:
                 
                 # Buscar conta por nome exato primeiro
                 account = db.query(ChartAccount).filter(
-                    ChartAccount.name == conta_name,
-                    (ChartAccount.tenant_id == tenant_uuid) | (ChartAccount.tenant_id == None)
+                    ChartAccount.name == conta_name
                 ).first()
                 
                 # Se não encontrou por nome exato, buscar por similaridade
                 if not account:
                     account = db.query(ChartAccount).filter(
-                        ChartAccount.name.ilike(f"%{conta_name}%"),
-                        (ChartAccount.tenant_id == tenant_uuid) | (ChartAccount.tenant_id == None)
+                        ChartAccount.name.ilike(f"%{conta_name}%")
                     ).first()
                 
                 if not account:
@@ -197,21 +199,17 @@ class LLMSheetImporter:
                         
                         from app.models.chart_of_accounts import ChartAccountSubgroup
                         subgroup = db.query(ChartAccountSubgroup).filter(
-                            ChartAccountSubgroup.name.ilike(f"%{subgrupo_name}%"),
-                            (ChartAccountSubgroup.tenant_id == tenant_uuid) | (ChartAccountSubgroup.tenant_id == None)
+                            ChartAccountSubgroup.name.ilike(f"%{subgrupo_name}%")
                         ).first()
                         
                         if subgroup:
                             account = db.query(ChartAccount).filter(
-                                ChartAccount.subgroup_id == subgroup.id,
-                                (ChartAccount.tenant_id == tenant_uuid) | (ChartAccount.tenant_id == None)
+                                ChartAccount.subgroup_id == subgroup.id
                             ).first()
                 
                 if not account:
-                    # Usar primeira conta do tenant como fallback
-                    account = db.query(ChartAccount).filter(
-                        ChartAccount.tenant_id == tenant_uuid
-                    ).first()
+                    # Fallback: usar primeira conta disponível
+                    account = db.query(ChartAccount).first()
                 
                 if not account:
                     continue
@@ -345,7 +343,7 @@ class LLMSheetImporter:
             import uuid
             tenant_uuid = uuid.UUID(tenant_id) if isinstance(tenant_id, str) else tenant_id
             
-            for row in rows:
+            for idx, row in enumerate(rows, start=2):
                 if len(row) <= max(filter(lambda x: x is not None, [col_data, col_valor, col_conta or 0])):
                     continue
                 
@@ -355,27 +353,28 @@ class LLMSheetImporter:
                 conta_name = row[col_conta].strip() if col_conta is not None and col_conta < len(row) and row[col_conta] else ""
                 
                 if not data_str or not valor_str or not conta_name:
+                    print(f"[IMPORT PREVISÕES] Ignorando linha {idx}: dados incompletos")
                     continue
                 
                 # Parsear
                 forecast_date = self._parse_date(data_str)
                 if not forecast_date:
+                    print(f"[IMPORT PREVISÕES] Ignorando linha {idx}: data inválida")
                     continue
                 
                 amount = self._parse_amount(valor_str)
                 if amount == 0:
+                    print(f"[IMPORT PREVISÕES] Ignorando linha {idx}: valor inválido")
                     continue
                 
                 # Buscar conta
                 account = db.query(ChartAccount).filter(
-                    ChartAccount.name == conta_name,
-                    (ChartAccount.tenant_id == tenant_uuid) | (ChartAccount.tenant_id == None)
+                    ChartAccount.name == conta_name
                 ).first()
                 
                 if not account:
                     account = db.query(ChartAccount).filter(
-                        ChartAccount.name.ilike(f"%{conta_name}%"),
-                        (ChartAccount.tenant_id == tenant_uuid) | (ChartAccount.tenant_id == None)
+                        ChartAccount.name.ilike(f"%{conta_name}%")
                     ).first()
                 
                 if not account or not account.subgroup or not account.subgroup.group:

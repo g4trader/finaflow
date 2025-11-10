@@ -38,7 +38,7 @@ class Caixa(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     
     # Relationships
     tenant = relationship("Tenant", back_populates="caixas")
@@ -62,16 +62,23 @@ class MovimentacaoCaixa(Base):
     
     # Dados da movimentação
     data_movimentacao = Column(DateTime, nullable=False)
-    tipo = Column(SQLEnum(TipoMovimentacaoCaixa), nullable=False)
+    tipo = Column(
+        SQLEnum(
+            TipoMovimentacaoCaixa,
+            name="tipomovimentacaocaixa",
+            native_enum=False,
+        ),
+        nullable=False,
+    )
     valor = Column(Numeric(15, 2), nullable=False)
     descricao = Column(Text, nullable=True)
     
     # Vínculo com lançamento diário (opcional)
-    lancamento_diario_id = Column(UUID(as_uuid=True), ForeignKey("lancamentos_diarios.id"), nullable=True)
+    lancamento_diario_id = Column(String(36), ForeignKey("lancamentos_diarios.id"), nullable=True)
     
     # Controle
     created_at = Column(DateTime, default=datetime.now, nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     
     # Relationships
     caixa = relationship("Caixa", back_populates="movimentacoes")

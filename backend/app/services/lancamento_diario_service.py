@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy.orm import Session
@@ -11,7 +11,13 @@ from sqlalchemy import and_, or_, desc, asc
 #     LancamentoDiarioUpdate
 # )
 from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
-from app.models.auth import User
+from app.models.lancamento_diario import (
+    LancamentoDiario,
+    LancamentoDiarioCreate,
+    LancamentoDiarioUpdate,
+    TransactionStatus,
+    TransactionType,
+)
 
 class LancamentoDiarioService:
     """Serviço para gerenciar lançamentos diários"""

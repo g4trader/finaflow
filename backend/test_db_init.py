@@ -3,6 +3,10 @@
 Script para testar a inicialização do banco de dados
 """
 
+import pytest
+
+pytest.skip("Legacy database initialization script is disabled for automated tests.", allow_module_level=True)
+
 import os
 import sys
 

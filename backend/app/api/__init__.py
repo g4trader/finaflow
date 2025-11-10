@@ -3,8 +3,11 @@ from fastapi import FastAPI
 from app.api.accounts import router as accounts_router
 from app.api.auth import router as auth_router
 from app.api.csv_import import router as csv_import_router
+from app.api.admin_imports import router as admin_import_router
+from app.api.dashboard import router as dashboard_router
 from app.api.forecast import router as forecast_router
 from app.api.groups import router as groups_router
+from app.api.lancamentos_diarios import router as lancamentos_diarios_router
 from app.api.reports import router as reports_router
 from app.api.subgroups import router as subgroups_router
 from app.api.tenants import router as tenants_router
@@ -21,6 +24,9 @@ LEGACY_ROUTERS = [
     subgroups_router,
     tenants_router,
     transactions_router,
+    admin_import_router,
+    dashboard_router,
+    lancamentos_diarios_router,
 ]
 
 

@@ -95,7 +95,7 @@ class LLMPlanoContasImporter:
             grupos_criados = 0
             subgrupos_criados = 0
             
-            for row in rows:
+            for idx, row in enumerate(rows, start=2):
                 if len(row) <= col_grupo:
                     continue
                 
@@ -109,6 +109,7 @@ class LLMPlanoContasImporter:
                 grupo_nome = row[col_grupo].strip() if row[col_grupo] else ""
                 
                 if not conta_nome or not subgrupo_nome or not grupo_nome:
+                    print(f"[PLANO CONTAS] Ignorando linha {idx}: dados incompletos")
                     continue
                 
                 print(f"[PLANO CONTAS] Processando: {grupo_nome} > {subgrupo_nome} > {conta_nome}")
@@ -117,8 +118,7 @@ class LLMPlanoContasImporter:
                 if grupo_nome not in grupos_map:
                     # Buscar existente
                     grupo = db.query(ChartAccountGroup).filter(
-                        ChartAccountGroup.name == grupo_nome,
-                        ChartAccountGroup.tenant_id == tenant_id
+                        ChartAccountGroup.name == grupo_nome
                     ).first()
                     
                     if not grupo:
@@ -127,7 +127,6 @@ class LLMPlanoContasImporter:
                             code=grupo_code,
                             name=grupo_nome,
                             description=f"Grupo {grupo_nome}",
-                            tenant_id=tenant_id,
                             is_active=True
                         )
                         db.add(grupo)
@@ -145,8 +144,7 @@ class LLMPlanoContasImporter:
                     # Buscar existente
                     subgrupo = db.query(ChartAccountSubgroup).filter(
                         ChartAccountSubgroup.name == subgrupo_nome,
-                        ChartAccountSubgroup.group_id == grupo.id,
-                        ChartAccountSubgroup.tenant_id == tenant_id
+                        ChartAccountSubgroup.group_id == grupo.id
                     ).first()
                     
                     if not subgrupo:
@@ -156,7 +154,6 @@ class LLMPlanoContasImporter:
                             name=subgrupo_nome,
                             description=f"Subgrupo {subgrupo_nome}",
                             group_id=grupo.id,
-                            tenant_id=tenant_id,
                             is_active=True
                         )
                         db.add(subgrupo)
@@ -172,8 +169,7 @@ class LLMPlanoContasImporter:
                 # Buscar se já existe
                 conta = db.query(ChartAccount).filter(
                     ChartAccount.name == conta_nome,
-                    ChartAccount.subgroup_id == subgrupo.id,
-                    ChartAccount.tenant_id == tenant_id
+                    ChartAccount.subgroup_id == subgrupo.id
                 ).first()
                 
                 if not conta:
@@ -197,7 +193,6 @@ class LLMPlanoContasImporter:
                         name=conta_nome,
                         description=f"Conta {conta_nome}",
                         subgroup_id=subgrupo.id,
-                        tenant_id=tenant_id,
                         account_type=account_type,
                         is_active=True
                     )
@@ -206,12 +201,17 @@ class LLMPlanoContasImporter:
                     
                     # Criar vínculo com BU
                     if business_unit_id:
-                        bu_link = BusinessUnitChartAccount(
+                        existing_link = db.query(BusinessUnitChartAccount).filter_by(
                             business_unit_id=business_unit_id,
-                            chart_account_id=conta.id,
-                            is_active=True
-                        )
-                        db.add(bu_link)
+                            chart_account_id=conta.id
+                        ).first()
+                        if not existing_link:
+                            bu_link = BusinessUnitChartAccount(
+                                business_unit_id=business_unit_id,
+                                chart_account_id=conta.id,
+                                is_active=True
+                            )
+                            db.add(bu_link)
                     
                     contas_criadas += 1
                     print(f"   ✅ Conta criada: {conta_code} - {conta_nome}")

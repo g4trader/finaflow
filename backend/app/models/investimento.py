@@ -34,7 +34,14 @@ class Investimento(Base):
     business_unit_id = Column(String, ForeignKey("business_units.id"), nullable=False)
     
     # Dados do investimento
-    tipo = Column(SQLEnum(TipoInvestimento), nullable=False)
+    tipo = Column(
+        SQLEnum(
+            TipoInvestimento,
+            name="tipoinvestimento",
+            native_enum=False,
+        ),
+        nullable=False,
+    )
     instituicao = Column(String(200), nullable=False)  # Ex: "Banco do Brasil", "XP Investimentos"
     descricao = Column(Text, nullable=True)
     
@@ -53,7 +60,7 @@ class Investimento(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     
     # Relationships
     tenant = relationship("Tenant", back_populates="investimentos")
