@@ -149,13 +149,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       description: 'Gestão de contas bancárias'
     },
     {
-      icon: <FileText className="w-5 h-5" />,
-      label: 'Extrato Contas Bancárias',
-      href: '/extrato-contas-bancarias',
-      active: isItemActive('/extrato-contas-bancarias', 'Extrato Contas Bancárias'),
-      description: 'Extrato diário das contas bancárias'
-    },
-    {
       icon: <Wallet className="w-5 h-5" />,
       label: 'Caixa / Dinheiro',
       href: '/caixa',
