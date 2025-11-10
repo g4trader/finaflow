@@ -14,6 +14,7 @@ from app.api.reports import router as reports_router
 from app.api.subgroups import router as subgroups_router
 from app.api.tenants import router as tenants_router
 from app.api.transactions import router as transactions_router
+from app.api.bank_accounts import router as bank_accounts_router
 
 # Routers baseados em BigQuery/legacy
 LEGACY_ROUTERS = [
@@ -31,6 +32,7 @@ LEGACY_ROUTERS = [
     chart_accounts_router,
     lancamentos_diarios_router,
     lancamentos_previstos_router,
+    bank_accounts_router,
 ]
 
 
