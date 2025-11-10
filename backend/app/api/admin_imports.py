@@ -4,14 +4,27 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict
 from sqlalchemy.orm import Session
+from sqlalchemy import delete
 
 from app.database import get_db
 from app.models.auth import User, Tenant, BusinessUnit
 from app.services.dependencies import require_super_admin
 from app.services.llm_plano_contas_importer import LLMPlanoContasImporter
 from app.services.llm_sheet_importer import LLMSheetImporter
+
+from app.models.lancamento_diario import LancamentoDiario
+from app.models.lancamento_previsto import LancamentoPrevisto
+from app.models.chart_of_accounts import (
+    ChartAccount,
+    ChartAccountSubgroup,
+    ChartAccountGroup,
+    BusinessUnitChartAccount,
+)
+from app.models.caixa import Caixa
+from app.models.conta_bancaria import ContaBancaria
+from app.models.investimento import Investimento
 
 
 router = APIRouter(prefix="/admin", tags=["admin-import"])
@@ -25,6 +38,31 @@ class SpreadsheetImportPayload(BaseModel):
     business_unit_id: Optional[str] = Field(
         default=None, description="Business Unit ID to associate the imported data with"
     )
+
+
+class ResetDataPayload(BaseModel):
+    tenant_id: str = Field(..., description="Tenant ID whose data must be wiped")
+    business_unit_id: str = Field(..., description="Business unit whose data must be wiped")
+    wipe_chart_of_accounts: bool = Field(
+        default=True,
+        description="Remove também o plano de contas associado antes de reimportar.",
+    )
+    wipe_financial_assets: bool = Field(
+        default=True,
+        description="Remove registros de contas bancárias, caixas e investimentos vinculados.",
+    )
+
+
+class ResetSummary(BaseModel):
+    lancamentos_diarios: int
+    lancamentos_previstos: int
+    chart_accounts: int
+    chart_subgroups: int
+    chart_groups: int
+    bu_chart_accounts: int
+    contas_bancarias: int
+    caixas: int
+    investimentos: int
 
 
 def _resolve_tenant_and_bu(
@@ -75,6 +113,87 @@ def _resolve_tenant_and_bu(
             )
 
     return tenant_id, business_unit_id
+
+
+@router.post("/limpar-dados")
+async def limpar_dados(
+    payload: ResetDataPayload,
+    current_user: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+) -> Dict[str, object]:
+    """Remove dados importados previamente para permitir nova carga limpa."""
+
+    tenant_id = payload.tenant_id
+    business_unit_id = payload.business_unit_id
+
+    summary = ResetSummary(
+        lancamentos_diarios=0,
+        lancamentos_previstos=0,
+        chart_accounts=0,
+        chart_subgroups=0,
+        chart_groups=0,
+        bu_chart_accounts=0,
+        contas_bancarias=0,
+        caixas=0,
+        investimentos=0,
+    )
+
+    try:
+        # Lançamentos previstos e diários
+        summary.lancamentos_previstos = db.query(LancamentoPrevisto).filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.business_unit_id == business_unit_id,
+        ).delete(synchronize_session=False)
+
+        summary.lancamentos_diarios = db.query(LancamentoDiario).filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.business_unit_id == business_unit_id,
+        ).delete(synchronize_session=False)
+
+        # Plano de contas
+        if payload.wipe_chart_of_accounts:
+            summary.bu_chart_accounts = db.query(BusinessUnitChartAccount).filter(
+                BusinessUnitChartAccount.business_unit_id == business_unit_id
+            ).delete(synchronize_session=False)
+
+            summary.chart_accounts = db.query(ChartAccount).filter(
+                ChartAccount.tenant_id.in_([tenant_id, None])
+            ).delete(synchronize_session=False)
+
+            summary.chart_subgroups = db.query(ChartAccountSubgroup).filter(
+                ChartAccountSubgroup.tenant_id.in_([tenant_id, None])
+            ).delete(synchronize_session=False)
+
+            summary.chart_groups = db.query(ChartAccountGroup).filter(
+                ChartAccountGroup.tenant_id.in_([tenant_id, None])
+            ).delete(synchronize_session=False)
+
+        if payload.wipe_financial_assets:
+            summary.contas_bancarias = db.query(ContaBancaria).filter(
+                ContaBancaria.tenant_id == tenant_id,
+                ContaBancaria.business_unit_id == business_unit_id,
+            ).delete(synchronize_session=False)
+
+            summary.caixas = db.query(Caixa).filter(
+                Caixa.tenant_id == tenant_id,
+                Caixa.business_unit_id == business_unit_id,
+            ).delete(synchronize_session=False)
+
+            summary.investimentos = db.query(Investimento).filter(
+                Investimento.tenant_id == tenant_id,
+                Investimento.business_unit_id == business_unit_id,
+            ).delete(synchronize_session=False)
+
+        db.commit()
+
+        return {
+            "success": True,
+            "summary": summary.dict(),
+        }
+
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao limpar dados: {exc}") from exc
 
 
 @router.post("/importar-plano-contas-planilha")
