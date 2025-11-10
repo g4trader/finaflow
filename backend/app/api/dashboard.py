@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta
+import calendar
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -339,11 +340,61 @@ def cash_flow(
     return payload
 
 
+def _load_plan_structure(
+    db: Session, tenant_id: str
+) -> tuple[
+    List[ChartAccountGroup],
+    List[ChartAccountSubgroup],
+    List[ChartAccount],
+    Dict[str, List[ChartAccountSubgroup]],
+    Dict[str, List[ChartAccount]],
+]:
+    def _load(model):
+        tenant_items = (
+            db.query(model)
+            .filter(
+                model.tenant_id == tenant_id,
+                model.is_active.is_(True),
+            )
+            .order_by(model.code)
+            .all()
+        )
+        if tenant_items:
+            return tenant_items
+        return (
+            db.query(model)
+            .filter(
+                model.tenant_id.is_(None),
+                model.is_active.is_(True),
+            )
+            .order_by(model.code)
+            .all()
+        )
+
+    groups = _load(ChartAccountGroup)
+    subgroups = _load(ChartAccountSubgroup)
+    accounts = _load(ChartAccount)
+
+    subgroup_by_group: Dict[str, List[ChartAccountSubgroup]] = defaultdict(list)
+    for sub in subgroups:
+        subgroup_by_group[str(sub.group_id)].append(sub)
+
+    account_by_subgroup: Dict[str, List[ChartAccount]] = defaultdict(list)
+    for account in accounts:
+        account_by_subgroup[str(account.subgroup_id)].append(account)
+
+    return groups, subgroups, accounts, subgroup_by_group, account_by_subgroup
+
+
 def _empty_months() -> Dict[str, Dict[str, float]]:
     return {
         label: {"previsto": 0.0, "realizado": 0.0, "ah": 0.0, "av": 0.0}
         for label in MONTH_LABELS
     }
+
+
+def _empty_days(last_day: int) -> Dict[int, float]:
+    return {day: 0.0 for day in range(1, last_day + 1)}
 
 
 @router.get("/cash-flow/previsto-realizado")
@@ -363,39 +414,13 @@ def cash_flow_previsto_realizado(
     start_dt = datetime(target_year, 1, 1)
     end_dt = datetime(target_year, 12, 31, 23, 59, 59)
 
-    def _load_entities(model, tenant_field):
-        tenant_items = (
-            db.query(model)
-            .filter(
-                tenant_field == tenant_id,
-                model.is_active.is_(True),
-            )
-            .order_by(model.code)
-            .all()
-        )
-        if tenant_items:
-            return tenant_items
-        return (
-            db.query(model)
-            .filter(
-                tenant_field.is_(None),
-                model.is_active.is_(True),
-            )
-            .order_by(model.code)
-            .all()
-        )
-
-    groups = _load_entities(ChartAccountGroup, ChartAccountGroup.tenant_id)
-    subgroups = _load_entities(ChartAccountSubgroup, ChartAccountSubgroup.tenant_id)
-    accounts = _load_entities(ChartAccount, ChartAccount.tenant_id)
-
-    subgroup_by_group: Dict[str, List[ChartAccountSubgroup]] = defaultdict(list)
-    for sub in subgroups:
-        subgroup_by_group[str(sub.group_id)].append(sub)
-
-    account_by_subgroup: Dict[str, List[ChartAccount]] = defaultdict(list)
-    for account in accounts:
-        account_by_subgroup[str(account.subgroup_id)].append(account)
+    (
+        groups,
+        subgroups,
+        accounts,
+        subgroup_by_group,
+        account_by_subgroup,
+    ) = _load_plan_structure(db, tenant_id)
 
     rows: List[Dict[str, Any]] = []
     group_rows: Dict[str, Dict[str, Any]] = {}
@@ -506,6 +531,125 @@ def cash_flow_previsto_realizado(
     return {
         "success": True,
         "year": target_year,
+        "data": rows,
+    }
+
+
+@router.get("/cash-flow/daily")
+def cash_flow_daily(
+    year: Optional[int] = Query(default=None, ge=1900),
+    month: Optional[int] = Query(default=None, ge=1, le=12),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Fluxo de caixa diário agregando valores realizados por grupo/subgrupo/conta.
+    """
+    today = datetime.utcnow()
+    target_year = year or today.year
+    target_month = month or today.month
+
+    if target_month < 1 or target_month > 12:
+        raise HTTPException(status_code=400, detail="Mês inválido.")
+
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+
+    last_day = calendar.monthrange(target_year, target_month)[1]
+    start_dt = datetime(target_year, target_month, 1)
+    end_dt = datetime(target_year, target_month, last_day, 23, 59, 59)
+
+    (
+        groups,
+        subgroups,
+        accounts,
+        subgroup_by_group,
+        account_by_subgroup,
+    ) = _load_plan_structure(db, tenant_id)
+
+    rows: List[Dict[str, Any]] = []
+    group_rows: Dict[str, Dict[str, Any]] = {}
+    subgroup_rows: Dict[str, Dict[str, Any]] = {}
+    account_rows: Dict[str, Dict[str, Any]] = {}
+
+    def _make_row(name: str, level: int, row_type: str) -> Dict[str, Any]:
+        return {
+            "categoria": name,
+            "nivel": level,
+            "tipo": row_type,
+            "dias": _empty_days(last_day),
+        }
+
+    for group in groups:
+        group_id = str(group.id)
+        group_row = _make_row(group.name, 0, "grupo")
+        rows.append(group_row)
+        group_rows[group_id] = group_row
+
+        for sub in subgroup_by_group.get(group_id, []):
+            sub_id = str(sub.id)
+            sub_row = _make_row(sub.name, 1, "subgrupo")
+            rows.append(sub_row)
+            subgroup_rows[sub_id] = sub_row
+
+            for account in account_by_subgroup.get(sub_id, []):
+                account_id = str(account.id)
+                acc_row = _make_row(account.name, 2, "conta")
+                rows.append(acc_row)
+                account_rows[account_id] = acc_row
+
+    transactions = (
+        db.query(LancamentoDiario)
+        .filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.business_unit_id == business_unit_id,
+            LancamentoDiario.is_active.is_(True),
+            LancamentoDiario.data_movimentacao >= start_dt,
+            LancamentoDiario.data_movimentacao <= end_dt,
+        )
+        .all()
+    )
+
+    net_by_day = _empty_days(last_day)
+
+    for tx in transactions:
+        if not tx.data_movimentacao:
+            continue
+        day = tx.data_movimentacao.day
+        amount = _decimal_to_float(tx.valor)
+
+        conta_row = account_rows.get(str(tx.conta_id))
+        if conta_row:
+            conta_row["dias"][day] += amount
+
+        sub_row = subgroup_rows.get(str(tx.subgrupo_id))
+        if sub_row:
+            sub_row["dias"][day] += amount
+
+        grp_row = group_rows.get(str(tx.grupo_id))
+        if grp_row:
+            grp_row["dias"][day] += amount
+
+        tx_type = tx.transaction_type
+        if tx_type == TransactionType.RECEITA:
+            net_by_day[day] += amount
+        elif tx_type in {TransactionType.DESPESA, TransactionType.CUSTO}:
+            net_by_day[day] -= amount
+
+    total_row = {
+        "categoria": "TOTAL",
+        "nivel": 0,
+        "tipo": "total",
+        "dias": net_by_day,
+    }
+
+    rows.append(total_row)
+
+    return {
+        "success": True,
+        "year": target_year,
+        "month": target_month,
+        "days_in_month": last_day,
         "data": rows,
     }
 
