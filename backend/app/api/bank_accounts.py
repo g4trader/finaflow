@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, validator
@@ -143,10 +144,15 @@ def update_bank_account(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
+    try:
+        account_uuid = UUID(conta_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="ID de conta inválido") from exc
+
     account = (
         db.query(ContaBancaria)
         .filter(
-            ContaBancaria.id == conta_id,
+            ContaBancaria.id == account_uuid,
             ContaBancaria.tenant_id == tenant_id,
             ContaBancaria.business_unit_id == business_unit_id,
             ContaBancaria.is_active.is_(True),
@@ -274,7 +280,7 @@ def bank_account_extract(
             LancamentoDiario.tenant_id == tenant_id,
             LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
-            LancamentoDiario.conta_id == account.id,
+            LancamentoDiario.conta_id == str(account.id),
             LancamentoDiario.data_movimentacao >= start,
             LancamentoDiario.data_movimentacao <= end,
         )
