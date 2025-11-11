@@ -13,6 +13,7 @@ from app.models.auth import User, Tenant, BusinessUnit
 from app.services.dependencies import require_super_admin
 from app.services.llm_plano_contas_importer import LLMPlanoContasImporter
 from app.services.llm_sheet_importer import LLMSheetImporter
+from app.services.bank_account_importer import LLMBankAccountsImporter
 
 from app.models.lancamento_diario import LancamentoDiario
 from app.models.lancamento_previsto import LancamentoPrevisto
@@ -311,6 +312,47 @@ async def importar_previsoes_planilha(
         "success": True,
         "message": "Previsões importadas com sucesso",
         "count": result.get("count", 0),
+    }
+
+
+@router.post("/importar-contas-bancarias-planilha")
+async def importar_contas_bancarias_planilha(
+    payload: SpreadsheetImportPayload,
+    current_user: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    importer = LLMBankAccountsImporter()
+    if not importer.authenticate():
+        raise HTTPException(
+            status_code=500, detail="Falha na autenticação com Google Sheets."
+        )
+
+    tenant_id, business_unit_id = _resolve_tenant_and_bu(payload, current_user, db)
+
+    result = importer.import_bank_accounts(
+        payload.spreadsheet_id,
+        tenant_id,
+        business_unit_id,
+        db,
+        str(current_user.id),
+    )
+
+    if not result.get("success"):
+        return JSONResponse(
+            status_code=500,
+            content=jsonable_encoder(
+                {
+                    "success": False,
+                    "message": result.get("message", "Erro desconhecido na importação"),
+                    "details": result,
+                }
+            ),
+        )
+
+    return {
+        "success": True,
+        "message": "Contas bancárias importadas com sucesso",
+        "details": result,
     }
 
 
