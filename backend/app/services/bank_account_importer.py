@@ -36,7 +36,6 @@ MONTH_SHEETS: List[Tuple[str, int]] = [
 
 
 IGNORED_PREFIXES = {
-    "",
     "saldo disponibilidades",
     "verificacao de saldo",
     "diferenca de fluxo",
