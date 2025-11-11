@@ -5,8 +5,9 @@ Importador das contas bancárias a partir da planilha de Fluxo de Caixa Diário.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal, InvalidOperation
+import unicodedata
 from typing import Dict, List, Tuple
 
 from google.oauth2 import service_account
@@ -14,6 +15,8 @@ from googleapiclient.discovery import build
 from sqlalchemy.orm import Session
 
 from app.models.conta_bancaria import ContaBancaria, TipoContaBancaria
+from app.models.caixa import Caixa
+from app.models.investimento import Investimento, TipoInvestimento
 
 
 MONTH_SHEETS: List[Tuple[str, int]] = [
@@ -32,11 +35,39 @@ MONTH_SHEETS: List[Tuple[str, int]] = [
 ]
 
 
-SKIP_LABELS = {
+IGNORED_PREFIXES = {
     "",
     "saldo disponibilidades",
-    "verificação de saldo",
-    "saldo disponibilidades ",
+    "verificacao de saldo",
+    "diferenca de fluxo",
+}
+
+BANK_PREFIXES = {
+    "cef",
+    "sicoob",
+    "bb",
+    "banco do brasil",
+    "itau",
+    "bradesco",
+    "santander",
+    "nubank",
+    "inter",
+    "c6",
+    "sicredi",
+}
+
+CASH_PREFIXES = {
+    "caixa",
+    "caixa/dinheiro",
+    "caixa dinheiro",
+}
+
+INVESTMENT_PREFIXES = {
+    "aplicacao",
+    "aplicacao ",
+    "aplicacao(",
+    "aplicacao (",
+    "investimento",
 }
 
 
@@ -46,6 +77,7 @@ class _AccountEntry:
     base_name: str
     key: Tuple[int, str]
     order: int
+    category: str  # bank, cash, investment
     balances: Dict[int, Decimal] = field(default_factory=dict)
 
 
@@ -82,9 +114,14 @@ class LLMBankAccountsImporter:
             raise RuntimeError("Importer not authenticated")
 
         entries: Dict[Tuple[int, str], _AccountEntry] = {}
+        bank_names: Dict[str, _AccountEntry] = {}
         name_counts: Dict[str, int] = {}
         created = 0
         updated = 0
+        cash_created = 0
+        cash_updated = 0
+        investments_created = 0
+        investments_updated = 0
 
         for sheet_suffix, month_num in MONTH_SHEETS:
             range_label = f"'FC-diário-{sheet_suffix}'!B174:C184"
@@ -104,11 +141,16 @@ class LLMBankAccountsImporter:
                 if not row:
                     continue
                 base_name = row[0].strip() if len(row) >= 1 and row[0] else ""
-                if base_name.lower() in SKIP_LABELS:
+                normalized = self._normalize_label(base_name)
+                if not normalized:
+                    continue
+
+                category = self._classify_label(normalized)
+                if category is None:
                     continue
 
                 amount = self._parse_amount(row[1] if len(row) >= 2 else "")
-                key = (row_idx, base_name.lower())
+                key = (row_idx, normalized)
                 entry = entries.get(key)
                 if entry is None:
                     name_counts[base_name] = name_counts.get(base_name, 0) + 1
@@ -121,8 +163,11 @@ class LLMBankAccountsImporter:
                         base_name=base_name,
                         key=key,
                         order=len(entries),
+                        category=category,
                     )
                     entries[key] = entry
+                    if category == "bank":
+                        bank_names[self._normalize_label(display_name)] = entry
                 entry.balances[month_num] = amount
 
         if not entries:
@@ -130,11 +175,34 @@ class LLMBankAccountsImporter:
                 "success": False,
                 "created": 0,
                 "updated": 0,
+                "cash_created": 0,
+                "cash_updated": 0,
+                "investments_created": 0,
+                "investments_updated": 0,
                 "message": "Nenhuma conta identificada na planilha.",
             }
 
         # Criar/atualizar contas no banco
         month_order = sorted([month for _, month in MONTH_SHEETS], reverse=True)
+
+        # Desativar contas bancárias que não aparecem mais
+        existing_accounts = (
+            db.query(ContaBancaria)
+            .filter(
+                ContaBancaria.tenant_id == tenant_id,
+                ContaBancaria.business_unit_id == business_unit_id,
+                ContaBancaria.is_active.is_(True),
+            )
+            .all()
+        )
+        valid_bank_keys = {
+            self._normalize_label(entry.display_name)
+            for entry in entries.values()
+            if entry.category == "bank"
+        }
+        for account in existing_accounts:
+            if self._normalize_label(account.banco) not in valid_bank_keys:
+                account.is_active = False
 
         for entry in sorted(entries.values(), key=lambda item: item.order):
             latest_balance = Decimal("0")
@@ -144,39 +212,98 @@ class LLMBankAccountsImporter:
                     if latest_balance != 0:
                         break
 
-            account = (
-                db.query(ContaBancaria)
-                .filter(
-                    ContaBancaria.tenant_id == tenant_id,
-                    ContaBancaria.business_unit_id == business_unit_id,
-                    ContaBancaria.banco == entry.display_name,
-                    ContaBancaria.is_active.is_(True),
-                )
-                .first()
-            )
-
             saldo_decimal = latest_balance
-            saldo_float = float(saldo_decimal)
-
-            if account is None:
-                account = ContaBancaria(
-                    tenant_id=tenant_id,
-                    business_unit_id=business_unit_id,
-                    banco=entry.display_name,
-                    agencia=None,
-                    numero_conta=None,
-                    tipo=TipoContaBancaria.CORRENTE,
-                    saldo_inicial=saldo_decimal,
-                    saldo_atual=saldo_decimal,
-                    created_by=user_id,
+            if entry.category == "bank":
+                account = (
+                    db.query(ContaBancaria)
+                    .filter(
+                        ContaBancaria.tenant_id == tenant_id,
+                        ContaBancaria.business_unit_id == business_unit_id,
+                        ContaBancaria.banco == entry.display_name,
+                        ContaBancaria.is_active.is_(True),
+                    )
+                    .first()
                 )
-                db.add(account)
-                created += 1
-            else:
-                account.saldo_atual = saldo_decimal
-                if not account.saldo_inicial:
-                    account.saldo_inicial = saldo_decimal
-                updated += 1
+
+                if account is None:
+                    account = ContaBancaria(
+                        tenant_id=tenant_id,
+                        business_unit_id=business_unit_id,
+                        banco=entry.display_name,
+                        agencia=None,
+                        numero_conta=None,
+                        tipo=TipoContaBancaria.CORRENTE,
+                        saldo_inicial=saldo_decimal,
+                        saldo_atual=saldo_decimal,
+                        created_by=user_id,
+                    )
+                    db.add(account)
+                    created += 1
+                else:
+                    account.saldo_atual = saldo_decimal
+                    if account.saldo_inicial is None:
+                        account.saldo_inicial = saldo_decimal
+                    updated += 1
+
+            elif entry.category == "cash":
+                cash = (
+                    db.query(Caixa)
+                    .filter(
+                        Caixa.tenant_id == tenant_id,
+                        Caixa.business_unit_id == business_unit_id,
+                        Caixa.nome == entry.display_name,
+                        Caixa.is_active.is_(True),
+                    )
+                    .first()
+                )
+
+                if cash is None:
+                    cash = Caixa(
+                        tenant_id=tenant_id,
+                        business_unit_id=business_unit_id,
+                        nome=entry.display_name,
+                        descricao="Importado da planilha (verificação de saldo)",
+                        saldo_inicial=saldo_decimal,
+                        saldo_atual=saldo_decimal,
+                        created_by=user_id,
+                    )
+                    db.add(cash)
+                    cash_created += 1
+                else:
+                    cash.saldo_atual = saldo_decimal
+                    if cash.saldo_inicial is None:
+                        cash.saldo_inicial = saldo_decimal
+                    cash_updated += 1
+
+            elif entry.category == "investment":
+                investment = (
+                    db.query(Investimento)
+                    .filter(
+                        Investimento.tenant_id == tenant_id,
+                        Investimento.business_unit_id == business_unit_id,
+                        Investimento.instituicao == entry.display_name,
+                        Investimento.is_active.is_(True),
+                    )
+                    .first()
+                )
+
+                if investment is None:
+                    investment = Investimento(
+                        tenant_id=tenant_id,
+                        business_unit_id=business_unit_id,
+                        tipo=TipoInvestimento.OUTRO,
+                        instituicao=entry.display_name,
+                        descricao="Importado da planilha (verificação de saldo)",
+                        valor_aplicado=saldo_decimal,
+                        valor_atual=saldo_decimal,
+                        data_aplicacao=date.today(),
+                        created_by=user_id,
+                    )
+                    db.add(investment)
+                    investments_created += 1
+                else:
+                    investment.valor_atual = saldo_decimal
+                    investments_updated += 1
 
         db.commit()
 
@@ -184,6 +311,10 @@ class LLMBankAccountsImporter:
             "success": True,
             "created": created,
             "updated": updated,
+             "cash_created": cash_created,
+             "cash_updated": cash_updated,
+             "investments_created": investments_created,
+             "investments_updated": investments_updated,
             "total_detected": len(entries),
         }
 
@@ -206,4 +337,23 @@ class LLMBankAccountsImporter:
             return Decimal(normalized)
         except InvalidOperation:
             return Decimal("0")
+
+    @staticmethod
+    def _normalize_label(label: str) -> str:
+        normalized = unicodedata.normalize("NFD", label)
+        without_accents = "".join(
+            char for char in normalized if unicodedata.category(char) != "Mn"
+        )
+        return without_accents.lower().strip()
+
+    def _classify_label(self, normalized_label: str) -> Optional[str]:
+        if any(normalized_label.startswith(prefix) for prefix in IGNORED_PREFIXES):
+            return None
+        if any(normalized_label.startswith(prefix) for prefix in BANK_PREFIXES):
+            return "bank"
+        if any(normalized_label.startswith(prefix) for prefix in CASH_PREFIXES):
+            return "cash"
+        if any(normalized_label.startswith(prefix) for prefix in INVESTMENT_PREFIXES):
+            return "investment"
+        return None
 
