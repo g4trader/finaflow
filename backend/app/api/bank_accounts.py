@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+import os
+import calendar
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -14,8 +17,33 @@ from app.models.auth import User
 from app.models.conta_bancaria import ContaBancaria, TipoContaBancaria
 from app.models.lancamento_diario import LancamentoDiario, TransactionType
 from app.services.dependencies import get_current_active_user
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 router = APIRouter(prefix="/contas-bancarias", tags=["bank-accounts"])
+
+MONTH_SHEETS = [
+    ("Jan2025", 1),
+    ("Fev2025", 2),
+    ("Mar2025", 3),
+    ("Abr2025", 4),
+    ("Mai2025", 5),
+    ("Jun2025", 6),
+    ("Jul2025", 7),
+    ("Ago2025", 8),
+    ("Set2025", 9),
+    ("Out2025", 10),
+    ("Nov2025", 11),
+    ("Dez2025", 12),
+]
+
+DEFAULT_SHEET_ID = os.getenv(
+    "GOOGLE_SHEETS_DEFAULT_ID",
+    "1rWMdDhwiNoC7iMycmQGWWDIacrePr1gB7c_mbt1patQ",
+)
+GOOGLE_CREDENTIALS_PATH = os.getenv(
+    "GOOGLE_APPLICATION_CREDENTIALS", "google_credentials.json"
+)
 
 
 class BankAccountBase(BaseModel):
@@ -57,6 +85,54 @@ def _parse_date(value: Optional[str], default: datetime) -> datetime:
     if value:
         return datetime.fromisoformat(value)
     return default
+
+
+def _normalize_label(label: str) -> str:
+    return "".join(
+        char
+        for char in label.lower().strip()
+        if char not in {" ", "-", "_", "/"}
+    )
+
+
+@lru_cache(maxsize=1)
+def _get_sheet_service():
+    try:
+        credentials = service_account.Credentials.from_service_account_file(
+            GOOGLE_CREDENTIALS_PATH,
+            scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
+        )
+        return build("sheets", "v4", credentials=credentials)
+    except Exception:
+        return None
+
+
+def _sheet_suffix(year: int, month: int) -> Optional[str]:
+    if year != 2025:
+        return None
+    for suffix, number in MONTH_SHEETS:
+        if number == month:
+            return suffix
+    return None
+
+
+def _parse_sheet_amount(text: str) -> Decimal:
+    if not text:
+        return Decimal("0")
+    clean = (
+        text.replace("R$", "")
+        .replace(" ", "")
+        .replace(".", "")
+        .replace(",", ".")
+        .strip()
+    )
+    if not clean or clean in {"-", "--"}:
+        return Decimal("0")
+    try:
+        return Decimal(clean)
+    except Exception:
+        return Decimal("0")
+
 
 
 @router.get("")
@@ -186,10 +262,15 @@ def delete_bank_account(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
+    try:
+        account_uuid = UUID(conta_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="ID de conta inválido") from exc
+
     account = (
         db.query(ContaBancaria)
         .filter(
-            ContaBancaria.id == conta_id,
+            ContaBancaria.id == account_uuid,
             ContaBancaria.tenant_id == tenant_id,
             ContaBancaria.business_unit_id == business_unit_id,
             ContaBancaria.is_active.is_(True),
@@ -243,6 +324,101 @@ def _build_daily_entries(lancamentos: List[LancamentoDiario]) -> List[Dict[str, 
     return [diário[data] for data in sorted(diário.keys())]
 
 
+def _build_sheet_extract(
+    account_name: str, start: datetime, end: datetime
+) -> List[Dict[str, Any]]:
+    service = _get_sheet_service()
+    if service is None or not DEFAULT_SHEET_ID:
+        return []
+
+    normalized_target = _normalize_label(account_name)
+    if not normalized_target:
+        return []
+
+    month_cursor = datetime(start.year, start.month, 1)
+    end_month = datetime(end.year, end.month, 1)
+
+    balances: Dict[datetime, Decimal] = {}
+
+    while month_cursor <= end_month:
+        suffix = _sheet_suffix(month_cursor.year, month_cursor.month)
+        if not suffix:
+            month_cursor = (month_cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+            continue
+
+        range_label = f"'FC-diário-{suffix}'!B175:AF184"
+        try:
+            result = (
+                service.spreadsheets()
+                .values()
+                .get(spreadsheetId=DEFAULT_SHEET_ID, range=range_label)
+                .execute()
+            )
+        except Exception:
+            month_cursor = (month_cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+            continue
+
+        values = result.get("values", [])
+        target_row: Optional[List[str]] = None
+        for row in values:
+            if not row:
+                continue
+            if _normalize_label(row[0]) == normalized_target:
+                target_row = row
+                break
+
+        if not target_row:
+            month_cursor = (month_cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+            continue
+
+        days_in_month = calendar.monthrange(month_cursor.year, month_cursor.month)[1]
+        for day_index in range(1, min(len(target_row), days_in_month + 1)):
+            try:
+                date_value = datetime(month_cursor.year, month_cursor.month, day_index)
+            except ValueError:
+                continue
+            balances[date_value] = _parse_sheet_amount(target_row[day_index])
+
+        month_cursor = (month_cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+    if not balances:
+        return []
+
+    sorted_dates = sorted(balances.keys())
+    extrato: List[Dict[str, Any]] = []
+    prev_balance: Optional[Decimal] = None
+
+    for date_value in sorted_dates:
+        if date_value < start:
+            prev_balance = balances[date_value]
+            continue
+        if date_value > end:
+            break
+
+        balance = balances[date_value]
+        entradas = Decimal("0")
+        saidas = Decimal("0")
+        if prev_balance is not None:
+            diff = balance - prev_balance
+            if diff >= 0:
+                entradas = diff
+            else:
+                saidas = -diff
+        prev_balance = balance
+
+        extrato.append(
+            {
+                "data": date_value.date().isoformat(),
+                "entradas": float(entradas),
+                "saidas": float(saidas),
+                "saldo_dia": float(balance),
+                "lancamentos": [],
+            }
+        )
+
+    return extrato
+
+
 @router.get("/{conta_id}/extrato")
 def bank_account_extract(
     conta_id: str,
@@ -289,6 +465,8 @@ def bank_account_extract(
     )
 
     extrato = _build_daily_entries(entries)
+    if not extrato:
+        extrato = _build_sheet_extract(account.banco, start, end)
 
     return {
         "success": True,
