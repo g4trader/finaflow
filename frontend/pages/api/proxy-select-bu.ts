@@ -4,9 +4,6 @@ import axios from 'axios';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Configurar timeout
-  res.setTimeout(30000); // 30 segundos
-  
   if (req.method === 'POST') {
     try {
       // Validar body

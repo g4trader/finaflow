@@ -4,9 +4,6 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Configurar timeout para evitar travamentos
-  res.setTimeout(30000); // 30 segundos
-  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -31,14 +28,20 @@ export default async function handler(
     formData.append('username', username);
     formData.append('password', password);
 
+    // Criar AbortController para timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
     const response = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: formData.toString(),
-      signal: AbortSignal.timeout(25000), // Timeout de 25 segundos
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     // Verificar se a resposta é JSON
     const contentType = response.headers.get('content-type');
@@ -60,6 +63,15 @@ export default async function handler(
     return res.status(200).json(data);
   } catch (error: any) {
     console.error('Erro no proxy login:', error);
+    
+    // Verificar se foi timeout
+    if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+      return res.status(504).json({ 
+        error: 'Timeout ao conectar ao backend',
+        detail: 'A requisição demorou mais de 25 segundos'
+      });
+    }
+    
     const errorMessage = error?.message || 'Erro desconhecido';
     const errorDetail = error?.response?.data || error?.detail || errorMessage;
     return res.status(500).json({ 
