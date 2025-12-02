@@ -77,13 +77,48 @@ const getApiInstance = () => {
   return apiInstance;
 };
 
-// Exportar função que retorna a instância
-const api = new Proxy({} as any, {
-  get(_target, prop) {
+// Exportar objeto com métodos que fazem lazy initialization
+// Isso evita que o Proxy seja avaliado durante SSR
+const api = {
+  get: (...args: any[]) => {
     const instance = getApiInstance();
-    return instance[prop];
-  }
-});
+    return instance.get(...args);
+  },
+  post: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.post(...args);
+  },
+  put: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.put(...args);
+  },
+  delete: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.delete(...args);
+  },
+  patch: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.patch(...args);
+  },
+  request: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.request(...args);
+  },
+  interceptors: {
+    request: {
+      use: (...args: any[]) => {
+        const instance = getApiInstance();
+        return instance.interceptors.request.use(...args);
+      },
+    },
+    response: {
+      use: (...args: any[]) => {
+        const instance = getApiInstance();
+        return instance.interceptors.response.use(...args);
+      },
+    },
+  },
+} as any;
 
 export default api;
 
