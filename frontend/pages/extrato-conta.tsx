@@ -55,6 +55,11 @@ interface ExtratoResponse {
     inicio: string;
     fim: string;
   };
+  meta?: {
+    saldo_inicial?: number;
+    saldo_final?: number;
+    media_diaria?: number;
+  };
   extrato: DiaExtrato[] | ExtratoInvestimento[];
 }
 
@@ -68,6 +73,7 @@ export default function ExtratoConta() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [periodo, setPeriodo] = useState<{inicio: string, fim: string} | null>(null);
+  const [meta, setMeta] = useState<{saldo_inicial?: number; saldo_final?: number; media_diaria?: number} | null>(null);
 
   useEffect(() => {
     if (id && tipo) {
@@ -94,6 +100,7 @@ export default function ExtratoConta() {
       if (response.data.success) {
         setExtrato(response.data.extrato);
         setPeriodo(response.data.periodo);
+        setMeta(response.data.meta || null);
         
         // Definir informações da conta baseado no tipo
         if (response.data.conta) {
@@ -196,6 +203,12 @@ export default function ExtratoConta() {
   };
 
   const totais = calcularTotais();
+  const saldoInicial = meta?.saldo_inicial ?? (
+    extrato.length > 0 && tipo !== 'investimentos'
+      ? (extrato[0] as DiaExtrato).saldo_dia - (extrato[0] as DiaExtrato).entradas + (extrato[0] as DiaExtrato).saidas
+      : 0
+  );
+  const saldoFinal = meta?.saldo_final ?? totais.saldoFinal;
 
   if (loading) {
     return (
@@ -310,7 +323,7 @@ export default function ExtratoConta() {
 
       {/* Totais */}
       {periodo && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className={`grid grid-cols-1 ${tipo !== 'investimentos' ? 'md:grid-cols-5' : 'md:grid-cols-2'} gap-4 mb-6`}>
           <div className="bg-white p-4 rounded-lg shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -348,22 +361,46 @@ export default function ExtratoConta() {
                   <TrendingDown className="w-8 h-8 text-red-500" />
                 </div>
               </div>
+
+              <div className="bg-white p-4 rounded-lg shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Saldo Inicial</p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {formatarMoeda(saldoInicial)}
+                    </p>
+                  </div>
+                  <DollarSign className="w-8 h-8 text-gray-500" />
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-lg shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Saldo Final</p>
+                    <p className={`text-lg font-semibold ${saldoFinal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatarMoeda(saldoFinal)}
+                    </p>
+                  </div>
+                  <DollarSign className="w-8 h-8 text-blue-500" />
+                </div>
+              </div>
             </>
           )}
-          
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">
-                  {tipo === 'investimentos' ? 'Valor Atual' : 'Saldo Final'}
-                </p>
-                <p className={`text-lg font-semibold ${totais.saldoFinal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatarMoeda(totais.saldoFinal)}
-                </p>
+
+          {tipo === 'investimentos' && (
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Valor Atual</p>
+                  <p className="text-lg font-semibold text-blue-600">
+                    {formatarMoeda(totais.saldoFinal)}
+                  </p>
+                </div>
+                <DollarSign className="w-8 h-8 text-blue-500" />
               </div>
-              <DollarSign className="w-8 h-8 text-blue-500" />
             </div>
-          </div>
+          )}
         </div>
       )}
 

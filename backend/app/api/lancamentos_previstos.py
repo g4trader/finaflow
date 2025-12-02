@@ -56,6 +56,14 @@ def _classify_transaction_type(
 def list_lancamentos_previstos(
     skip: int = 0,
     limit: int = 10000,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    group_id: Optional[str] = None,
+    subgroup_id: Optional[str] = None,
+    account_id: Optional[str] = None,
+    transaction_type: Optional[str] = None,
+    status: Optional[str] = None,
+    cost_center_id: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> Dict[str, object]:
@@ -73,8 +81,40 @@ def list_lancamentos_previstos(
             LancamentoPrevisto.business_unit_id == business_unit_id,
             LancamentoPrevisto.is_active.is_(True),
         )
-        .order_by(LancamentoPrevisto.data_prevista.desc())
     )
+    
+    # Aplicar filtros
+    if start_date:
+        start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        query = query.filter(LancamentoPrevisto.data_prevista >= start_dt)
+    if end_date:
+        end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        query = query.filter(LancamentoPrevisto.data_prevista <= end_dt)
+    if group_id:
+        query = query.filter(LancamentoPrevisto.grupo_id == group_id)
+    if subgroup_id:
+        query = query.filter(LancamentoPrevisto.subgrupo_id == subgroup_id)
+    if account_id:
+        query = query.filter(LancamentoPrevisto.conta_id == account_id)
+    if transaction_type:
+        from app.models.lancamento_previsto import TransactionType as PrevistoType
+        try:
+            tipo_enum = PrevistoType(transaction_type)
+            query = query.filter(LancamentoPrevisto.transaction_type == tipo_enum)
+        except ValueError:
+            query = query.filter(LancamentoPrevisto.transaction_type == transaction_type)
+    if status:
+        from app.models.lancamento_previsto import TransactionStatus
+        try:
+            status_enum = TransactionStatus(status)
+            query = query.filter(LancamentoPrevisto.status == status_enum)
+        except ValueError:
+            query = query.filter(LancamentoPrevisto.status == status)
+    # cost_center_id - preparar campo mesmo se não implementado ainda
+    # if cost_center_id:
+    #     query = query.filter(LancamentoPrevisto.cost_center_id == cost_center_id)
+    
+    query = query.order_by(LancamentoPrevisto.data_prevista.desc())
 
     if limit > 0:
         query = query.offset(skip).limit(limit)

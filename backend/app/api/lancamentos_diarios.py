@@ -54,10 +54,15 @@ async def create_lancamento_diario(
 async def get_lancamentos_diarios(
     start_date: Optional[str] = Query(None, description="Data inicial (ISO format)"),
     end_date: Optional[str] = Query(None, description="Data final (ISO format)"),
-    conta_id: Optional[str] = Query(None, description="ID da conta"),
-    subgrupo_id: Optional[str] = Query(None, description="ID do subgrupo"),
-    grupo_id: Optional[str] = Query(None, description="ID do grupo"),
+    group_id: Optional[str] = Query(None, description="ID do grupo"),
+    subgroup_id: Optional[str] = Query(None, description="ID do subgrupo"),
+    account_id: Optional[str] = Query(None, description="ID da conta"),
+    conta_id: Optional[str] = Query(None, description="ID da conta (alias)"),
+    subgrupo_id: Optional[str] = Query(None, description="ID do subgrupo (alias)"),
+    grupo_id: Optional[str] = Query(None, description="ID do grupo (alias)"),
     transaction_type: Optional[TransactionType] = Query(None, description="Tipo de transação"),
+    status: Optional[str] = Query(None, description="Status do lançamento"),
+    cost_center_id: Optional[str] = Query(None, description="ID do centro de custo"),
     page: int = Query(1, ge=1, description="Página"),
     per_page: int = Query(50, ge=1, le=100, description="Itens por página"),
     current_user: User = Depends(get_current_active_user),
@@ -75,16 +80,24 @@ async def get_lancamentos_diarios(
             end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
         
         tenant_id, business_unit_id = _user_context(current_user)
+        
+        # Normalizar aliases para nomes padrão
+        final_account_id = account_id or conta_id
+        final_subgroup_id = subgroup_id or subgrupo_id
+        final_group_id = group_id or grupo_id
+        
         result = LancamentoDiarioService.get_lancamentos(
             db=db,
             tenant_id=tenant_id,
             business_unit_id=business_unit_id,
             start_date=start_dt,
             end_date=end_dt,
-            conta_id=conta_id,
-            subgrupo_id=subgrupo_id,
-            grupo_id=grupo_id,
+            conta_id=final_account_id,
+            subgrupo_id=final_subgroup_id,
+            grupo_id=final_group_id,
             transaction_type=transaction_type,
+            status=status,
+            cost_center_id=cost_center_id,
             page=page,
             per_page=per_page
         )

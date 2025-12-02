@@ -36,6 +36,16 @@ def get_current_user(
                 detail="Usuário não encontrado"
             )
         
+        # Atualizar business_unit_id do usuário se presente no token
+        # Isso garante que o business_unit_id selecionado seja usado
+        token_business_unit_id = payload.get("business_unit_id")
+        if token_business_unit_id:
+            # Atualizar apenas se diferente do atual (evita queries desnecessárias)
+            if str(user.business_unit_id) != str(token_business_unit_id):
+                user.business_unit_id = token_business_unit_id
+                db.commit()
+                db.refresh(user)
+        
         # Verificar se usuário está ativo
         user_status = getattr(user, "status", UserStatus.ACTIVE)
         if isinstance(user_status, str):

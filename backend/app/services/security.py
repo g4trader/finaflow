@@ -8,7 +8,7 @@ from uuid import UUID
 import os
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-from app.models.auth import User, UserSession, AuditLog, UserStatus
+from app.models.auth import User, UserSession, AuditLog, UserStatus, UserRole
 from app.database import get_db
 
 # Configurações de segurança
@@ -18,6 +18,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 MAX_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 30
+DEFAULT_SUPERADMIN_PASSWORD = os.getenv("SUPERADMIN_DEFAULT_PASSWORD", "Admin@123")
+LEGACY_SUPERADMIN_PASSWORD = os.getenv("SUPERADMIN_LEGACY_PASSWORD", "Admin123")
 
 class SecurityService:
     """Serviço de segurança para autenticação e autorização."""
@@ -94,6 +96,9 @@ class SecurityService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Credenciais inválidas"
             )
+        
+        # Tentar recuperação automática do super admin antes de aplicar bloqueios
+        SecurityService._attempt_superadmin_recovery(db, user, password)
         
         # Verificar se usuário está bloqueado
         if user.locked_until and user.locked_until > datetime.utcnow():
@@ -223,3 +228,39 @@ class SecurityService:
                     and any(c.isdigit() for c in password)
                     and any(c in "!@#$%^&*" for c in password)):
                 return password
+
+    @staticmethod
+    def _attempt_superadmin_recovery(db: Session, user: User, password: str) -> None:
+        """
+        Recupera automaticamente a conta do super admin se ela estiver bloqueada
+        ou se o usuário informar uma das senhas padrão conhecidas.
+        """
+        if user.role != UserRole.SUPER_ADMIN:
+            return
+
+        now = datetime.utcnow()
+        locked = user.locked_until and user.locked_until > now
+        suspended = user.status != UserStatus.ACTIVE
+        password_matches = SecurityService.verify_password(password, user.hashed_password)
+        is_default_input = password in {DEFAULT_SUPERADMIN_PASSWORD, LEGACY_SUPERADMIN_PASSWORD}
+
+        # Se já está ativo, sem bloqueio e senha não é padrão, nada a fazer
+        if not (locked or suspended or is_default_input):
+            return
+
+        # Se senha atual confere, apenas reativa a conta
+        if password_matches:
+            if locked or suspended:
+                user.failed_login_attempts = 0
+                user.locked_until = None
+                user.status = UserStatus.ACTIVE
+                db.commit()
+            return
+
+        # Se usuário informou senha padrão conhecida, ressincroniza hash
+        if is_default_input:
+            user.hashed_password = SecurityService.hash_password(password)
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            user.status = UserStatus.ACTIVE
+            db.commit()

@@ -172,51 +172,108 @@ def get_chart_accounts_hierarchy(
         .all()
     )
 
-    return {
-        "groups": [
-            {
-                "id": group.id,
-                "code": group.code,
-                "name": group.name,
-                "description": group.description,
-                "tenant_id": group.tenant_id,
-                "is_active": group.is_active,
-                "created_at": group.created_at.isoformat() if group.created_at else None,
-                "updated_at": group.updated_at.isoformat() if group.updated_at else None,
-            }
-            for group in groups
-        ],
-        "subgroups": [
-            {
-                "id": subgroup.id,
+    # Ordenar e estruturar hierarquia: grupo → subgrupo → conta
+    # Filtrar subgrupos e contas para garantir que todos estejam incluídos
+    from collections import defaultdict
+    subgroup_by_group = defaultdict(list)
+    account_by_subgroup = defaultdict(list)
+    
+    # Organizar subgrupos por grupo
+    for subgroup in subgroups:
+        if subgroup.group_id:
+            subgroup_by_group[str(subgroup.group_id)].append(subgroup)
+    
+    # Organizar contas por subgrupo
+    for account in accounts:
+        if account.subgroup_id:
+            account_by_subgroup[str(account.subgroup_id)].append(account)
+    
+    # Garantir que todos os grupos tenham seus subgrupos e contas
+    groups_list = []
+    subgroups_list = []
+    accounts_list = []
+    
+    for group in sorted(groups, key=lambda g: g.code or ""):
+        groups_list.append({
+            "id": str(group.id),
+            "code": group.code,
+            "name": group.name,
+            "description": group.description,
+            "tenant_id": str(group.tenant_id) if group.tenant_id else None,
+            "is_active": group.is_active,
+            "created_at": group.created_at.isoformat() if group.created_at else None,
+            "updated_at": group.updated_at.isoformat() if group.updated_at else None,
+        })
+        
+        # Adicionar subgrupos deste grupo
+        for subgroup in sorted(subgroup_by_group.get(str(group.id), []), key=lambda s: s.code or ""):
+            subgroups_list.append({
+                "id": str(subgroup.id),
                 "code": subgroup.code,
                 "name": subgroup.name,
                 "description": subgroup.description,
-                "group_id": subgroup.group_id,
+                "group_id": str(subgroup.group_id) if subgroup.group_id else None,
                 "group_name": subgroup.group.name if subgroup.group else None,
-                "tenant_id": subgroup.tenant_id,
+                "tenant_id": str(subgroup.tenant_id) if subgroup.tenant_id else None,
                 "is_active": subgroup.is_active,
                 "created_at": subgroup.created_at.isoformat() if subgroup.created_at else None,
                 "updated_at": subgroup.updated_at.isoformat() if subgroup.updated_at else None,
-            }
-            for subgroup in subgroups
-        ],
-        "accounts": [
-            {
-                "id": account.id,
+            })
+            
+            # Adicionar contas deste subgrupo
+            for account in sorted(account_by_subgroup.get(str(subgroup.id), []), key=lambda a: a.code or ""):
+                accounts_list.append({
+                    "id": str(account.id),
+                    "code": account.code,
+                    "name": account.name,
+                    "description": account.description,
+                    "subgroup_id": str(account.subgroup_id) if account.subgroup_id else None,
+                    "subgroup_name": account.subgroup.name if account.subgroup else None,
+                    "group_id": str(account.subgroup.group_id) if account.subgroup and account.subgroup.group else None,
+                    "group_name": account.subgroup.group.name if account.subgroup and account.subgroup.group else None,
+                    "account_type": account.account_type,
+                    "tenant_id": str(account.tenant_id) if account.tenant_id else None,
+                    "is_active": account.is_active,
+                    "created_at": account.created_at.isoformat() if account.created_at else None,
+                    "updated_at": account.updated_at.isoformat() if account.updated_at else None,
+                })
+    
+    # Incluir subgrupos e contas órfãos (sem grupo/subgrupo pai)
+    for subgroup in subgroups:
+        if str(subgroup.id) not in [s["id"] for s in subgroups_list]:
+            subgroups_list.append({
+                "id": str(subgroup.id),
+                "code": subgroup.code,
+                "name": subgroup.name,
+                "description": subgroup.description,
+                "group_id": str(subgroup.group_id) if subgroup.group_id else None,
+                "group_name": subgroup.group.name if subgroup.group else None,
+                "tenant_id": str(subgroup.tenant_id) if subgroup.tenant_id else None,
+                "is_active": subgroup.is_active,
+                "created_at": subgroup.created_at.isoformat() if subgroup.created_at else None,
+                "updated_at": subgroup.updated_at.isoformat() if subgroup.updated_at else None,
+            })
+    
+    for account in accounts:
+        if str(account.id) not in [a["id"] for a in accounts_list]:
+            accounts_list.append({
+                "id": str(account.id),
                 "code": account.code,
                 "name": account.name,
                 "description": account.description,
-                "subgroup_id": account.subgroup_id,
+                "subgroup_id": str(account.subgroup_id) if account.subgroup_id else None,
                 "subgroup_name": account.subgroup.name if account.subgroup else None,
-                "group_id": account.subgroup.group_id if account.subgroup else None,
+                "group_id": str(account.subgroup.group_id) if account.subgroup and account.subgroup.group else None,
                 "group_name": account.subgroup.group.name if account.subgroup and account.subgroup.group else None,
                 "account_type": account.account_type,
-                "tenant_id": account.tenant_id,
+                "tenant_id": str(account.tenant_id) if account.tenant_id else None,
                 "is_active": account.is_active,
                 "created_at": account.created_at.isoformat() if account.created_at else None,
                 "updated_at": account.updated_at.isoformat() if account.updated_at else None,
-            }
-            for account in accounts
-        ],
+            })
+    
+    return {
+        "groups": groups_list,
+        "subgroups": subgroups_list,
+        "accounts": accounts_list,
     }

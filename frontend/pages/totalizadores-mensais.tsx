@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3 } from 'lucide-react';
 import api from '../services/api';
+import Layout from '../components/layout/Layout';
 
 interface TotalizadorMensal {
   mes: number;
@@ -81,27 +82,30 @@ export default function TotalizadoresMensais() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-          <div className="space-y-4">
-            {[...Array(12)].map((_, i) => (
-              <div key={i} className="h-16 bg-gray-200 rounded"></div>
-            ))}
-          </div>
+  const loadingSkeleton = (
+    <div className="p-6">
+      <div className="animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 bg-gray-200 rounded"></div>
+          ))}
+        </div>
+        <div className="space-y-4">
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="h-16 bg-gray-200 rounded"></div>
+          ))}
         </div>
       </div>
-    );
+    </div>
+  );
+
+  if (loading) {
+    return <Layout>{loadingSkeleton}</Layout>;
   }
 
   return (
+    <Layout>
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Totalizadores Mensais</h1>
@@ -263,5 +267,6 @@ export default function TotalizadoresMensais() {
         </div>
       </div>
     </div>
+    </Layout>
   );
 }

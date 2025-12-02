@@ -160,6 +160,8 @@ class LancamentoDiarioService:
         subgrupo_id: Optional[str] = None,
         grupo_id: Optional[str] = None,
         transaction_type: Optional[TransactionType] = None,
+        status: Optional[str] = None,
+        cost_center_id: Optional[str] = None,
         page: int = 1,
         per_page: int = 50
     ) -> Dict:
@@ -195,6 +197,20 @@ class LancamentoDiarioService:
             if transaction_type:
                 value = transaction_type.value if hasattr(transaction_type, "value") else str(transaction_type)
                 query = query.filter(LD.transaction_type == value)
+            if status:
+                # Status pode ser string ou enum
+                from app.models.lancamento_diario import TransactionStatus
+                if isinstance(status, str):
+                    try:
+                        status_enum = TransactionStatus(status)
+                        query = query.filter(LD.status == status_enum)
+                    except ValueError:
+                        query = query.filter(LD.status == status)
+                else:
+                    query = query.filter(LD.status == status)
+            # cost_center_id - preparar campo mesmo se não implementado ainda
+            # if cost_center_id:
+            #     query = query.filter(LD.cost_center_id == cost_center_id)
             
             total = query.count()
             offset = (page - 1) * per_page

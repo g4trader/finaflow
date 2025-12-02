@@ -430,10 +430,15 @@ def bank_account_extract(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
+    try:
+        account_uuid = UUID(conta_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="ID da conta bancária inválido.") from exc
+
     account = (
         db.query(ContaBancaria)
         .filter(
-            ContaBancaria.id == conta_id,
+            ContaBancaria.id == account_uuid,
             ContaBancaria.tenant_id == tenant_id,
             ContaBancaria.business_unit_id == business_unit_id,
             ContaBancaria.is_active.is_(True),
@@ -468,6 +473,14 @@ def bank_account_extract(
     if not extrato:
         extrato = _build_sheet_extract(account.banco, start, end)
 
+    saldo_inicial = 0.0
+    saldo_final = _decimal_to_float(account.saldo_atual)
+    if extrato:
+        saldo_inicial = extrato[0]["saldo_dia"] - extrato[0]["entradas"] + extrato[0]["saidas"]
+        saldo_final = extrato[-1]["saldo_dia"]
+    dias_periodo = max((end.date() - start.date()).days + 1, 1)
+    media_diaria = saldo_final / dias_periodo
+
     return {
         "success": True,
         "conta": {
@@ -478,6 +491,11 @@ def bank_account_extract(
             "saldo_atual": _decimal_to_float(account.saldo_atual),
         },
         "periodo": {"inicio": start.date().isoformat(), "fim": end.date().isoformat()},
+        "meta": {
+            "saldo_inicial": saldo_inicial,
+            "saldo_final": saldo_final,
+            "media_diaria": media_diaria,
+        },
         "extrato": extrato,
     }
 

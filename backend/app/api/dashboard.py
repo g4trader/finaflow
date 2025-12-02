@@ -270,6 +270,12 @@ def wallet_overview(
 def cash_flow(
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
+    group_id: Optional[str] = Query(default=None, description="ID do grupo"),
+    subgroup_id: Optional[str] = Query(default=None, description="ID do subgrupo"),
+    account_id: Optional[str] = Query(default=None, description="ID da conta"),
+    transaction_type: Optional[str] = Query(default=None, description="Tipo de transação"),
+    status: Optional[str] = Query(default=None, description="Status (previsto/realizado)"),
+    cost_center_id: Optional[str] = Query(default=None, description="ID do centro de custo"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> List[Dict[str, Any]]:
@@ -292,7 +298,7 @@ def cash_flow(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    transactions = (
+    query = (
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
@@ -301,8 +307,34 @@ def cash_flow(
             LancamentoDiario.data_movimentacao >= start_dt,
             LancamentoDiario.data_movimentacao <= end_dt,
         )
-        .all()
     )
+    
+    # Aplicar filtros adicionais
+    if group_id:
+        query = query.filter(LancamentoDiario.grupo_id == group_id)
+    if subgroup_id:
+        query = query.filter(LancamentoDiario.subgrupo_id == subgroup_id)
+    if account_id:
+        query = query.filter(LancamentoDiario.conta_id == account_id)
+    if transaction_type:
+        from app.models.lancamento_diario import TransactionType
+        try:
+            tipo_enum = TransactionType(transaction_type)
+            query = query.filter(LancamentoDiario.transaction_type == tipo_enum)
+        except ValueError:
+            query = query.filter(LancamentoDiario.transaction_type == transaction_type)
+    if status:
+        from app.models.lancamento_diario import TransactionStatus
+        try:
+            status_enum = TransactionStatus(status)
+            query = query.filter(LancamentoDiario.status == status_enum)
+        except ValueError:
+            query = query.filter(LancamentoDiario.status == status)
+    # cost_center_id - preparar campo mesmo se não implementado ainda
+    # if cost_center_id:
+    #     query = query.filter(LancamentoDiario.cost_center_id == cost_center_id)
+    
+    transactions = query.all()
 
     daily_totals: Dict[str, Dict[str, float]] = defaultdict(
         lambda: {
@@ -539,6 +571,12 @@ def cash_flow_previsto_realizado(
 def cash_flow_daily(
     year: Optional[int] = Query(default=None, ge=1900),
     month: Optional[int] = Query(default=None, ge=1, le=12),
+    group_id: Optional[str] = Query(default=None, description="ID do grupo"),
+    subgroup_id: Optional[str] = Query(default=None, description="ID do subgrupo"),
+    account_id: Optional[str] = Query(default=None, description="ID da conta"),
+    transaction_type: Optional[str] = Query(default=None, description="Tipo de transação"),
+    status: Optional[str] = Query(default=None, description="Status"),
+    cost_center_id: Optional[str] = Query(default=None, description="ID do centro de custo"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
