@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/layout/Layout';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 import { Wallet, Plus, Edit2, Trash2, DollarSign, FileText } from 'lucide-react';
 
 interface Caixa {
@@ -50,6 +50,7 @@ export default function CaixaPage() {
     e.preventDefault();
     
     try {
+      const api = await getApi();
       if (editingCaixa) {
         await api.put(`/api/v1/caixa/${editingCaixa.id}`, formData);
       } else {
@@ -84,6 +85,7 @@ export default function CaixaPage() {
     if (!confirm('Deseja realmente remover este caixa?')) return;
     
     try {
+      const api = await getApi();
       await api.delete(`/api/v1/caixa/${id}`);
       fetchCaixas();
     } catch (error) {

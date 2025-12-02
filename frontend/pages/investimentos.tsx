@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/layout/Layout';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 import { TrendingUp, Plus, DollarSign, Calendar, Percent, FileText } from 'lucide-react';
 
 interface Investimento {
@@ -52,6 +52,7 @@ export default function Investimentos() {
   const fetchInvestimentos = async () => {
     try {
       setLoading(true);
+      const api = await getApi();
       const response = await api.get('/api/v1/investimentos');
       if (response.data.success) {
         setInvestimentos(response.data.investimentos);
@@ -65,6 +66,7 @@ export default function Investimentos() {
 
   const fetchResumo = async () => {
     try {
+      const api = await getApi();
       const response = await api.get('/api/v1/investimentos/resumo');
       if (response.data.success) {
         setResumo(response.data.resumo);
@@ -78,6 +80,7 @@ export default function Investimentos() {
     e.preventDefault();
     
     try {
+      const api = await getApi();
       await api.post('/api/v1/investimentos', formData);
       
       setShowModal(false);

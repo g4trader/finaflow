@@ -7,12 +7,15 @@ const nextConfig = {
   poweredByHeader: false,
   generateEtags: false,
   
-  // Garantir que API routes funcionem corretamente
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '2mb',
-    },
-  },
+  // Desabilitar serverActions que pode causar problemas
+  // experimental: {
+  //   serverActions: {
+  //     bodySizeLimit: '2mb',
+  //   },
+  // },
+  
+  // Garantir que não tente fazer SSR de páginas que usam browser APIs
+  output: 'standalone',
 }
 
 module.exports = nextConfig
