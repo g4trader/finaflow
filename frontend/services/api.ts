@@ -3,11 +3,8 @@ import axios from 'axios';
 // Usar variável de ambiente ou fallback para staging
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
 
-// Log da URL da API (para debug)
-if (typeof window !== 'undefined') {
-  console.log('🔧 [API Config] API Base URL:', API_BASE_URL);
-  console.log('🔧 [API Config] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-}
+// Log da URL da API (para debug) - só no cliente
+// Removido do top-level para evitar execução durante SSR
 
 // Lazy initialization do axios - só cria quando necessário e no cliente
 let apiInstance: any = null;
@@ -95,6 +92,12 @@ export const login = async (username: string, password: string) => {
   // Só executar no cliente
   if (typeof window === 'undefined') {
     throw new Error('login só pode ser usado no cliente');
+  }
+  
+  // Log da URL da API (para debug) - só no cliente
+  if (typeof window !== 'undefined') {
+    console.log('🔧 [API Config] API Base URL:', API_BASE_URL);
+    console.log('🔧 [API Config] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
   }
 
   console.log('📡 [API] Preparando login...', { username, api_url: API_BASE_URL });
