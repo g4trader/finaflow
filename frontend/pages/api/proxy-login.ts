@@ -1,25 +1,42 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+// Configurar body parser
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb',
+    },
+  },
+};
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  console.log('🔍 [Proxy Login] Iniciando handler');
+  console.log('🔍 [Proxy Login] Method:', req.method);
+  console.log('🔍 [Proxy Login] Body:', JSON.stringify(req.body));
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
+  console.log('🔍 [Proxy Login] BACKEND_URL:', BACKEND_URL);
 
   try {
     // Validar body
     if (!req.body) {
+      console.error('❌ [Proxy Login] Body vazio');
       return res.status(400).json({ error: 'Body é obrigatório' });
     }
     
     const { username, password } = req.body;
+    console.log('🔍 [Proxy Login] Username:', username ? 'fornecido' : 'não fornecido');
     
     // Validar campos obrigatórios
     if (!username || !password) {
+      console.error('❌ [Proxy Login] Username ou password faltando');
       return res.status(400).json({ error: 'Username e password são obrigatórios' });
     }
 
@@ -27,6 +44,8 @@ export default async function handler(
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
+
+    console.log('🔍 [Proxy Login] Fazendo requisição para:', `${BACKEND_URL}/api/v1/auth/login`);
 
     // Criar AbortController para timeout
     const controller = new AbortController();
@@ -42,6 +61,7 @@ export default async function handler(
         body: formData.toString(),
         signal: controller.signal,
       });
+      console.log('🔍 [Proxy Login] Resposta recebida, status:', response.status);
     } finally {
       clearTimeout(timeoutId);
     }
@@ -60,12 +80,17 @@ export default async function handler(
     }
 
     if (!response.ok) {
+      console.error('❌ [Proxy Login] Resposta não OK:', response.status, data);
       return res.status(response.status).json(data);
     }
 
+    console.log('✅ [Proxy Login] Sucesso');
     return res.status(200).json(data);
   } catch (error: any) {
-    console.error('Erro no proxy login:', error);
+    console.error('❌ [Proxy Login] Erro capturado:', error);
+    console.error('❌ [Proxy Login] Error name:', error?.name);
+    console.error('❌ [Proxy Login] Error message:', error?.message);
+    console.error('❌ [Proxy Login] Error stack:', error?.stack);
     
     // Verificar se foi timeout
     if (error.name === 'AbortError' || error.message?.includes('aborted')) {
