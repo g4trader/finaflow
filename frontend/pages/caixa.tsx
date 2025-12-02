@@ -35,6 +35,7 @@ export default function CaixaPage() {
   const fetchCaixas = async () => {
     try {
       setLoading(true);
+      const api = await getApi();
       const response = await api.get('/api/v1/caixa');
       if (response.data.success) {
         setCaixas(response.data.caixas);
