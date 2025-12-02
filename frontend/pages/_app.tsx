@@ -3,10 +3,36 @@ import { AuthProvider } from '../context/AuthContext';
 import '../styles/globals.css';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
 // Componente para proteção de rotas
 function RouteProtection({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const [mounted, setMounted] = React.useState(false);
+  
+  // Garantir que só execute no cliente
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // Se ainda não montou no cliente, mostrar loading
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return <RouteProtectionInner>{children}</RouteProtectionInner>;
+}
+
+// Componente interno que usa hooks do AuthContext
+function RouteProtectionInner({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth();
   const router = useRouter();
   
@@ -28,7 +54,7 @@ function RouteProtection({ children }: { children: React.ReactNode }) {
   const publicRoutes = ['/login', '/signup', '/forgot-password', '/'];
   
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && typeof window !== 'undefined') {
       const currentPath = router.pathname;
       const isProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route));
       const isPublicRoute = publicRoutes.some(route => currentPath.startsWith(route));

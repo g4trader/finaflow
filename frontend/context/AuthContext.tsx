@@ -72,14 +72,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [needsBusinessUnitSelection, setNeedsBusinessUnitSelection] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        let stored = localStorage.getItem('token');
-        if (!stored) {
-          stored = getCookie('auth-token');
-        }
+    // Garantir que só execute no cliente
+    if (typeof window === 'undefined') {
+      setIsLoading(false);
+      return;
+    }
 
-        if (stored) {
+    try {
+      let stored = localStorage.getItem('token');
+      if (!stored) {
+        stored = getCookie('auth-token');
+      }
+
+      if (stored) {
+        try {
           setToken(stored);
           const decoded: any = jwtDecode(stored);
           setUser({
@@ -94,14 +100,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             department_id: decoded.department_id
           });
           setCookie('auth-token', stored, 7);
+        } catch (decodeError) {
+          console.error('Erro ao decodificar token:', decodeError);
+          // Token inválido, limpar
+          localStorage.removeItem('token');
+          removeCookie('auth-token');
+          setToken(null);
+          setUser(null);
         }
-      } catch (error) {
-        console.error('Erro ao carregar token:', error);
-        localStorage.removeItem('token');
-        removeCookie('auth-token');
       }
+    } catch (error) {
+      console.error('Erro ao carregar token:', error);
+      localStorage.removeItem('token');
+      removeCookie('auth-token');
+      setToken(null);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const login = async (username: string, password: string) => {
