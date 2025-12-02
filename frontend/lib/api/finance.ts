@@ -1,4 +1,3 @@
-import api from '../../services/api';
 import type { 
   AnnualSummaryResponse, 
   WalletResponse, 
@@ -7,9 +6,20 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
 
+// Importação dinâmica do api para evitar SSR
+const getApi = async () => {
+  if (typeof window === 'undefined') {
+    throw new Error('API só pode ser usada no cliente');
+  }
+  // Importar dinamicamente - o api é exportado como default
+  const apiModule = await import('../../services/api');
+  return apiModule.default;
+};
+
 // Função auxiliar para fazer requisições autenticadas
 const fetchWithAuth = async (endpoint: string) => {
   try {
+    const api = await getApi();
     const response = await api.get(endpoint);
     return response.data;
   } catch (error) {

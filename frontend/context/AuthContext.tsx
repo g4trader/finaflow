@@ -1,5 +1,21 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { login as apiLogin, signup as apiSignup, needsBusinessUnitSelection as checkNeedsBusinessUnitSelection } from '../services/api';
+
+// Importação dinâmica das funções de API para evitar inicialização do axios durante SSR
+const getApiFunctions = async () => {
+  if (typeof window === 'undefined') {
+    return {
+      login: async () => { throw new Error('login só pode ser usado no cliente'); },
+      signup: async () => { throw new Error('signup só pode ser usado no cliente'); },
+      needsBusinessUnitSelection: async () => { throw new Error('needsBusinessUnitSelection só pode ser usado no cliente'); },
+    };
+  }
+  const apiModule = await import('../services/api');
+  return {
+    login: apiModule.login,
+    signup: apiModule.signup,
+    needsBusinessUnitSelection: apiModule.needsBusinessUnitSelection,
+  };
+};
 
 // Importação dinâmica do jwtDecode para evitar problemas no SSR
 const decodeToken = async (token: string): Promise<any> => {
@@ -132,12 +148,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (username: string, password: string) => {
+    // Só executar no cliente
+    if (typeof window === 'undefined') {
+      throw new Error('login só pode ser usado no cliente');
+    }
+
     try {
       console.log('🔐 [AuthContext] Iniciando login...', { username });
       
       // Limpar tokens antigos antes do login
       localStorage.removeItem('token');
       removeCookie('auth-token');
+      
+      // Importar dinamicamente para evitar SSR
+      const { login: apiLogin } = await getApiFunctions();
       
       console.log('📡 [AuthContext] Chamando API de login...');
       const data = await apiLogin(username, password);
@@ -178,16 +202,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Só verificar no cliente
       if (typeof window !== 'undefined') {
         try {
-          if (typeof checkNeedsBusinessUnitSelection === 'function') {
-            console.log('🔍 [AuthContext] Verificando necessidade de seleção de BU...');
-            const needsSelection = await checkNeedsBusinessUnitSelection();
-            console.log('📋 [AuthContext] Resposta da verificação de BU:', needsSelection);
-            setNeedsBusinessUnitSelection(!!needsSelection?.needs_selection);
-          } else {
-            const needsBU = !decoded.business_unit_id;
-            console.log(`📋 [AuthContext] Fallback - Precisa BU (função indisponível): ${needsBU}`);
-            setNeedsBusinessUnitSelection(needsBU);
-          }
+          const { needsBusinessUnitSelection: checkNeedsBusinessUnitSelection } = await getApiFunctions();
+          console.log('🔍 [AuthContext] Verificando necessidade de seleção de BU...');
+          const needsSelection = await checkNeedsBusinessUnitSelection();
+          console.log('📋 [AuthContext] Resposta da verificação de BU:', needsSelection);
+          setNeedsBusinessUnitSelection(!!needsSelection?.needs_selection);
         } catch (error) {
           console.error('⚠️ [AuthContext] Erro ao verificar necessidade de seleção de BU:', error);
           // Fallback: verificar se tem business_unit_id no token
@@ -209,6 +228,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signup = async (data: any) => {
+    // Só executar no cliente
+    if (typeof window === 'undefined') {
+      throw new Error('signup só pode ser usado no cliente');
+    }
+
+    const { signup: apiSignup } = await getApiFunctions();
     const response = await apiSignup(data, token ?? undefined);
     return response;
   };
