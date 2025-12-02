@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 
 interface CashFlowData {
@@ -40,6 +40,7 @@ const CashFlow: React.FC = () => {
     setLoading(true);
     try {
       // Buscar fluxo de caixa calculado pelo backend
+      const api = await getApi();
       const response = await api.get(`/api/v1/cash-flow/previsto-realizado?year=${selectedYear}`);
       
       if (response.data.success) {

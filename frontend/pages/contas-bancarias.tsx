@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/layout/Layout';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 import { Building2, Plus, Edit2, Trash2, DollarSign, FileText } from 'lucide-react';
 
 interface ContaBancaria {
@@ -39,6 +39,7 @@ export default function ContasBancarias() {
   const fetchContas = async () => {
     try {
       setLoading(true);
+      const api = await getApi();
       const response = await api.get('/api/v1/contas-bancarias');
       if (response.data.success) {
         setContas(response.data.contas);
@@ -54,6 +55,7 @@ export default function ContasBancarias() {
     e.preventDefault();
     
     try {
+      const api = await getApi();
       if (editingConta) {
         await api.put(`/api/v1/contas-bancarias/${editingConta.id}`, formData);
       } else {
@@ -92,6 +94,7 @@ export default function ContasBancarias() {
     if (!confirm('Deseja realmente remover esta conta?')) return;
     
     try {
+      const api = await getApi();
       await api.delete(`/api/v1/contas-bancarias/${id}`);
       fetchContas();
     } catch (error) {

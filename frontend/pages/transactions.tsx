@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 
 interface PlanoContas {
   grupos: Array<{ id: string; code: string; name: string; }>;
@@ -138,6 +138,7 @@ const Transactions: React.FC = () => {
 
   const loadPlanoContas = async () => {
     try {
+      const api = await getApi();
       const response = await api.get('/api/v1/lancamentos-diarios/plano-contas');
       setPlanoContas(response.data);
     } catch (error) {
@@ -148,6 +149,7 @@ const Transactions: React.FC = () => {
   const loadLancamentos = async () => {
     setLoading(true);
     try {
+      const api = await getApi();
       const response = await api.get('/api/v1/lancamentos-diarios');
       setLancamentos(response.data?.lancamentos || []);
     } catch (error) {
@@ -162,6 +164,7 @@ const Transactions: React.FC = () => {
     e.preventDefault();
     
     try {
+      const api = await getApi();
       const payload = {
         ...formData,
         valor: parseFloat(formData.valor),
@@ -188,6 +191,7 @@ const Transactions: React.FC = () => {
     if (!confirm('Tem certeza que deseja excluir este lançamento?')) return;
     
     try {
+      const api = await getApi();
       await api.delete(`/api/v1/lancamentos-diarios/${id}`);
       await loadLancamentos();
     } catch (error) {

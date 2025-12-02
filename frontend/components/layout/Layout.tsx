@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
-import { getUserInfo } from '../../services/api';
+import { getApi } from '../../utils/api-client';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 
@@ -52,8 +52,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
-        const info = await getUserInfo();
-        setUserInfo(info);
+        const api = await getApi();
+        const info = await api.get('/api/v1/auth/me');
+        setUserInfo(info.data);
       } catch (error) {
         console.error('Erro ao buscar informações do usuário:', error);
       }

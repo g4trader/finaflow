@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DailyCashFlow {
@@ -32,6 +32,7 @@ const DailyCashFlow: React.FC = () => {
   const loadDailyCashFlow = async () => {
     setLoading(true);
     try {
+      const api = await getApi();
       const year = selectedDate.getFullYear();
       const month = selectedDate.getMonth() + 1;
       

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 
 interface PlanoContas {
   grupos: Array<{ id: string; code: string; name: string; }>;
@@ -136,6 +136,7 @@ const FinancialForecasts: React.FC = () => {
 
   const loadPlanoContas = async () => {
     try {
+      const api = await getApi();
       const response = await api.get('/api/v1/lancamentos-diarios/plano-contas');
       setPlanoContas(response.data);
     } catch (error) {
@@ -146,6 +147,7 @@ const FinancialForecasts: React.FC = () => {
   const loadPrevisoes = async () => {
     setLoading(true);
     try {
+      const api = await getApi();
       const response = await api.get('/api/v1/lancamentos-previstos');
       setPrevisoes(response.data.previsoes || []);
     } catch (error) {
@@ -164,6 +166,7 @@ const FinancialForecasts: React.FC = () => {
         valor: parseFloat(formData.valor)
       };
 
+      const api = await getApi();
       if (editingPrevisao) {
         await api.put(`/api/v1/lancamentos-previstos/${editingPrevisao.id}`, payload);
     } else {
@@ -184,6 +187,7 @@ const FinancialForecasts: React.FC = () => {
     if (!confirm('Tem certeza que deseja excluir esta previsão?')) return;
 
     try {
+      const api = await getApi();
       await api.delete(`/api/v1/lancamentos-previstos/${id}`);
       await loadPrevisoes();
     } catch (error) {

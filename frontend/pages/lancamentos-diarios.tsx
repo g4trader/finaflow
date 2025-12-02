@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 
 interface PlanoContas {
   grupos: Array<{ id: string; code: string; name: string; }>;
@@ -60,6 +60,7 @@ const LancamentosDiarios: React.FC = () => {
 
   const loadPlanoContas = async () => {
     try {
+      const api = await getApi();
       const response = await api.get('/api/v1/lancamentos-diarios/plano-contas');
       setPlanoContas(response.data);
     } catch (error) {
@@ -70,6 +71,7 @@ const LancamentosDiarios: React.FC = () => {
   const loadLancamentos = async () => {
     setLoading(true);
     try {
+      const api = await getApi();
       const response = await api.get('/api/v1/lancamentos-diarios');
       setLancamentos(response.data.lancamentos || []);
     } catch (error) {
@@ -89,6 +91,7 @@ const LancamentosDiarios: React.FC = () => {
         liquidacao: formData.liquidacao || null
       };
 
+      const api = await getApi();
       if (editingLancamento) {
         await api.put(`/api/v1/lancamentos-diarios/${editingLancamento.id}`, payload);
       } else {
@@ -121,6 +124,7 @@ const LancamentosDiarios: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este lançamento?')) {
       try {
+        const api = await getApi();
         await api.delete(`/api/v1/lancamentos-diarios/${id}`);
         await loadLancamentos();
       } catch (error) {

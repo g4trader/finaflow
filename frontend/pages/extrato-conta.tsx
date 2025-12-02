@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Calendar, ArrowLeft, TrendingUp, TrendingDown, DollarSign, Building2, Wallet, TrendingUp as TrendingUpIcon } from 'lucide-react';
 import Layout from '../components/layout/Layout';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 
 interface Lancamento {
   id: string;
@@ -94,6 +94,7 @@ export default function ExtratoConta() {
   const fetchExtrato = async (contaId: string, tipoConta: string, inicio: string, fim: string) => {
     try {
       setLoading(true);
+      const api = await getApi();
       const endpoint = `/api/v1/${tipoConta}/${contaId}/extrato?data_inicio=${inicio}&data_fim=${fim}`;
       const response = await api.get(endpoint);
       

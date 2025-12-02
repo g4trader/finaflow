@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3 } from 'lucide-react';
-import api from '../services/api';
+import { getApi } from '../utils/api-client';
 import Layout from '../components/layout/Layout';
 
 interface TotalizadorMensal {
@@ -35,6 +35,7 @@ export default function TotalizadoresMensais() {
   const fetchTotalizadores = async () => {
     try {
       setLoading(true);
+      const api = await getApi();
       const endpoint = `/api/v1/${tipo}/totalizadores-mensais?ano=${ano}`;
       const response = await api.get(endpoint);
       
