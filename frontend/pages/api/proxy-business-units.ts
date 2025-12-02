@@ -1,9 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Configurar timeout
+  res.setTimeout(30000); // 30 segundos
+  
   if (req.method === 'GET') {
     try {
       const authHeader = req.headers.authorization;
@@ -19,6 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             'Authorization': authHeader,
             'Content-Type': 'application/json',
           },
+          timeout: 25000, // Timeout de 25 segundos
         }
       );
 

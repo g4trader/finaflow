@@ -4,6 +4,9 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Configurar timeout para evitar travamentos
+  res.setTimeout(30000); // 30 segundos
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -11,7 +14,17 @@ export default async function handler(
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
 
   try {
+    // Validar body
+    if (!req.body) {
+      return res.status(400).json({ error: 'Body é obrigatório' });
+    }
+    
     const { username, password } = req.body;
+    
+    // Validar campos obrigatórios
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username e password são obrigatórios' });
+    }
 
     // Fazer requisição para o backend
     const formData = new URLSearchParams();
@@ -24,9 +37,21 @@ export default async function handler(
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: formData.toString(),
+      signal: AbortSignal.timeout(25000), // Timeout de 25 segundos
     });
 
-    const data = await response.json();
+    // Verificar se a resposta é JSON
+    const contentType = response.headers.get('content-type');
+    let data;
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      return res.status(500).json({ 
+        error: 'Resposta inválida do backend', 
+        detail: text.substring(0, 200) 
+      });
+    }
 
     if (!response.ok) {
       return res.status(response.status).json(data);
