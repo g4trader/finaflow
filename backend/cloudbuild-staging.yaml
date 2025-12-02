@@ -24,7 +24,7 @@ steps:
       - '--add-cloudsql-instances'
       - 'trivihair:us-central1:finaflow-db-staging'
       - '--set-env-vars'
-      - 'DATABASE_URL=postgresql://finaflow_user:finaflow_password@/finaflow_db?host=/cloudsql/trivihair:us-central1:finaflow-db-staging,SECRET_KEY=finaflow-secret-key-2024-staging,JWT_SECRET=finaflow-secret-key-2024-staging,CORS_ORIGINS=https://finaflow-staging.vercel.app,https://finaflow.vercel.app,ALLOWED_HOSTS=finaflow-staging.vercel.app,finaflow.vercel.app,PROJECT_ID=trivihair,DATASET=finaflow_staging,ENABLE_BIGQUERY=true,ENVIRONMENT=staging'
+      - 'DATABASE_URL=postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging,SECRET_KEY=finaflow-secret-key-2024-staging,JWT_SECRET=finaflow-secret-key-2024-staging,CORS_ORIGINS=*,ALLOWED_HOSTS=*,PROJECT_ID=trivihair,ENVIRONMENT=staging'
       - '--port'
       - '8080'
       - '--memory'
