@@ -93,9 +93,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (stored) {
-        try {
-          setToken(stored);
-          decodeToken(stored).then((decoded: any) => {
+        setToken(stored);
+        // Decodificar token de forma assíncrona
+        (async () => {
+          try {
+            const decoded: any = await decodeToken(stored);
             setUser({
               id: decoded.sub,
               username: decoded.username,
@@ -108,21 +110,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               department_id: decoded.department_id
             });
             setCookie('auth-token', stored, 7);
-          }).catch((decodeError) => {
+          } catch (decodeError) {
             console.error('Erro ao decodificar token:', decodeError);
             // Token inválido, limpar
             localStorage.removeItem('token');
             removeCookie('auth-token');
             setToken(null);
             setUser(null);
-          });
-        } catch (error) {
-          console.error('Erro ao processar token:', error);
-          localStorage.removeItem('token');
-          removeCookie('auth-token');
-          setToken(null);
-          setUser(null);
-        }
+          }
+        })();
       }
     } catch (error) {
       console.error('Erro ao carregar token:', error);
