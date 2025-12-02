@@ -11,12 +11,5 @@
       "src": "/(.*)",
       "dest": "app/main.py"
     }
-  ],
-  "env": {
-    "JWT_SECRET": "@jwt-secret",
-    "JWT_ALGORITHM": "HS256",
-    "ACCESS_TOKEN_EXPIRE_MINUTES": "60",
-    "GOOGLE_CLOUD_PROJECT": "@google-cloud-project",
-    "BIGQUERY_DATASET": "@bigquery-dataset"
-  }
+  ]
 }

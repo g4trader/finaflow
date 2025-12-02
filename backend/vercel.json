@@ -13,7 +13,7 @@
     }
   ],
   "env": {
-    "JWT_SECRET": "@jwt-secret",
+    "JWT_SECRET": "finaflow-secret-key-2024",
     "JWT_ALGORITHM": "HS256",
     "ACCESS_TOKEN_EXPIRE_MINUTES": "60",
     "GOOGLE_CLOUD_PROJECT": "@google-cloud-project",
