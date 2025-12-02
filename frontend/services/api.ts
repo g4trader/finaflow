@@ -9,63 +9,86 @@ if (typeof window !== 'undefined') {
   console.log('🔧 [API Config] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
 }
 
-// Configuração do axios
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: false,  // Temporariamente desabilitar credentials para CORS funcionar
-});
+// Lazy initialization do axios - só cria quando necessário e no cliente
+let apiInstance: any = null;
 
-// Interceptor para adicionar token de autenticação
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+const getApiInstance = () => {
+  // Só criar no cliente
+  if (typeof window === 'undefined') {
+    throw new Error('API só pode ser usada no cliente');
   }
-  return config;
-});
+  
+  if (!apiInstance) {
+    apiInstance = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: false,
+    });
 
-// Interceptor para tratamento de erros
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    // Só processar no cliente
-    if (typeof window === 'undefined') {
-      return Promise.reject(error);
-    }
-
-    if (error.response?.status === 401) {
-      // Token expirado, tentar renovar
-      try {
-        const refreshToken = localStorage.getItem('refresh-token');
-        if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
-            refresh_token: refreshToken,
-          });
-          
-          const newToken = response.data.access_token;
-          localStorage.setItem('token', newToken);
-          
-          // Reenviar requisição original com novo token
-          error.config.headers.Authorization = `Bearer ${newToken}`;
-          return axios(error.config);
-        }
-      } catch (refreshError) {
-        // Falha ao renovar token, redirecionar para login
-        localStorage.removeItem('token');
-        localStorage.removeItem('refresh-token');
-        if (typeof window !== 'undefined' && window.location) {
-          window.location.href = '/login';
+    // Interceptor para adicionar token de autenticação
+    apiInstance.interceptors.request.use((config: any) => {
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
         }
       }
-    }
-    return Promise.reject(error);
+      return config;
+    });
+
+    // Interceptor para tratamento de erros
+    apiInstance.interceptors.response.use(
+      (response: any) => response,
+      async (error: any) => {
+        // Só processar no cliente
+        if (typeof window === 'undefined') {
+          return Promise.reject(error);
+        }
+
+        if (error.response?.status === 401) {
+          // Token expirado, tentar renovar
+          try {
+            const refreshToken = localStorage.getItem('refresh-token');
+            if (refreshToken) {
+              const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
+                refresh_token: refreshToken,
+              });
+              
+              const newToken = response.data.access_token;
+              localStorage.setItem('token', newToken);
+              
+              // Reenviar requisição original com novo token
+              error.config.headers.Authorization = `Bearer ${newToken}`;
+              return axios(error.config);
+            }
+          } catch (refreshError) {
+            // Falha ao renovar token, redirecionar para login
+            localStorage.removeItem('token');
+            localStorage.removeItem('refresh-token');
+            if (typeof window !== 'undefined' && window.location) {
+              window.location.href = '/login';
+            }
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
   }
-);
+  
+  return apiInstance;
+};
+
+// Exportar função que retorna a instância
+const api = new Proxy({} as any, {
+  get(_target, prop) {
+    const instance = getApiInstance();
+    return instance[prop];
+  }
+});
+
+export default api;
 
 // Autenticação - Usar proxy para contornar CORS
 export const login = async (username: string, password: string) => {
@@ -877,5 +900,3 @@ export const getImportStatus = async (importId: string, token?: string) => {
   const response = await api.get(`/api/v1/import/status/${importId}`, { headers });
   return response.data;
 };
-
-export default api;

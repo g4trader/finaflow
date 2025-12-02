@@ -1,10 +1,5 @@
 {
-  "version": 2,
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/.next",
   "framework": "nextjs",
-  "installCommand": "cd frontend && npm install",
-  "env": {
-    "NEXT_PUBLIC_API_URL": "https://finaflow-backend-staging-642830139828.us-central1.run.app"
-  }
+  "buildCommand": "npm install && npm run build",
+  "installCommand": "npm install"
 }

@@ -6,7 +6,6 @@ import { AuthContext } from '../context/AuthContext';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Building2, Users, Shield, ArrowRight, Check, LogOut, User } from 'lucide-react';
-import { getUserBusinessUnits, selectBusinessUnit } from '../services/api';
 
 interface BusinessUnit {
   id: string;
@@ -52,7 +51,8 @@ export default function SelectBusinessUnit() {
   const loadBusinessUnits = async () => {
     try {
       setLoading(true);
-      const data = await getUserBusinessUnits();
+      const apiModule = await import('../services/api');
+      const data = await apiModule.getUserBusinessUnits();
       setBusinessUnits(data);
       
       // Se só tem uma BU, selecionar automaticamente
@@ -78,7 +78,8 @@ export default function SelectBusinessUnit() {
       setSubmitting(true);
       setError('');
       
-      const response = await selectBusinessUnit(selectedBU);
+      const apiModule = await import('../services/api');
+      const response = await apiModule.selectBusinessUnit(selectedBU);
       
       // Atualizar o token no localStorage
       localStorage.setItem('token', response.access_token);

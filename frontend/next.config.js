@@ -6,16 +6,6 @@ const nextConfig = {
   // Configurações para Vercel
   poweredByHeader: false,
   generateEtags: false,
-  
-  // Desabilitar serverActions que pode causar problemas
-  // experimental: {
-  //   serverActions: {
-  //     bodySizeLimit: '2mb',
-  //   },
-  // },
-  
-  // Garantir que não tente fazer SSR de páginas que usam browser APIs
-  output: 'standalone',
 }
 
 module.exports = nextConfig
