@@ -2,19 +2,17 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-
-  async rewrites() {
-    return [
-      {
-        source: '/:path*',
-        destination: '/',
-      },
-    ];
-  },
+  
   // Configurações para Vercel
-  output: 'standalone',
   poweredByHeader: false,
   generateEtags: false,
+  
+  // Garantir que API routes funcionem corretamente
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+  },
 }
 
 module.exports = nextConfig

@@ -25,7 +25,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(backendResponse.status).json(backendResponse.data);
     } catch (error: any) {
       console.error('Proxy Business Units Error:', error.response?.data || error.message);
-      res.status(error.response?.status || 500).json(error.response?.data || { detail: 'Internal Server Error' });
+      const statusCode = error.response?.status || 500;
+      const errorData = error.response?.data || { detail: error.message || 'Internal Server Error' };
+      return res.status(statusCode).json(errorData);
     }
   } else {
     res.setHeader('Allow', ['GET']);

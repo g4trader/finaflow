@@ -5,7 +5,7 @@ import type {
   TransactionsResponse 
 } from '../../types/dashboard';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-642830139828.us-central1.run.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
 
 // Função auxiliar para fazer requisições autenticadas
 const fetchWithAuth = async (endpoint: string) => {

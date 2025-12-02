@@ -8,7 +8,7 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const BACKEND_URL = 'https://finaflow-backend-642830139828.us-central1.run.app';
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
 
   try {
     const { username, password } = req.body;
@@ -35,7 +35,12 @@ export default async function handler(
     return res.status(200).json(data);
   } catch (error: any) {
     console.error('Erro no proxy login:', error);
-    return res.status(500).json({ error: 'Erro ao conectar ao backend', detail: error.message });
+    const errorMessage = error?.message || 'Erro desconhecido';
+    const errorDetail = error?.response?.data || error?.detail || errorMessage;
+    return res.status(500).json({ 
+      error: 'Erro ao conectar ao backend', 
+      detail: typeof errorDetail === 'string' ? errorDetail : JSON.stringify(errorDetail)
+    });
   }
 }
 
