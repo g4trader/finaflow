@@ -1,6 +1,14 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import jwtDecode from 'jwt-decode';
 import { login as apiLogin, signup as apiSignup, needsBusinessUnitSelection as checkNeedsBusinessUnitSelection } from '../services/api';
+
+// Importação dinâmica do jwtDecode para evitar problemas no SSR
+const decodeToken = async (token: string): Promise<any> => {
+  if (typeof window === 'undefined') {
+    throw new Error('jwtDecode só pode ser usado no cliente');
+  }
+  const jwtDecode = (await import('jwt-decode')).default;
+  return jwtDecode(token);
+};
 
 interface User {
   id: string;
@@ -87,22 +95,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (stored) {
         try {
           setToken(stored);
-          const decoded: any = jwtDecode(stored);
-          setUser({
-            id: decoded.sub,
-            username: decoded.username,
-            email: decoded.email,
-            first_name: decoded.first_name || '',
-            last_name: decoded.last_name || '',
-            role: decoded.role,
-            tenant_id: decoded.tenant_id,
-            business_unit_id: decoded.business_unit_id,
-            department_id: decoded.department_id
+          decodeToken(stored).then((decoded: any) => {
+            setUser({
+              id: decoded.sub,
+              username: decoded.username,
+              email: decoded.email,
+              first_name: decoded.first_name || '',
+              last_name: decoded.last_name || '',
+              role: decoded.role,
+              tenant_id: decoded.tenant_id,
+              business_unit_id: decoded.business_unit_id,
+              department_id: decoded.department_id
+            });
+            setCookie('auth-token', stored, 7);
+          }).catch((decodeError) => {
+            console.error('Erro ao decodificar token:', decodeError);
+            // Token inválido, limpar
+            localStorage.removeItem('token');
+            removeCookie('auth-token');
+            setToken(null);
+            setUser(null);
           });
-          setCookie('auth-token', stored, 7);
-        } catch (decodeError) {
-          console.error('Erro ao decodificar token:', decodeError);
-          // Token inválido, limpar
+        } catch (error) {
+          console.error('Erro ao processar token:', error);
           localStorage.removeItem('token');
           removeCookie('auth-token');
           setToken(null);
@@ -141,7 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCookie('auth-token', data.access_token, 7);
       
       console.log('🔓 [AuthContext] Decodificando token...');
-      const decoded: any = jwtDecode(data.access_token);
+      const decoded: any = await decodeToken(data.access_token);
       console.log('✅ [AuthContext] Token decodificado:', {
         username: decoded.username,
         role: decoded.role,
@@ -237,7 +252,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('token', data.access_token);
       setCookie('auth-token', data.access_token, 7);
       
-      const decoded: any = jwtDecode(data.access_token);
+      const decoded: any = await decodeToken(data.access_token);
       setUser({
         id: decoded.sub,
         username: decoded.username,
