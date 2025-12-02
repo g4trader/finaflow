@@ -232,6 +232,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshToken = async () => {
+    // Só executar no cliente
+    if (typeof window === 'undefined') {
+      throw new Error('refreshToken só pode ser usado no cliente');
+    }
+
     try {
       const refreshToken = localStorage.getItem('refresh-token');
       if (!refreshToken) {

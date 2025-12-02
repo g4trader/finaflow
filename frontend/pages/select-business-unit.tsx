@@ -31,11 +31,18 @@ export default function SelectBusinessUnit() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Garantir que só execute no cliente
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     // Verificar se tem token antes de carregar
     const token = localStorage.getItem('token');
     if (!token) {
       console.warn('⚠️ Token não encontrado, redirecionando para login...');
-      window.location.href = '/login';
+      if (window.location) {
+        window.location.href = '/login';
+      }
       return;
     }
     

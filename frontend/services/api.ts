@@ -33,6 +33,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Só processar no cliente
+    if (typeof window === 'undefined') {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401) {
       // Token expirado, tentar renovar
       try {
@@ -53,7 +58,9 @@ api.interceptors.response.use(
         // Falha ao renovar token, redirecionar para login
         localStorage.removeItem('token');
         localStorage.removeItem('refresh-token');
-        window.location.href = '/login';
+        if (typeof window !== 'undefined' && window.location) {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);
@@ -62,6 +69,11 @@ api.interceptors.response.use(
 
 // Autenticação - Usar proxy para contornar CORS
 export const login = async (username: string, password: string) => {
+  // Só executar no cliente
+  if (typeof window === 'undefined') {
+    throw new Error('login só pode ser usado no cliente');
+  }
+
   console.log('📡 [API] Preparando login...', { username, api_url: API_BASE_URL });
   
   try {
@@ -78,7 +90,7 @@ export const login = async (username: string, password: string) => {
     });
     
     // Salvar refresh token
-    if (proxyResponse.data.refresh_token) {
+    if (proxyResponse.data.refresh_token && typeof window !== 'undefined') {
       localStorage.setItem('refresh-token', proxyResponse.data.refresh_token);
       console.log('💾 [API] Refresh token salvo');
     }
@@ -107,7 +119,7 @@ export const login = async (username: string, password: string) => {
     });
     
     // Salvar refresh token
-    if (response.data.refresh_token) {
+    if (response.data.refresh_token && typeof window !== 'undefined') {
       localStorage.setItem('refresh-token', response.data.refresh_token);
       console.log('💾 [API] Refresh token salvo');
     }
@@ -127,13 +139,20 @@ export const signup = async (data: any, token?: string) => {
 };
 
 export const logout = async () => {
+  // Só executar no cliente
+  if (typeof window === 'undefined') {
+    return;
+  }
+
   try {
     await api.post('/api/v1/auth/logout');
   } catch (error) {
     console.error('Erro no logout:', error);
   } finally {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refresh-token');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refresh-token');
+    }
   }
 };
 
@@ -144,6 +163,11 @@ export const getCurrentUser = async () => {
 
 // Novos endpoints para seleção de BU/Empresa
 export const getUserBusinessUnits = async () => {
+  // Só executar no cliente
+  if (typeof window === 'undefined') {
+    throw new Error('getUserBusinessUnits só pode ser usado no cliente');
+  }
+
   const token = localStorage.getItem('token');
   
   if (!token) {
@@ -171,6 +195,11 @@ export const getUserBusinessUnits = async () => {
 };
 
 export const selectBusinessUnit = async (businessUnitId: string) => {
+  // Só executar no cliente
+  if (typeof window === 'undefined') {
+    throw new Error('selectBusinessUnit só pode ser usado no cliente');
+  }
+
   const token = localStorage.getItem('token');
   
   if (!token) {
