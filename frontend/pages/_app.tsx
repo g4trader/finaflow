@@ -33,8 +33,14 @@ function RouteProtection({ children }: { children: React.ReactNode }) {
 
 // Componente interno que usa hooks do AuthContext
 function RouteProtectionInner({ children }: { children: React.ReactNode }) {
+  const [isClient, setIsClient] = React.useState(false);
   const { token, isLoading } = useAuth();
   const router = useRouter();
+  
+  // Garantir que só execute no cliente
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   // Rotas que precisam de autenticação
   const protectedRoutes = [
@@ -54,29 +60,31 @@ function RouteProtectionInner({ children }: { children: React.ReactNode }) {
   const publicRoutes = ['/login', '/signup', '/forgot-password', '/'];
   
   useEffect(() => {
-    if (!isLoading && typeof window !== 'undefined') {
-      const currentPath = router.pathname;
-      const isProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route));
-      const isPublicRoute = publicRoutes.some(route => currentPath.startsWith(route));
-      
-      // Se é rota protegida e não tem token, redirecionar para login
-      if (isProtectedRoute && !token) {
-        console.log(`🔒 RouteProtection: Redirecionando ${currentPath} para login`);
-        router.replace('/login');
-        return;
-      }
-      
-      // Se tem token e está tentando acessar login/signup, redirecionar para dashboard
-      if (token && (currentPath === '/login' || currentPath === '/signup')) {
-        console.log(`🔄 RouteProtection: Usuário autenticado tentando acessar ${currentPath}, redirecionando para dashboard`);
-        router.replace('/dashboard');
-        return;
-      }
+    // Só executar no cliente e após carregar
+    if (!isClient || isLoading || typeof window === 'undefined') {
+      return;
     }
-  }, [token, isLoading, router]);
+    
+    const currentPath = router.pathname;
+    const isProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route));
+    
+    // Se é rota protegida e não tem token, redirecionar para login
+    if (isProtectedRoute && !token) {
+      console.log(`🔒 RouteProtection: Redirecionando ${currentPath} para login`);
+      router.replace('/login');
+      return;
+    }
+    
+    // Se tem token e está tentando acessar login/signup, redirecionar para dashboard
+    if (token && (currentPath === '/login' || currentPath === '/signup')) {
+      console.log(`🔄 RouteProtection: Usuário autenticado tentando acessar ${currentPath}, redirecionando para dashboard`);
+      router.replace('/dashboard');
+      return;
+    }
+  }, [token, isLoading, router, isClient]);
   
-  // Se está carregando, mostrar loading
-  if (isLoading) {
+  // Se está carregando ou ainda não está no cliente, mostrar loading
+  if (!isClient || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

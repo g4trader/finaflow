@@ -175,22 +175,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('👤 [AuthContext] Usuário configurado');
       
       // Verificar se o usuário precisa selecionar uma BU
-      try {
-        if (typeof checkNeedsBusinessUnitSelection === 'function') {
-          console.log('🔍 [AuthContext] Verificando necessidade de seleção de BU...');
-          const needsSelection = await checkNeedsBusinessUnitSelection();
-          console.log('📋 [AuthContext] Resposta da verificação de BU:', needsSelection);
-          setNeedsBusinessUnitSelection(!!needsSelection?.needs_selection);
-        } else {
+      // Só verificar no cliente
+      if (typeof window !== 'undefined') {
+        try {
+          if (typeof checkNeedsBusinessUnitSelection === 'function') {
+            console.log('🔍 [AuthContext] Verificando necessidade de seleção de BU...');
+            const needsSelection = await checkNeedsBusinessUnitSelection();
+            console.log('📋 [AuthContext] Resposta da verificação de BU:', needsSelection);
+            setNeedsBusinessUnitSelection(!!needsSelection?.needs_selection);
+          } else {
+            const needsBU = !decoded.business_unit_id;
+            console.log(`📋 [AuthContext] Fallback - Precisa BU (função indisponível): ${needsBU}`);
+            setNeedsBusinessUnitSelection(needsBU);
+          }
+        } catch (error) {
+          console.error('⚠️ [AuthContext] Erro ao verificar necessidade de seleção de BU:', error);
+          // Fallback: verificar se tem business_unit_id no token
           const needsBU = !decoded.business_unit_id;
-          console.log(`📋 [AuthContext] Fallback - Precisa BU (função indisponível): ${needsBU}`);
+          console.log(`📋 [AuthContext] Fallback - Precisa BU: ${needsBU}`);
           setNeedsBusinessUnitSelection(needsBU);
         }
-      } catch (error) {
-        console.error('⚠️ [AuthContext] Erro ao verificar necessidade de seleção de BU:', error);
-        // Fallback: verificar se tem business_unit_id no token
+      } else {
+        // No servidor, usar fallback baseado no token
         const needsBU = !decoded.business_unit_id;
-        console.log(`📋 [AuthContext] Fallback - Precisa BU: ${needsBU}`);
         setNeedsBusinessUnitSelection(needsBU);
       }
       
