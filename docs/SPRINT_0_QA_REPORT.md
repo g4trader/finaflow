@@ -44,12 +44,14 @@
   - **BUG ALTO**: Filtros de Subgrupo e Conta estão desabilitados quando não há grupo selecionado. Conforme requisito da Sprint 0, devem abrir mesmo sem selecionar grupo.
 
 #### A.2 - Lançamentos Previstos
-- **Status**: 🚧 Não executado
-- **Filtros Isolados**: 🚧
-- **Combinações**: 🚧
-- **Validações**: 🚧
-- **Bugs Encontrados**: 
-  - Nenhum até o momento
+- **Status**: ✅ APROVADO (após Sprint 0.1)
+- **Filtros Isolados**: ✅
+  - Subgrupo: ✅ (Habilitado independentemente - CORRIGIDO)
+  - Conta: ✅ (Habilitada independentemente - CORRIGIDO)
+- **Combinações**: ✅
+- **Validações**: ✅
+- **Bugs Encontrados**:
+  - Nenhum após correções Sprint 0.1
 
 #### A.3 - Fluxo de Caixa Mensal
 - **Status**: 🚧 Não executado
