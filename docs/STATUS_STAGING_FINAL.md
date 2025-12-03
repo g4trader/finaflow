@@ -54,9 +54,24 @@
 ---
 
 **Última atualização**: Janeiro 2025  
-**Status**: ✅ Login QA testado com sucesso em STAGING
+**Status**: ✅ Backend funcionando | ⚠️ Frontend precisa correção de branch Vercel
 
-## ✅ Correção Aplicada
+## ✅ Correções Aplicadas
 
-O problema era que o `authenticate_user` buscava apenas por `username`, mas o login estava sendo feito com `email`. Foi corrigido para aceitar tanto `username` quanto `email`.
+1. **authenticate_user**: Corrigido para aceitar tanto `username` quanto `email`
+2. **Endpoint create-qa-user**: Funcionando corretamente
+3. **Login via API**: Funcionando com credenciais QA
+
+## ⚠️ Problema Identificado no Frontend
+
+O projeto Vercel `finaflow-lcz5` está configurado para fazer deploy da branch `main` em vez de `staging`. Isso causa divergência entre backend e frontend.
+
+**Solução**: Corrigir configuração da Vercel para usar branch `staging` (ver `INSTRUCOES_VERCEL_BRANCH.md`)
+
+## 📋 Próximos Passos
+
+1. ⏳ **Corrigir branch Vercel** para `staging`
+2. ✅ **Aguardar redeploy** do frontend
+3. ✅ **Testar login QA** no frontend
+4. ✅ **Validar navegação** completa
 
