@@ -88,7 +88,10 @@ class SecurityService:
     @staticmethod
     def authenticate_user(db: Session, username: str, password: str, ip_address: str = None, user_agent: str = None) -> User:
         """Autentica usuário com proteção contra brute force."""
-        user = db.query(User).filter(User.username == username).first()
+        # Aceitar tanto username quanto email
+        user = db.query(User).filter(
+            (User.username == username) | (User.email == username)
+        ).first()
         
         if not user:
             SecurityService._log_failed_login(db, username, ip_address, user_agent, "Usuário não encontrado")
