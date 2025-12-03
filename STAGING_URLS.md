@@ -37,13 +37,16 @@ https://finaflow-backend-staging-642830139828.us-central1.run.app/redoc
 
 ---
 
-## ⏳ FRONTEND STAGING
+## ✅ FRONTEND STAGING
 
-**Status**: Aguardando criação na Vercel
+**Status**: ✅ Criado e deployado na Vercel
 
-**Instruções**: Ver `VERCEL_STAGING_SETUP.md`
+**URL**: 
+```
+https://finaflow-lcz5.vercel.app/
+```
 
-**URL esperada**: `https://finaflow-staging-XXXXX.vercel.app`
+**Projeto Vercel**: `finaflow-lcz5` (ou nome configurado)
 
 ---
 
@@ -107,11 +110,11 @@ gcloud logging tail "resource.type=cloudsql_database AND resource.labels.databas
 - [ ] Tabelas inicializadas (pode precisar execução manual)
 
 ### Frontend
-- [ ] Projeto criado na Vercel
-- [ ] Branch staging conectada
-- [ ] Variáveis de ambiente configuradas
-- [ ] Deploy concluído
-- [ ] URL pública gerada
+- [x] Projeto criado na Vercel
+- [x] Branch staging conectada
+- [ ] Variáveis de ambiente configuradas (verificar `NEXT_PUBLIC_API_URL`)
+- [x] Deploy concluído
+- [x] URL pública gerada: https://finaflow-lcz5.vercel.app/
 
 ---
 
