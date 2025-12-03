@@ -11,7 +11,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.auth import User
+from app.models.auth import User, UserRole, UserRole
 from app.models.caixa import Caixa
 from app.models.conta_bancaria import ContaBancaria
 from app.models.investimento import Investimento
@@ -27,13 +27,25 @@ from app.services.dependencies import get_current_active_user
 router = APIRouter(tags=["dashboard"])
 
 
-def _require_business_unit(user: User) -> str:
+def _require_business_unit(user: User) -> Optional[str]:
+    """
+    Obtém o business_unit_id do usuário.
+    Primeiro tenta obter do token (atualizado em get_current_user),
+    depois do objeto user, e por último retorna None (permitindo acesso sem BU para super_admin).
+    """
+    # Primeiro, tentar obter do token (já atualizado em get_current_user)
     business_unit_id = getattr(user, "business_unit_id", None)
+    
+    # Se não tiver business_unit_id e não for super_admin, retornar erro
     if not business_unit_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Usuário precisa selecionar uma unidade de negócio para acessar o dashboard.",
-        )
+        if user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=400,
+                detail="Usuário precisa selecionar uma unidade de negócio para acessar o dashboard.",
+            )
+        # Para super_admin sem BU, usar None (permitir acesso sem filtro de BU)
+        return None
+    
     return str(business_unit_id)
 
 
@@ -78,10 +90,13 @@ def list_transactions(
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
         )
     )
+    
+    # Filtrar por business_unit_id apenas se fornecido
+    if business_unit_id:
+        query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
 
     start_dt = datetime(target_year, 1, 1)
     end_dt = datetime(target_year, 12, 31, 23, 59, 59)
@@ -150,17 +165,21 @@ def annual_summary(
     start_dt = datetime(target_year, 1, 1)
     end_dt = datetime(target_year, 12, 31, 23, 59, 59)
 
-    transactions: List[LancamentoDiario] = (
+    query = (
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
             LancamentoDiario.data_movimentacao >= start_dt,
             LancamentoDiario.data_movimentacao <= end_dt,
         )
-        .all()
     )
+    
+    # Filtrar por business_unit_id apenas se fornecido
+    if business_unit_id:
+        query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+    
+    transactions: List[LancamentoDiario] = query.all()
 
     monthly: Dict[int, Dict[str, float]] = {
         month: {"month": month, "revenue": 0.0, "expense": 0.0, "cost": 0.0}
@@ -210,33 +229,38 @@ def wallet_overview(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    bank_accounts = (
+    bank_query = (
         db.query(ContaBancaria)
         .filter(
             ContaBancaria.tenant_id == tenant_id,
-            ContaBancaria.business_unit_id == business_unit_id,
             ContaBancaria.is_active.is_(True),
         )
-        .all()
     )
-    cash_accounts = (
+    if business_unit_id:
+        bank_query = bank_query.filter(ContaBancaria.business_unit_id == business_unit_id)
+    bank_accounts = bank_query.all()
+    
+    cash_query = (
         db.query(Caixa)
         .filter(
             Caixa.tenant_id == tenant_id,
-            Caixa.business_unit_id == business_unit_id,
             Caixa.is_active.is_(True),
         )
-        .all()
     )
-    investments = (
+    if business_unit_id:
+        cash_query = cash_query.filter(Caixa.business_unit_id == business_unit_id)
+    cash_accounts = cash_query.all()
+    
+    investment_query = (
         db.query(Investimento)
         .filter(
             Investimento.tenant_id == tenant_id,
-            Investimento.business_unit_id == business_unit_id,
             Investimento.is_active.is_(True),
         )
-        .all()
     )
+    if business_unit_id:
+        investment_query = investment_query.filter(Investimento.business_unit_id == business_unit_id)
+    investments = investment_query.all()
 
     bank_payload = [
         {"label": account.banco, "amount": _decimal_to_float(account.saldo_atual)}
@@ -302,12 +326,15 @@ def cash_flow(
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
             LancamentoDiario.data_movimentacao >= start_dt,
             LancamentoDiario.data_movimentacao <= end_dt,
         )
     )
+    
+    # Filtrar por business_unit_id apenas se fornecido
+    if business_unit_id:
+        query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
     
     # Aplicar filtros adicionais
     if group_id:
@@ -481,17 +508,18 @@ def cash_flow_previsto_realizado(
                 account_rows[account_id] = acc_row
 
     # Realizados
-    realizados = (
+    realizados_query = (
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
             LancamentoDiario.data_movimentacao >= start_dt,
             LancamentoDiario.data_movimentacao <= end_dt,
         )
-        .all()
     )
+    if business_unit_id:
+        realizados_query = realizados_query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+    realizados = realizados_query.all()
 
     for tx in realizados:
         month_label = MONTH_LABELS[tx.data_movimentacao.month - 1]
@@ -507,17 +535,18 @@ def cash_flow_previsto_realizado(
             grp_row["meses"][month_label]["realizado"] += amount
 
     # Previsto
-    previstos = (
+    previstos_query = (
         db.query(LancamentoPrevisto)
         .filter(
             LancamentoPrevisto.tenant_id == tenant_id,
-            LancamentoPrevisto.business_unit_id == business_unit_id,
             LancamentoPrevisto.is_active.is_(True),
             LancamentoPrevisto.data_prevista >= start_dt,
             LancamentoPrevisto.data_prevista <= end_dt,
         )
-        .all()
     )
+    if business_unit_id:
+        previstos_query = previstos_query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+    previstos = previstos_query.all()
 
     for forecast in previstos:
         month_label = MONTH_LABELS[forecast.data_prevista.month - 1]
@@ -636,17 +665,19 @@ def cash_flow_daily(
                 rows.append(acc_row)
                 account_rows[account_id] = acc_row
 
-    transactions = (
+    query = (
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
             LancamentoDiario.data_movimentacao >= start_dt,
             LancamentoDiario.data_movimentacao <= end_dt,
         )
-        .all()
     )
+    if business_unit_id:
+        query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+    
+    transactions = query.all()
 
     net_by_day = _empty_days(last_day)
 
@@ -703,61 +734,71 @@ def saldo_disponivel(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    contas_total = (
+    contas_query = (
         db.query(func.sum(ContaBancaria.saldo_atual))
         .filter(
             ContaBancaria.tenant_id == tenant_id,
-            ContaBancaria.business_unit_id == business_unit_id,
             ContaBancaria.is_active.is_(True),
         )
-        .scalar()
     )
-    caixas_total = (
+    if business_unit_id:
+        contas_query = contas_query.filter(ContaBancaria.business_unit_id == business_unit_id)
+    contas_total = contas_query.scalar()
+    
+    caixas_query = (
         db.query(func.sum(Caixa.saldo_atual))
         .filter(
             Caixa.tenant_id == tenant_id,
-            Caixa.business_unit_id == business_unit_id,
             Caixa.is_active.is_(True),
         )
-        .scalar()
     )
-    investimentos_total = (
+    if business_unit_id:
+        caixas_query = caixas_query.filter(Caixa.business_unit_id == business_unit_id)
+    caixas_total = caixas_query.scalar()
+    
+    investimentos_query = (
         db.query(func.sum(Investimento.valor_atual))
         .filter(
             Investimento.tenant_id == tenant_id,
-            Investimento.business_unit_id == business_unit_id,
             Investimento.is_active.is_(True),
         )
-        .scalar()
     )
+    if business_unit_id:
+        investimentos_query = investimentos_query.filter(Investimento.business_unit_id == business_unit_id)
+    investimentos_total = investimentos_query.scalar()
 
-    contas = (
+    contas_filter = (
         db.query(ContaBancaria)
         .filter(
             ContaBancaria.tenant_id == tenant_id,
-            ContaBancaria.business_unit_id == business_unit_id,
             ContaBancaria.is_active.is_(True),
         )
-        .all()
     )
-    caixas = (
+    if business_unit_id:
+        contas_filter = contas_filter.filter(ContaBancaria.business_unit_id == business_unit_id)
+    contas = contas_filter.all()
+    
+    caixas_filter = (
         db.query(Caixa)
         .filter(
             Caixa.tenant_id == tenant_id,
-            Caixa.business_unit_id == business_unit_id,
             Caixa.is_active.is_(True),
         )
-        .all()
     )
-    investimentos = (
+    if business_unit_id:
+        caixas_filter = caixas_filter.filter(Caixa.business_unit_id == business_unit_id)
+    caixas = caixas_filter.all()
+    
+    investimentos_filter = (
         db.query(Investimento)
         .filter(
             Investimento.tenant_id == tenant_id,
-            Investimento.business_unit_id == business_unit_id,
             Investimento.is_active.is_(True),
         )
-        .all()
     )
+    if business_unit_id:
+        investimentos_filter = investimentos_filter.filter(Investimento.business_unit_id == business_unit_id)
+    investimentos = investimentos_filter.all()
 
     total_contas = _decimal_to_float(contas_total)
     total_caixas = _decimal_to_float(caixas_total)
@@ -809,13 +850,18 @@ def listar_lancamentos_simples(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    lancamentos = (
+    query = (
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
         )
+    )
+    if business_unit_id:
+        query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+    
+    lancamentos = (
+        query
         .order_by(LancamentoDiario.data_movimentacao.desc())
         .limit(limit)
         .all()

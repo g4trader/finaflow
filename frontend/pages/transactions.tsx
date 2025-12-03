@@ -280,14 +280,26 @@ const Transactions: React.FC = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentLancamentos = filteredLancamentos.slice(startIndex, endIndex);
 
-  // Filtrar subgrupos baseado no grupo selecionado
+  // Filtrar subgrupos: se grupo selecionado, filtrar por grupo; senão, mostrar todos
   const filteredSubgrupos = (planoContas?.subgrupos || []).filter(
     sub => !selectedGrupo || sub.group_id === selectedGrupo
   );
 
-  // Filtrar contas baseado no subgrupo selecionado
+  // Filtrar contas: se subgrupo selecionado, filtrar por subgrupo; 
+  // se grupo selecionado mas não subgrupo, filtrar por grupo; senão, mostrar todas
   const filteredContas = (planoContas?.contas || []).filter(
-    conta => !selectedSubgrupo || conta.subgroup_id === selectedSubgrupo
+    conta => {
+      if (selectedSubgrupo) {
+        return conta.subgroup_id === selectedSubgrupo;
+      }
+      if (selectedGrupo) {
+        // Se grupo selecionado mas não subgrupo, mostrar contas do grupo
+        const subgruposDoGrupo = filteredSubgrupos.map(s => s.id);
+        return subgruposDoGrupo.includes(conta.subgroup_id);
+      }
+      // Se nenhum filtro, mostrar todas as contas
+      return true;
+    }
   );
 
   return (
@@ -413,7 +425,6 @@ const Transactions: React.FC = () => {
                   setSelectedConta('');
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                disabled={!selectedGrupo}
               >
                 <option value="">Todos os subgrupos</option>
                 {filteredSubgrupos.map(sub => (
@@ -433,7 +444,6 @@ const Transactions: React.FC = () => {
                 value={selectedConta}
                 onChange={(e) => setSelectedConta(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                disabled={!selectedSubgrupo}
               >
                 <option value="">Todas as contas</option>
                 {filteredContas.map(conta => (
