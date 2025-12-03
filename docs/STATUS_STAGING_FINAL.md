@@ -54,7 +54,7 @@
 ---
 
 **Última atualização**: Janeiro 2025  
-**Status**: ✅ Login QA testado com sucesso em STAGING
+**Status**: ✅ **STAGING 100% FUNCIONAL - PRONTO PARA QA**
 
 ## ✅ Correções Aplicadas
 
@@ -63,6 +63,7 @@
 3. **Login via API**: Funcionando com credenciais QA
 4. **Branch Vercel**: Corrigida para usar `staging` em vez de `main`
 5. **Frontend Staging**: Deploy atualizado com código da branch staging
+6. **Proxy Login**: Funcionando corretamente após deploy completo
 
 ## ✅ Validações Concluídas
 
@@ -71,6 +72,9 @@
 3. ✅ **Login via API** funcionando com credenciais QA
 4. ✅ **Branch Vercel** configurada para `staging`
 5. ✅ **Frontend staging** usando código correto
-6. ✅ **Login QA no frontend** funcionando
-7. ✅ **Navegação** após login funcionando
+6. ✅ **Login QA no frontend** funcionando ✅ **CONFIRMADO**
+7. ✅ **Proxy login** retornando 200 OK ✅ **CONFIRMADO**
+8. ✅ **Token JWT** gerado corretamente com `tenant_id` e `business_unit_id` ✅ **CONFIRMADO**
+9. ✅ **Redirecionamento para dashboard** funcionando ✅ **CONFIRMADO**
+10. ✅ **Navegação** após login funcionando ✅ **CONFIRMADO**
 
