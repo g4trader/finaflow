@@ -54,14 +54,9 @@
 ---
 
 **Última atualização**: Janeiro 2025  
-**Status**: ✅ Endpoint create-qa-user funcionando | ⚠️ Login retornando erro (investigando)
+**Status**: ✅ Login QA testado com sucesso em STAGING
 
-## ⚠️ Problema Identificado no Login
+## ✅ Correção Aplicada
 
-O endpoint `/api/v1/auth/login` está retornando "Erro interno do servidor" para o usuário QA. O endpoint create-qa-user está funcionando corretamente e o usuário foi criado/atualizado com sucesso.
-
-**Próximos passos**:
-1. Verificar logs do Cloud Run para identificar o erro específico
-2. Comparar com login do usuário admin (que funciona)
-3. Corrigir o problema e validar login QA
+O problema era que o `authenticate_user` buscava apenas por `username`, mas o login estava sendo feito com `email`. Foi corrigido para aceitar tanto `username` quanto `email`.
 
