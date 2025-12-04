@@ -136,6 +136,14 @@ const Transactions: React.FC = () => {
     }
   }, [user]);
 
+  // Recarregar lançamentos quando filtros mudarem
+  useEffect(() => {
+    if (user?.business_unit_id) {
+      loadLancamentos();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateStart, dateEnd, selectedGrupo, selectedSubgrupo, selectedConta]);
+
   const loadPlanoContas = async () => {
     try {
       const api = await getApi();
@@ -150,10 +158,21 @@ const Transactions: React.FC = () => {
     setLoading(true);
     try {
       const api = await getApi();
-      const response = await api.get('/api/v1/lancamentos-diarios');
+      
+      // Construir query params com filtros
+      const params: any = {};
+      if (dateStart) params.start_date = dateStart;
+      if (dateEnd) params.end_date = dateEnd;
+      if (selectedGrupo) params.group_id = selectedGrupo;
+      if (selectedSubgrupo) params.subgroup_id = selectedSubgrupo;
+      if (selectedConta) params.account_id = selectedConta;
+      
+      const response = await api.get('/api/v1/lancamentos-diarios', { params });
       setLancamentos(response.data?.lancamentos || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao carregar lançamentos:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Erro ao carregar lançamentos';
+      alert(`Erro: ${errorMessage}`);
       setLancamentos([]); // Garantir que sempre seja um array
     } finally {
       setLoading(false);
@@ -163,6 +182,21 @@ const Transactions: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validação de campos obrigatórios
+    if (!formData.data_movimentacao) {
+      alert('Por favor, informe a data de movimentação');
+      return;
+    }
+    if (!formData.valor || parseFloat(formData.valor) <= 0) {
+      alert('Por favor, informe um valor válido');
+      return;
+    }
+    if (!formData.grupo_id || !formData.subgrupo_id || !formData.conta_id) {
+      alert('Por favor, selecione grupo, subgrupo e conta');
+      return;
+    }
+    
+    setLoading(true);
     try {
       const api = await getApi();
       const payload = {
@@ -181,22 +215,29 @@ const Transactions: React.FC = () => {
       resetForm();
       setShowCreateModal(false);
       setEditingLancamento(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar lançamento:', error);
-      alert('Erro ao salvar lançamento');
+      const errorMessage = error.response?.data?.detail || error.message || 'Erro ao salvar lançamento';
+      alert(`Erro ao salvar lançamento: ${errorMessage}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este lançamento?')) return;
     
+    setLoading(true);
     try {
       const api = await getApi();
       await api.delete(`/api/v1/lancamentos-diarios/${id}`);
       await loadLancamentos();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao excluir lançamento:', error);
-      alert('Erro ao excluir lançamento');
+      const errorMessage = error.response?.data?.detail || error.message || 'Erro ao excluir lançamento';
+      alert(`Erro ao excluir lançamento: ${errorMessage}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -250,26 +291,13 @@ const Transactions: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // Filtrar lançamentos
+  // Filtrar lançamentos (apenas busca por texto, pois filtros de data/grupo/subgrupo/conta já vêm da API)
   const filteredLancamentos = (lancamentos || []).filter(lanc => {
-    // Filtro de busca
+    // Filtro de busca por texto (observações ou conta)
     if (searchTerm && !lanc.observacoes?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !lanc.conta_nome.toLowerCase().includes(searchTerm.toLowerCase())) {
+        !lanc.conta_nome?.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
-    
-    // Filtro de data
-    if (dateStart && lanc.data_movimentacao.split('T')[0] < dateStart) return false;
-    if (dateEnd && lanc.data_movimentacao.split('T')[0] > dateEnd) return false;
-    
-    // Filtro de grupo
-    if (selectedGrupo && lanc.grupo_id !== selectedGrupo) return false;
-    
-    // Filtro de subgrupo
-    if (selectedSubgrupo && lanc.subgrupo_id !== selectedSubgrupo) return false;
-    
-    // Filtro de conta
-    if (selectedConta && lanc.conta_id !== selectedConta) return false;
     
     return true;
   });

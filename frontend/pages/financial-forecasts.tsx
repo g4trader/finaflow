@@ -134,6 +134,14 @@ const FinancialForecasts: React.FC = () => {
     }
   }, [user]);
 
+  // Recarregar previsões quando filtros mudarem
+  useEffect(() => {
+    if (user?.business_unit_id) {
+      loadPrevisoes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateStart, dateEnd, selectedGrupo, selectedSubgrupo, selectedConta]);
+
   const loadPlanoContas = async () => {
     try {
       const api = await getApi();
@@ -148,10 +156,21 @@ const FinancialForecasts: React.FC = () => {
     setLoading(true);
     try {
       const api = await getApi();
-      const response = await api.get('/api/v1/lancamentos-previstos');
+      
+      // Construir query params com filtros
+      const params: any = {};
+      if (dateStart) params.start_date = dateStart;
+      if (dateEnd) params.end_date = dateEnd;
+      if (selectedGrupo) params.group_id = selectedGrupo;
+      if (selectedSubgrupo) params.subgroup_id = selectedSubgrupo;
+      if (selectedConta) params.account_id = selectedConta;
+      
+      const response = await api.get('/api/v1/lancamentos-previstos', { params });
       setPrevisoes(response.data.previsoes || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao carregar previsões:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Erro ao carregar previsões';
+      alert(`Erro: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -160,6 +179,21 @@ const FinancialForecasts: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validação de campos obrigatórios
+    if (!formData.data_prevista) {
+      alert('Por favor, informe a data prevista');
+      return;
+    }
+    if (!formData.valor || parseFloat(formData.valor) <= 0) {
+      alert('Por favor, informe um valor válido');
+      return;
+    }
+    if (!formData.grupo_id || !formData.subgrupo_id || !formData.conta_id) {
+      alert('Por favor, selecione grupo, subgrupo e conta');
+      return;
+    }
+    
+    setLoading(true);
     try {
       const payload = {
         ...formData,
@@ -169,7 +203,7 @@ const FinancialForecasts: React.FC = () => {
       const api = await getApi();
       if (editingPrevisao) {
         await api.put(`/api/v1/lancamentos-previstos/${editingPrevisao.id}`, payload);
-    } else {
+      } else {
         await api.post('/api/v1/lancamentos-previstos', payload);
       }
 
@@ -177,22 +211,29 @@ const FinancialForecasts: React.FC = () => {
       resetForm();
       setShowCreateModal(false);
       setEditingPrevisao(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar previsão:', error);
-      alert('Erro ao salvar previsão');
+      const errorMessage = error.response?.data?.detail || error.message || 'Erro ao salvar previsão';
+      alert(`Erro ao salvar previsão: ${errorMessage}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir esta previsão?')) return;
 
+    setLoading(true);
     try {
       const api = await getApi();
       await api.delete(`/api/v1/lancamentos-previstos/${id}`);
       await loadPrevisoes();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao excluir previsão:', error);
-      alert('Erro ao excluir previsão');
+      const errorMessage = error.response?.data?.detail || error.message || 'Erro ao excluir previsão';
+      alert(`Erro ao excluir previsão: ${errorMessage}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -244,26 +285,13 @@ const FinancialForecasts: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // Filtrar previsões
+  // Filtrar previsões (apenas busca por texto, pois filtros de data/grupo/subgrupo/conta já vêm da API)
   const filteredPrevisoes = (previsoes || []).filter(prev => {
-    // Filtro de busca
+    // Filtro de busca por texto (observações ou conta)
     if (searchTerm && !prev.observacoes?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !prev.conta_nome.toLowerCase().includes(searchTerm.toLowerCase())) {
+        !prev.conta_nome?.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
-    
-    // Filtro de data
-    if (dateStart && prev.data_prevista.split('T')[0] < dateStart) return false;
-    if (dateEnd && prev.data_prevista.split('T')[0] > dateEnd) return false;
-    
-    // Filtro de grupo
-    if (selectedGrupo && prev.grupo_id !== selectedGrupo) return false;
-    
-    // Filtro de subgrupo
-    if (selectedSubgrupo && prev.subgrupo_id !== selectedSubgrupo) return false;
-    
-    // Filtro de conta
-    if (selectedConta && prev.conta_id !== selectedConta) return false;
     
     return true;
   });

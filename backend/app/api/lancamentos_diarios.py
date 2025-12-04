@@ -43,11 +43,18 @@ async def create_lancamento_diario(
         )
         
         if result["success"]:
+            # Fazer commit após criação bem-sucedida
+            db.commit()
             return result
         else:
+            db.rollback()
             raise HTTPException(status_code=400, detail=result["message"])
             
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
 @router.get("/api/v1/lancamentos-diarios", response_model=dict)
