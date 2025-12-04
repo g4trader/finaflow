@@ -21,3 +21,8 @@ google_credentials.json
 backend/google_credentials.json
 
 .env*.local
+
+# Arquivos de dados do cliente (não versionar)
+backend/data/*.xlsx
+backend/data/*.xls
+backend/data/fluxo_caixa_2025.xlsx
