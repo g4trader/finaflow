@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, Tuple
 from datetime import datetime
 from app.database import get_db
-from app.models.auth import User
+from app.models.auth import User, UserRole
 from app.models.lancamento_diario import (
     LancamentoDiarioCreate,
     LancamentoDiarioUpdate,
@@ -15,14 +15,24 @@ from app.services.lancamento_diario_service import LancamentoDiarioService
 router = APIRouter()
 
 
-def _user_context(user: User) -> tuple[str, str]:
+def _user_context(user: User) -> Tuple[str, Optional[str]]:
+    """
+    Obtém o tenant_id e business_unit_id do usuário.
+    Para SUPER_ADMIN, permite acesso sem business_unit_id (retorna None).
+    Para outros usuários, exige business_unit_id.
+    """
     tenant_id = str(user.tenant_id)
     business_unit_id = getattr(user, "business_unit_id", None)
+    
     if not business_unit_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Usuário precisa selecionar uma unidade de negócio antes de acessar lançamentos diários.",
-        )
+        if user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=400,
+                detail="Usuário precisa selecionar uma unidade de negócio antes de acessar lançamentos diários.",
+            )
+        # Para super_admin sem BU, retornar None (permitir acesso sem filtro de BU)
+        return tenant_id, None
+    
     return tenant_id, str(business_unit_id)
 
 @router.post("/api/v1/lancamentos-diarios", response_model=dict)
@@ -34,6 +44,12 @@ async def create_lancamento_diario(
     """Criar novo lançamento diário"""
     try:
         tenant_id, business_unit_id = _user_context(current_user)
+        # Para criar lançamento, business_unit_id é obrigatório (mesmo para SUPER_ADMIN)
+        if not business_unit_id:
+            raise HTTPException(
+                status_code=400,
+                detail="É necessário selecionar uma unidade de negócio para criar lançamentos.",
+            )
         result = LancamentoDiarioService.create_lancamento(
             db=db,
             lancamento_data=lancamento_data,
@@ -43,17 +59,20 @@ async def create_lancamento_diario(
         )
         
         if result["success"]:
-            # Fazer commit após criação bem-sucedida
+            # Fazer commit após criação bem-sucedida para garantir persistência
             db.commit()
             return result
         else:
+            # Rollback em caso de falha na validação
             db.rollback()
             raise HTTPException(status_code=400, detail=result["message"])
             
     except HTTPException:
+        # Rollback em caso de exceção HTTP (validação, etc)
         db.rollback()
         raise
     except Exception as e:
+        # Rollback em caso de erro inesperado
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
@@ -70,6 +89,7 @@ async def get_lancamentos_diarios(
     transaction_type: Optional[TransactionType] = Query(None, description="Tipo de transação"),
     status: Optional[str] = Query(None, description="Status do lançamento"),
     cost_center_id: Optional[str] = Query(None, description="ID do centro de custo"),
+    text_search: Optional[str] = Query(None, description="Busca por texto (descrição, observações, nomes)"),
     page: int = Query(1, ge=1, description="Página"),
     per_page: int = Query(50, ge=1, le=100, description="Itens por página"),
     current_user: User = Depends(get_current_active_user),
@@ -96,7 +116,7 @@ async def get_lancamentos_diarios(
         result = LancamentoDiarioService.get_lancamentos(
             db=db,
             tenant_id=tenant_id,
-            business_unit_id=business_unit_id,
+            business_unit_id=business_unit_id,  # Pode ser None para SUPER_ADMIN
             start_date=start_dt,
             end_date=end_dt,
             conta_id=final_account_id,
@@ -105,6 +125,7 @@ async def get_lancamentos_diarios(
             transaction_type=transaction_type,
             status=status,
             cost_center_id=cost_center_id,
+            text_search=text_search,
             page=page,
             per_page=per_page
         )
@@ -124,7 +145,7 @@ async def get_plano_contas_hierarchy(
 ):
     """Buscar hierarquia do plano de contas para formulário"""
     try:
-        tenant_id, _ = _user_context(current_user)
+        tenant_id, _ = _user_context(current_user)  # business_unit_id não é necessário para plano de contas
         result = LancamentoDiarioService.get_plano_contas_hierarchy(
             db=db,
             tenant_id=tenant_id
@@ -149,11 +170,14 @@ async def get_lancamento_diario(
         from app.models.lancamento_diario import LancamentoDiario
         
         tenant_id, business_unit_id = _user_context(current_user)
-        lancamento = db.query(LancamentoDiario).filter(
+        query = db.query(LancamentoDiario).filter(
             LancamentoDiario.id == lancamento_id,
-            LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id
-        ).first()
+            LancamentoDiario.tenant_id == tenant_id
+        )
+        # Filtrar por business_unit_id apenas se fornecido
+        if business_unit_id:
+            query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+        lancamento = query.first()
         
         if not lancamento:
             raise HTTPException(status_code=404, detail="Lançamento não encontrado")
@@ -203,11 +227,14 @@ async def update_lancamento_diario(
         from app.models.lancamento_diario import LancamentoDiario
         tenant_id, business_unit_id = _user_context(current_user)
         # Buscar lançamento
-        lancamento = db.query(LancamentoDiario).filter(
+        query = db.query(LancamentoDiario).filter(
             LancamentoDiario.id == lancamento_id,
-            LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id
-        ).first()
+            LancamentoDiario.tenant_id == tenant_id
+        )
+        # Filtrar por business_unit_id apenas se fornecido
+        if business_unit_id:
+            query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+        lancamento = query.first()
         
         if not lancamento:
             raise HTTPException(status_code=404, detail="Lançamento não encontrado")
@@ -316,9 +343,11 @@ async def get_lancamentos_resumo(
         # Query base
         query = db.query(LancamentoDiario).filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active == True
         )
+        # Filtrar por business_unit_id apenas se fornecido
+        if business_unit_id:
+            query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
         
         # Aplicar filtros de data
         if start_date:

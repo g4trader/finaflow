@@ -142,7 +142,7 @@ const Transactions: React.FC = () => {
       loadLancamentos();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateStart, dateEnd, selectedGrupo, selectedSubgrupo, selectedConta]);
+  }, [dateStart, dateEnd, selectedGrupo, selectedSubgrupo, selectedConta, searchTerm]);
 
   const loadPlanoContas = async () => {
     try {
@@ -159,13 +159,15 @@ const Transactions: React.FC = () => {
     try {
       const api = await getApi();
       
-      // Construir query params com filtros
+      // Construir query params com todos os filtros
       const params: any = {};
       if (dateStart) params.start_date = dateStart;
       if (dateEnd) params.end_date = dateEnd;
       if (selectedGrupo) params.group_id = selectedGrupo;
       if (selectedSubgrupo) params.subgroup_id = selectedSubgrupo;
       if (selectedConta) params.account_id = selectedConta;
+      if (searchTerm) params.text_search = searchTerm;
+      // transaction_type e status podem ser adicionados quando implementados na UI
       
       const response = await api.get('/api/v1/lancamentos-diarios', { params });
       setLancamentos(response.data?.lancamentos || []);
@@ -291,22 +293,13 @@ const Transactions: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // Filtrar lançamentos (apenas busca por texto, pois filtros de data/grupo/subgrupo/conta já vêm da API)
-  const filteredLancamentos = (lancamentos || []).filter(lanc => {
-    // Filtro de busca por texto (observações ou conta)
-    if (searchTerm && !lanc.observacoes?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !lanc.conta_nome?.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false;
-    }
-    
-    return true;
-  });
-
-  // Paginação
-  const totalPages = Math.ceil(filteredLancamentos.length / itemsPerPage);
+  // Os filtros já são aplicados no backend via query params
+  // Não há necessidade de filtrar localmente
+  // Paginação será feita no backend quando implementada, por enquanto mantemos local
+  const totalPages = Math.ceil((lancamentos || []).length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentLancamentos = filteredLancamentos.slice(startIndex, endIndex);
+  const currentLancamentos = (lancamentos || []).slice(startIndex, endIndex);
 
   // Filtrar subgrupos: se grupo selecionado, filtrar por grupo; senão, mostrar todos
   const filteredSubgrupos = (planoContas?.subgrupos || []).filter(
@@ -338,7 +331,7 @@ const Transactions: React.FC = () => {
               <div>
             <h1 className="text-3xl font-bold text-gray-900">Lançamentos Financeiros</h1>
                 <p className="text-gray-600 mt-1">
-              {filteredLancamentos.length} lançamento(s) encontrado(s)
+              {lancamentos.length} lançamento(s) encontrado(s)
                 </p>
               </div>
           <motion.button
@@ -628,8 +621,8 @@ const Transactions: React.FC = () => {
                 <div>
                   <p className="text-sm text-gray-700">
                     Mostrando <span className="font-medium">{startIndex + 1}</span> até{' '}
-                    <span className="font-medium">{Math.min(endIndex, filteredLancamentos.length)}</span> de{' '}
-                    <span className="font-medium">{filteredLancamentos.length}</span> resultados
+                    <span className="font-medium">{Math.min(endIndex, lancamentos.length)}</span> de{' '}
+                    <span className="font-medium">{lancamentos.length}</span> resultados
                       </p>
                     </div>
                 <div>

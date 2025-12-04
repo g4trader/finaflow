@@ -138,7 +138,8 @@ class LancamentoDiarioService:
             )
             
             db.add(lancamento)
-            db.flush()
+            # Não fazer commit aqui - será feito no endpoint para garantir atomicidade
+            db.flush()  # Flush apenas para obter o ID
             
             return {
                 "success": True, 
@@ -147,13 +148,14 @@ class LancamentoDiarioService:
             }
             
         except Exception as e:
+            # Em caso de erro, fazer rollback será responsabilidade do endpoint
             return {"success": False, "message": f"Erro ao criar lançamento: {str(e)}"}
     
     @staticmethod
     def get_lancamentos(
         db: Session,
         tenant_id: str,
-        business_unit_id: str,
+        business_unit_id: Optional[str],
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         conta_id: Optional[str] = None,
@@ -162,6 +164,7 @@ class LancamentoDiarioService:
         transaction_type: Optional[TransactionType] = None,
         status: Optional[str] = None,
         cost_center_id: Optional[str] = None,
+        text_search: Optional[str] = None,
         page: int = 1,
         per_page: int = 50
     ) -> Dict:
@@ -170,19 +173,33 @@ class LancamentoDiarioService:
             from sqlalchemy.orm import joinedload
             from app.models.lancamento_diario import LancamentoDiario as LD
             
-            query = (
-                db.query(LD)
-                .options(
-                    joinedload(LD.conta),
-                    joinedload(LD.subgrupo),
-                    joinedload(LD.grupo),
+            # Se houver text_search, não usar joinedload (vai usar outerjoin)
+            # Caso contrário, usar joinedload para performance
+            if text_search:
+                query = (
+                    db.query(LD)
+                    .filter(
+                        LD.tenant_id == tenant_id,
+                        LD.is_active.is_(True),
+                    )
                 )
-                .filter(
-                    LD.tenant_id == tenant_id,
-                    LD.business_unit_id == business_unit_id,
-                    LD.is_active.is_(True),
+            else:
+                query = (
+                    db.query(LD)
+                    .options(
+                        joinedload(LD.conta),
+                        joinedload(LD.subgrupo),
+                        joinedload(LD.grupo),
+                    )
+                    .filter(
+                        LD.tenant_id == tenant_id,
+                        LD.is_active.is_(True),
+                    )
                 )
-            )
+            
+            # Filtrar por business_unit_id apenas se fornecido
+            if business_unit_id:
+                query = query.filter(LD.business_unit_id == business_unit_id)
             
             if start_date:
                 query = query.filter(LD.data_movimentacao >= start_date)
@@ -212,8 +229,29 @@ class LancamentoDiarioService:
             # if cost_center_id:
             #     query = query.filter(LD.cost_center_id == cost_center_id)
             
+            # Filtro de busca por texto (text_search)
+            if text_search:
+                from sqlalchemy import or_
+                from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
+                search_term = f"%{text_search.lower()}%"
+                # Fazer joins explícitos para buscar nos nomes das contas/subgrupos/grupos
+                query = query.outerjoin(ChartAccount, LD.conta_id == ChartAccount.id)\
+                            .outerjoin(ChartAccountSubgroup, LD.subgrupo_id == ChartAccountSubgroup.id)\
+                            .outerjoin(ChartAccountGroup, LD.grupo_id == ChartAccountGroup.id)\
+                            .filter(
+                                or_(
+                                    LD.observacoes.ilike(search_term),
+                                    ChartAccount.name.ilike(search_term),
+                                    ChartAccountSubgroup.name.ilike(search_term),
+                                    ChartAccountGroup.name.ilike(search_term)
+                                )
+                            )
+            
+            # Contar total antes de aplicar paginação
+            # Se houver text_search, precisamos contar com os joins
             total = query.count()
             offset = (page - 1) * per_page
+            # Aplicar paginação e ordenação
             lancamentos = (
                 query.order_by(LD.data_movimentacao.desc(), LD.created_at.desc())
                 .offset(offset)

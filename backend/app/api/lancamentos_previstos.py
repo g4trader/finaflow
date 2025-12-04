@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.auth import User
+from app.models.auth import User, UserRole
 from app.models.lancamento_previsto import (
     LancamentoPrevisto,
     LancamentoPrevistoCreate,
@@ -21,14 +21,24 @@ from app.services.dependencies import get_current_active_user
 router = APIRouter()
 
 
-def _user_context(user: User) -> tuple[str, str]:
+def _user_context(user: User) -> Tuple[str, Optional[str]]:
+    """
+    Obtém o tenant_id e business_unit_id do usuário.
+    Para SUPER_ADMIN, permite acesso sem business_unit_id (retorna None).
+    Para outros usuários, exige business_unit_id.
+    """
     tenant_id = str(user.tenant_id)
     business_unit_id = getattr(user, "business_unit_id", None)
+    
     if not business_unit_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Usuário precisa selecionar uma unidade de negócio antes de acessar lançamentos previstos.",
-        )
+        if user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=400,
+                detail="Usuário precisa selecionar uma unidade de negócio antes de acessar lançamentos previstos.",
+            )
+        # Para super_admin sem BU, retornar None (permitir acesso sem filtro de BU)
+        return tenant_id, None
+    
     return tenant_id, str(business_unit_id)
 
 
@@ -64,6 +74,7 @@ def list_lancamentos_previstos(
     transaction_type: Optional[str] = None,
     status: Optional[str] = None,
     cost_center_id: Optional[str] = None,
+    text_search: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> Dict[str, object]:
@@ -78,10 +89,12 @@ def list_lancamentos_previstos(
         )
         .filter(
             LancamentoPrevisto.tenant_id == tenant_id,
-            LancamentoPrevisto.business_unit_id == business_unit_id,
             LancamentoPrevisto.is_active.is_(True),
         )
     )
+    # Filtrar por business_unit_id apenas se fornecido
+    if business_unit_id:
+        query = query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
     
     # Aplicar filtros
     if start_date:
@@ -113,6 +126,24 @@ def list_lancamentos_previstos(
     # cost_center_id - preparar campo mesmo se não implementado ainda
     # if cost_center_id:
     #     query = query.filter(LancamentoPrevisto.cost_center_id == cost_center_id)
+    
+    # Filtro de busca por texto (text_search)
+    if text_search:
+        from sqlalchemy import or_
+        from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
+        search_term = f"%{text_search.lower()}%"
+        # Fazer joins para buscar nos nomes de conta/subgrupo/grupo
+        query = query.outerjoin(ChartAccount, LancamentoPrevisto.conta_id == ChartAccount.id)\
+                    .outerjoin(ChartAccountSubgroup, LancamentoPrevisto.subgrupo_id == ChartAccountSubgroup.id)\
+                    .outerjoin(ChartAccountGroup, LancamentoPrevisto.grupo_id == ChartAccountGroup.id)\
+                    .filter(
+                        or_(
+                            LancamentoPrevisto.observacoes.ilike(search_term),
+                            ChartAccount.name.ilike(search_term),
+                            ChartAccountSubgroup.name.ilike(search_term),
+                            ChartAccountGroup.name.ilike(search_term)
+                        )
+                    )
     
     query = query.order_by(LancamentoPrevisto.data_prevista.desc())
 
@@ -163,9 +194,17 @@ async def create_lancamento_previsto(
     db: Session = Depends(get_db),
 ) -> Dict[str, object]:
     tenant_id, business_unit_id = _user_context(current_user)
+    
+    # Para criar previsão, business_unit_id é obrigatório (mesmo para SUPER_ADMIN)
+    if not business_unit_id:
+        raise HTTPException(
+            status_code=400,
+            detail="É necessário selecionar uma unidade de negócio para criar previsões.",
+        )
 
-    from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup
+    from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount
 
+    # Validar hierarquia: grupo → subgrupo → conta
     grupo = (
         db.query(ChartAccountGroup)
         .filter(
@@ -175,18 +214,31 @@ async def create_lancamento_previsto(
         .first()
     )
     if not grupo:
-        raise HTTPException(status_code=400, detail="Grupo não encontrado")
+        raise HTTPException(status_code=400, detail="Grupo não encontrado ou não pertence ao tenant atual")
 
     subgrupo = (
         db.query(ChartAccountSubgroup)
         .filter(
             ChartAccountSubgroup.id == previsao.subgrupo_id,
+            ChartAccountSubgroup.group_id == previsao.grupo_id,  # Validar que subgrupo pertence ao grupo
             ChartAccountSubgroup.tenant_id.in_([tenant_id, None]),
         )
         .first()
     )
     if not subgrupo:
-        raise HTTPException(status_code=400, detail="Subgrupo não encontrado")
+        raise HTTPException(status_code=400, detail="Subgrupo não encontrado ou não pertence ao grupo informado")
+
+    conta = (
+        db.query(ChartAccount)
+        .filter(
+            ChartAccount.id == previsao.conta_id,
+            ChartAccount.subgroup_id == previsao.subgrupo_id,  # Validar que conta pertence ao subgrupo
+            ChartAccount.tenant_id.in_([tenant_id, None]),
+        )
+        .first()
+    )
+    if not conta:
+        raise HTTPException(status_code=400, detail="Conta não encontrada ou não pertence ao subgrupo informado")
 
     transaction_type = _classify_transaction_type(grupo.name, subgrupo.name)
 
@@ -227,16 +279,19 @@ async def update_lancamento_previsto(
 ) -> Dict[str, object]:
     tenant_id, business_unit_id = _user_context(current_user)
 
-    previsao = (
+    query = (
         db.query(LancamentoPrevisto)
         .filter(
             LancamentoPrevisto.id == previsao_id,
             LancamentoPrevisto.tenant_id == tenant_id,
-            LancamentoPrevisto.business_unit_id == business_unit_id,
             LancamentoPrevisto.is_active.is_(True),
         )
-        .first()
     )
+    # Filtrar por business_unit_id apenas se fornecido
+    if business_unit_id:
+        query = query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+    previsao = query.first()
+    
     if not previsao:
         raise HTTPException(status_code=404, detail="Previsão não encontrada")
 
@@ -255,13 +310,45 @@ async def update_lancamento_previsto(
     if payload.grupo_id:
         previsao.grupo_id = payload.grupo_id
 
-    if payload.grupo_id or payload.subgrupo_id:
-        from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup
-
-        grupo = db.query(ChartAccountGroup).filter(ChartAccountGroup.id == previsao.grupo_id).first()
-        subgrupo = db.query(ChartAccountSubgroup).filter(ChartAccountSubgroup.id == previsao.subgrupo_id).first()
-        if grupo:
-            previsao.transaction_type = _classify_transaction_type(grupo.name, subgrupo.name if subgrupo else None)
+    # Validar hierarquia se grupo/subgrupo/conta foram alterados
+    if payload.grupo_id or payload.subgrupo_id or payload.conta_id:
+        from app.models.chart_of_accounts import ChartAccountGroup, ChartAccountSubgroup, ChartAccount
+        
+        final_grupo_id = payload.grupo_id or previsao.grupo_id
+        final_subgrupo_id = payload.subgrupo_id or previsao.subgrupo_id
+        final_conta_id = payload.conta_id or previsao.conta_id
+        
+        # Validar que subgrupo pertence ao grupo
+        if payload.grupo_id or payload.subgrupo_id:
+            subgrupo = db.query(ChartAccountSubgroup).filter(
+                ChartAccountSubgroup.id == final_subgrupo_id,
+                ChartAccountSubgroup.group_id == final_grupo_id,
+                ChartAccountSubgroup.tenant_id.in_([tenant_id, None])
+            ).first()
+            if not subgrupo:
+                raise HTTPException(status_code=400, detail="Subgrupo não pertence ao grupo informado")
+        
+        # Validar que conta pertence ao subgrupo
+        if payload.conta_id or payload.subgrupo_id:
+            conta = db.query(ChartAccount).filter(
+                ChartAccount.id == final_conta_id,
+                ChartAccount.subgroup_id == final_subgrupo_id,
+                ChartAccount.tenant_id.in_([tenant_id, None])
+            ).first()
+            if not conta:
+                raise HTTPException(status_code=400, detail="Conta não pertence ao subgrupo informado")
+        
+        # Recalcular transaction_type se grupo mudou
+        if payload.grupo_id:
+            grupo = db.query(ChartAccountGroup).filter(
+                ChartAccountGroup.id == final_grupo_id,
+                ChartAccountGroup.tenant_id.in_([tenant_id, None])
+            ).first()
+            subgrupo = db.query(ChartAccountSubgroup).filter(
+                ChartAccountSubgroup.id == final_subgrupo_id
+            ).first() if final_subgrupo_id else None
+            if grupo:
+                previsao.transaction_type = _classify_transaction_type(grupo.name, subgrupo.name if subgrupo else None)
 
     previsao.updated_at = datetime.utcnow()
 
@@ -281,16 +368,19 @@ async def delete_lancamento_previsto(
 ) -> Dict[str, object]:
     tenant_id, business_unit_id = _user_context(current_user)
 
-    previsao = (
+    query = (
         db.query(LancamentoPrevisto)
         .filter(
             LancamentoPrevisto.id == previsao_id,
             LancamentoPrevisto.tenant_id == tenant_id,
-            LancamentoPrevisto.business_unit_id == business_unit_id,
             LancamentoPrevisto.is_active.is_(True),
         )
-        .first()
     )
+    # Filtrar por business_unit_id apenas se fornecido
+    if business_unit_id:
+        query = query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+    previsao = query.first()
+    
     if not previsao:
         raise HTTPException(status_code=404, detail="Previsão não encontrada")
 
