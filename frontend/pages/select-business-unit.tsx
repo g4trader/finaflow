@@ -82,7 +82,25 @@ export default function SelectBusinessUnit() {
       const response = await apiModule.selectBusinessUnit(selectedBU);
       
       // Atualizar o token no localStorage
-      localStorage.setItem('token', response.access_token);
+      const newToken = response.access_token;
+      if (!newToken) {
+        throw new Error('Token não recebido ao selecionar BU');
+      }
+      
+      console.log('💾 [Select BU] Salvando novo token após seleção de BU...', {
+        token_length: newToken.length,
+        token_preview: newToken.substring(0, 20) + '...'
+      });
+      
+      localStorage.setItem('token', newToken);
+      
+      // Verificar se foi salvo corretamente
+      const savedToken = localStorage.getItem('token');
+      if (savedToken !== newToken) {
+        console.error('❌ [Select BU] Token não foi salvo corretamente!');
+        throw new Error('Falha ao salvar token');
+      }
+      console.log('✅ [Select BU] Token salvo e verificado com sucesso');
       
       // Redirecionar para o dashboard
       window.location.href = '/dashboard';

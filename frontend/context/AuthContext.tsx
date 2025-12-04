@@ -171,9 +171,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         expires_in: data.expires_in
       });
       
-      setToken(data.access_token);
-      localStorage.setItem('token', data.access_token);
-      setCookie('auth-token', data.access_token, 7);
+      const accessToken = data.access_token;
+      if (!accessToken) {
+        throw new Error('Token de acesso não recebido do servidor');
+      }
+      
+      console.log('💾 [AuthContext] Salvando token no localStorage...', {
+        token_length: accessToken.length,
+        token_preview: accessToken.substring(0, 20) + '...'
+      });
+      
+      setToken(accessToken);
+      localStorage.setItem('token', accessToken);
+      setCookie('auth-token', accessToken, 7);
+      
+      // Verificar se foi salvo corretamente
+      const savedToken = localStorage.getItem('token');
+      if (savedToken !== accessToken) {
+        console.error('❌ [AuthContext] Token não foi salvo corretamente!');
+        throw new Error('Falha ao salvar token');
+      }
+      console.log('✅ [AuthContext] Token salvo e verificado com sucesso');
       
       console.log('🔓 [AuthContext] Decodificando token...');
       const decoded: any = await decodeToken(data.access_token);

@@ -15,6 +15,8 @@ const getApiInstance = () => {
     throw new Error('API só pode ser usada no cliente');
   }
   
+  // Sempre recriar a instância se o token mudou (para garantir que o interceptor tenha o token atualizado)
+  // Mas manter a instância se já existe para evitar recriação desnecessária
   if (!apiInstance) {
     apiInstance = axios.create({
       baseURL: API_BASE_URL,
@@ -27,9 +29,24 @@ const getApiInstance = () => {
     // Interceptor para adicionar token de autenticação
     apiInstance.interceptors.request.use((config: any) => {
       if (typeof window !== 'undefined') {
+        // Sempre ler o token do localStorage na hora da requisição (não usar valor em cache)
         const token = localStorage.getItem('token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        if (token && token.trim() !== '') {
+          config.headers = config.headers || {};
+          config.headers.Authorization = `Bearer ${token.trim()}`;
+          // Log de debug (sempre em staging para diagnóstico)
+          console.log('[AUTH DEBUG] Token usado na requisição:', {
+            url: config.url,
+            token_preview: token.substring(0, 20) + '...',
+            has_auth_header: !!config.headers.Authorization,
+            auth_header_preview: config.headers.Authorization?.substring(0, 30) + '...'
+          });
+        } else {
+          console.error('[AUTH ERROR] Token não encontrado ou vazio no localStorage para requisição:', {
+            url: config.url,
+            method: config.method,
+            localStorage_token: localStorage.getItem('token')
+          });
         }
       }
       return config;
