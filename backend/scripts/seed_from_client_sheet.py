@@ -51,12 +51,29 @@ except ImportError:
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.database import SessionLocal, create_tables
+
+# Importar TODOS os modelos para garantir que os relacionamentos sejam resolvidos corretamente
+# Isso é necessário porque alguns modelos (como Tenant) referenciam outros via string
+# e o SQLAlchemy precisa que todas as classes estejam importadas antes de resolver os relacionamentos
+
+# Modelos de autenticação e estrutura
 from app.models.auth import User, Tenant, BusinessUnit, UserRole, UserStatus
+
+# Modelos de contas bancárias (necessário para relacionamento com Tenant)
+from app.models.conta_bancaria import ContaBancaria
+
+# Modelos de caixa e investimentos (necessário para relacionamento com Tenant)
+from app.models.caixa import Caixa
+from app.models.investments import Investimento
+
+# Modelos de plano de contas
 from app.models.chart_of_accounts import (
     ChartAccountGroup,
     ChartAccountSubgroup,
     ChartAccount
 )
+
+# Modelos de lançamentos
 from app.models.lancamento_diario import (
     LancamentoDiario,
     TransactionType,
