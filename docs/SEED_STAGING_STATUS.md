@@ -140,6 +140,27 @@ Após resolver o problema do arquivo Excel:
 
 ---
 
-**Status**: ⚠️ **BLOQUEADO** - Arquivo Excel pode não estar no container Docker
+## 🔄 EXECUÇÃO DIRETA VIA SCRIPT (ALTERNATIVA)
 
-**Recomendação**: Verificar se arquivo está sendo copiado no build ou usar Cloud Storage/Cloud Shell
+**Data**: 2025-12-05  
+**Método**: Execução direta via `python3 -m scripts.seed_from_client_sheet`
+
+### ⚠️ Limitação Local
+
+**Problema**: Execução local bloqueada por incompatibilidade de arquitetura (psycopg2 x86_64 vs ARM64 no Mac M1/M2).
+
+**Solução**: Executar no **Cloud Shell** onde o ambiente está configurado corretamente.
+
+### 📋 Instruções
+
+Ver documentação completa em: `docs/SEED_STAGING_EXECUCAO_DIRETA.md`
+
+**Script automático disponível**: `scripts/execute_seed_staging_cloudshell.sh`
+
+**Status**: ⏳ **AGUARDANDO EXECUÇÃO NO CLOUD SHELL**
+
+---
+
+**Status Geral**: ⚠️ **BLOQUEADO** - Requer execução no Cloud Shell devido a limitação de arquitetura local
+
+**Recomendação**: Executar script `execute_seed_staging_cloudshell.sh` no Cloud Shell
