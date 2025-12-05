@@ -62,78 +62,52 @@ async def execute_seed_staging(
         output_buffer = io.StringIO()
         error_buffer = io.StringIO()
         
-        # Executar seed em thread separada para evitar bloqueio
-        import threading
-        import queue
+        # Usar subprocess de forma mais simples e robusta
+        cmd = [
+            sys.executable,
+            "-m", "scripts.seed_from_client_sheet",
+            "--file", str(excel_file.relative_to(backend_dir))
+        ]
         
-        result_queue = queue.Queue()
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(backend_dir)
         
-        def run_seed():
-            try:
-                with contextlib.redirect_stdout(output_buffer), contextlib.redirect_stderr(error_buffer):
-                    # Importar módulo
-                    spec = importlib.util.spec_from_file_location("seed_from_client_sheet", script_path)
-                    if spec is None or spec.loader is None:
-                        raise ImportError(f"Não foi possível carregar o módulo: {script_path}")
-                    
-                    seed_module = importlib.util.module_from_spec(spec)
-                    
-                    # Configurar sys.argv
-                    original_argv = sys.argv.copy()
-                    sys.argv = [str(script_path), "--file", str(excel_file.relative_to(backend_dir))]
-                    
-                    try:
-                        spec.loader.exec_module(seed_module)
-                        # Chamar main se existir
-                        if hasattr(seed_module, 'main'):
-                            seed_module.main()
-                    finally:
-                        sys.argv = original_argv
-                
-                result_queue.put(("success", output_buffer.getvalue(), error_buffer.getvalue()))
-            except Exception as e:
-                result_queue.put(("error", str(e), traceback.format_exc()))
-        
-        # Executar em thread
-        thread = threading.Thread(target=run_seed, daemon=True)
-        thread.start()
-        thread.join(timeout=300)  # Timeout de 5 minutos
-        
-        if thread.is_alive():
+        try:
+            process = subprocess.run(
+                cmd,
+                cwd=str(backend_dir),
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=600,  # 10 minutos
+                check=False
+            )
+            
+            output = process.stdout
+            success = process.returncode == 0 and ("✅ SEED CONCLUÍDO COM SUCESSO!" in output or "SEED CONCLUÍDO" in output)
+            
+        except subprocess.TimeoutExpired:
             return JSONResponse(
                 status_code=500,
                 content={
                     "success": False,
-                    "error": "Timeout ao executar seed (mais de 5 minutos)",
+                    "error": "Timeout ao executar seed (mais de 10 minutos)",
                     "timestamp": datetime.now().isoformat()
                 }
             )
-        
-        if result_queue.empty():
+        except Exception as e:
             return JSONResponse(
                 status_code=500,
                 content={
                     "success": False,
-                    "error": "Seed não retornou resultado",
+                    "error": f"Erro ao executar subprocess: {str(e)}",
+                    "traceback": traceback.format_exc(),
                     "timestamp": datetime.now().isoformat()
                 }
             )
         
-        status, output, error_output = result_queue.get()
-        
-        if status == "error":
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "success": False,
-                    "error": output,
-                    "traceback": error_output,
-                    "timestamp": datetime.now().isoformat()
-                }
-            )
-        
-        full_output = output + "\n" + error_output
-        success = "✅ SEED CONCLUÍDO COM SUCESSO!" in full_output or "SEED CONCLUÍDO" in full_output
+        full_output = output
         
         return JSONResponse(
             status_code=200 if success else 500,
