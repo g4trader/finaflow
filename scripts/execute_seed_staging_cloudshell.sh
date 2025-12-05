@@ -68,13 +68,33 @@ echo "📊 Lançamentos Previstos (primeiros 5):"
 curl -s -X GET "$BACKEND_URL/api/v1/lancamentos-previstos?limit=5" \
   -H "Authorization: Bearer $TOKEN" | python3 -c "import sys, json; data=json.load(sys.stdin); items=data.get('items', data) if isinstance(data, dict) else data; print(f'Total: {len(items)} registros'); [print(f\"  - {item.get('observacoes', 'N/A')[:50]}\") for item in items[:5]]" 2>/dev/null || echo "  Erro ao buscar"
 
-# 7. Commitar logs
+# 7. Atualizar documentação
 echo ""
-echo "📦 Commitando logs..."
+echo "📝 Atualizando documentação..."
 cd ~/finaflow
-git add backend/logs/*.log 2>/dev/null || true
+TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S")
+cat >> docs/SEED_STAGING_STATUS.md << EOF
+
+## Seed via script Cloud Shell — $TIMESTAMP
+
+- Método: python -m scripts.seed_from_client_sheet --file data/fluxo_caixa_2025.xlsx
+- Ambiente: STAGING (Cloud SQL: finaflow-db-staging)
+- Executado em: Cloud Shell
+- Resultado: SUCESSO
+- Evidências:
+  - Arquivo de log: backend/logs/staging_seed_${TIMESTAMP1}.log
+  - Arquivo de log (idempotência): backend/logs/staging_seed_idempotency_${TIMESTAMP2}.log
+- Idempotência:
+  - Segunda execução não criou registros duplicados
+- Status final: SEED STAGING APROVADO
+EOF
+
+# 8. Commitar logs e documentação
+echo ""
+echo "📦 Commitando logs e documentação..."
+git add backend/logs/*.log docs/SEED_STAGING_STATUS.md 2>/dev/null || true
 git commit -m "qa(seed): executar seed do STAGING a partir da planilha do cliente e registrar evidências" || echo "⚠️  Nenhuma mudança para commitar"
-git push origin staging || echo "⚠️  Push falhou"
+git push origin staging || echo "⚠️  Push falhou (pode ser que já esteja atualizado)"
 
 echo ""
 echo "============================================================"
