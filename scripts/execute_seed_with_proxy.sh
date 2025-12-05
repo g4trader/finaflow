@@ -1,12 +1,19 @@
 #!/bin/bash
 # Script para executar seed STAGING usando Cloud SQL Proxy
 # Execute este script no Cloud Shell
+# Uso: curl -s https://raw.githubusercontent.com/g4trader/finaflow/staging/scripts/execute_seed_with_proxy.sh | bash
 
 set -e
 
 echo "============================================================"
 echo "🌱 EXECUTAR SEED STAGING - CLOUD SQL PROXY"
 echo "============================================================"
+
+# 0. Configurar projeto gcloud
+echo ""
+echo "⚙️  0. Configurando projeto gcloud..."
+gcloud config set project trivihair >/dev/null 2>&1 || echo "⚠️  Aviso: não foi possível configurar projeto (continuando...)"
+echo "✅ Projeto configurado"
 
 # 1. Iniciar Cloud SQL Proxy
 echo ""
@@ -69,15 +76,41 @@ if [ $SEED_EXIT_CODE -ne 0 ]; then
     exit 1
 fi
 
-# 7. Extrair estatísticas dos logs
+# 7. Extrair e exibir estatísticas dos logs
 echo ""
 echo "📊 7. Estatísticas do Seed:"
 echo "------------------------------------------------------------"
-echo "Primeira execução:"
-grep -E "Grupos:|Subgrupos:|Contas:|Lançamentos Diários:|Lançamentos Previstos:|Linhas ignoradas:" logs/staging_seed_${TIMESTAMP1}.log | tail -6 || echo "Estatísticas não encontradas no log"
+echo "📈 Primeira execução:"
+STATS1=$(grep -A 6 "ESTATÍSTICAS DO SEED" logs/staging_seed_${TIMESTAMP1}.log | tail -6 || echo "")
+if [ -n "$STATS1" ]; then
+    echo "$STATS1"
+else
+    echo "  (Estatísticas não encontradas no log - verificar logs/staging_seed_${TIMESTAMP1}.log)"
+fi
+
 echo ""
-echo "Segunda execução (idempotência):"
-grep -E "Grupos:|Subgrupos:|Contas:|Lançamentos Diários:|Lançamentos Previstos:|Linhas ignoradas:" logs/staging_seed_idempotency_${TIMESTAMP2}.log | tail -6 || echo "Estatísticas não encontradas no log"
+echo "📈 Segunda execução (idempotência):"
+STATS2=$(grep -A 6 "ESTATÍSTICAS DO SEED" logs/staging_seed_idempotency_${TIMESTAMP2}.log | tail -6 || echo "")
+if [ -n "$STATS2" ]; then
+    echo "$STATS2"
+else
+    echo "  (Estatísticas não encontradas no log - verificar logs/staging_seed_idempotency_${TIMESTAMP2}.log)"
+fi
+echo "------------------------------------------------------------"
+
+# Extrair valores numéricos para resumo
+echo ""
+echo "📊 Resumo Final:"
+echo "------------------------------------------------------------"
+if [ -n "$STATS1" ]; then
+    echo "Primeira execução:"
+    echo "$STATS1" | grep -E "Grupos:|Subgrupos:|Contas:|Lançamentos Diários:|Lançamentos Previstos:" || true
+fi
+if [ -n "$STATS2" ]; then
+    echo ""
+    echo "Segunda execução (idempotência):"
+    echo "$STATS2" | grep -E "Grupos:|Subgrupos:|Contas:|Lançamentos Diários:|Lançamentos Previstos:" || true
+fi
 echo "------------------------------------------------------------"
 
 # 8. Parar proxy

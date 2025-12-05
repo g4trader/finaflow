@@ -1,10 +1,21 @@
 # 📋 Comandos Exatos para Executar Seed no Cloud Shell
 
-**Copie e cole estes comandos diretamente no Cloud Shell**
+**Método**: Cloud SQL Proxy  
+**Ambiente**: Cloud Shell  
+**Uso**: Troubleshooting manual (se o script automático falhar)
 
 ---
 
-## 🚀 EXECUÇÃO COMPLETA (Copiar Tudo de Uma Vez)
+## ⚡ EXECUÇÃO AUTOMÁTICA (Recomendado)
+
+```bash
+gcloud config set project trivihair
+curl -s https://raw.githubusercontent.com/g4trader/finaflow/staging/scripts/execute_seed_with_proxy.sh | bash
+```
+
+---
+
+## 📋 EXECUÇÃO MANUAL (Passo a Passo - Para Troubleshooting)
 
 ```bash
 # 1. Iniciar Cloud SQL Proxy

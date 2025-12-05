@@ -6,7 +6,29 @@
 
 ---
 
-## ⚡ EXECUÇÃO RÁPIDA (Copiar e Colar)
+## ⚡ EXECUÇÃO COM UM ÚNICO COMANDO
+
+O seed do STAGING é sempre executado via **Cloud SQL Proxy** para garantir acesso seguro ao banco de dados.
+
+### Comando Único (Copiar e Colar)
+
+```bash
+gcloud config set project trivihair
+curl -s https://raw.githubusercontent.com/g4trader/finaflow/staging/scripts/execute_seed_with_proxy.sh | bash
+```
+
+**Pronto!** O script faz tudo automaticamente:
+- ✅ Configura projeto gcloud
+- ✅ Inicia Cloud SQL Proxy
+- ✅ Clona repositório
+- ✅ Instala dependências
+- ✅ Executa seed (2x para idempotência)
+- ✅ Exibe estatísticas
+- ✅ Para proxy automaticamente
+
+---
+
+## 📋 EXECUÇÃO MANUAL (Passo a Passo - Para Troubleshooting)
 
 ```bash
 # 1. Iniciar Cloud SQL Proxy
