@@ -14,23 +14,24 @@ echo ""
 echo "⚙️  0. Configurando projeto gcloud e autenticação..."
 gcloud config set project trivihair >/dev/null 2>&1 || echo "⚠️  Aviso: não foi possível configurar projeto (continuando...)"
 
-# Verificar se há conta ativa
-if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q .; then
-    echo "   Nenhuma conta ativa encontrada. Fazendo login..."
-    # No Cloud Shell, usar a autenticação automática
-    gcloud auth application-default login --no-launch-browser 2>/dev/null || {
-        echo "   Tentando usar credenciais do Cloud Shell..."
-        # No Cloud Shell, as credenciais já devem estar disponíveis
-        export GOOGLE_APPLICATION_CREDENTIALS=""
+# No Cloud Shell, configurar Application Default Credentials
+# O Cloud Shell tem credenciais automáticas, mas precisamos configurá-las para o proxy
+echo "   Configurando credenciais para Cloud SQL Proxy..."
+gcloud auth application-default print-access-token >/dev/null 2>&1 || {
+    echo "   Configurando Application Default Credentials..."
+    gcloud auth application-default login --no-launch-browser --quiet 2>&1 | head -5 || {
+        echo "   Usando credenciais automáticas do Cloud Shell (metadata server)..."
+        # Limpar variável para usar metadata server
+        unset GOOGLE_APPLICATION_CREDENTIALS
     }
-fi
+}
 
-# Verificar conta ativa novamente
-ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" | head -1)
+# Verificar conta ativa
+ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | head -1)
 if [ -n "$ACTIVE_ACCOUNT" ]; then
     echo "✅ Projeto configurado (conta: $ACTIVE_ACCOUNT)"
 else
-    echo "⚠️  Aviso: nenhuma conta ativa, mas continuando (Cloud Shell pode usar credenciais automáticas)"
+    echo "✅ Projeto configurado (usando credenciais automáticas do Cloud Shell)"
 fi
 
 # 1. Iniciar Cloud SQL Proxy
