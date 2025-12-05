@@ -79,38 +79,59 @@ fi
 # 7. Extrair e exibir estatísticas dos logs
 echo ""
 echo "📊 7. Estatísticas do Seed:"
-echo "------------------------------------------------------------"
+echo "============================================================"
+
+# Primeira execução
 echo "📈 Primeira execução:"
-STATS1=$(grep -A 6 "ESTATÍSTICAS DO SEED" logs/staging_seed_${TIMESTAMP1}.log | tail -6 || echo "")
+STATS1=$(grep -A 6 "ESTATÍSTICAS DO SEED" logs/staging_seed_${TIMESTAMP1}.log 2>/dev/null | tail -6 || echo "")
 if [ -n "$STATS1" ]; then
     echo "$STATS1"
+    # Extrair valores para resumo
+    GRUPOS1=$(echo "$STATS1" | grep "Grupos:" | sed 's/.*Grupos: //' || echo "N/A")
+    SUBGRUPOS1=$(echo "$STATS1" | grep "Subgrupos:" | sed 's/.*Subgrupos: //' || echo "N/A")
+    CONTAS1=$(echo "$STATS1" | grep "Contas:" | sed 's/.*Contas: //' || echo "N/A")
+    LANC_DIARIOS1=$(echo "$STATS1" | grep "Lançamentos Diários:" | sed 's/.*Lançamentos Diários: //' || echo "N/A")
+    LANC_PREVISTOS1=$(echo "$STATS1" | grep "Lançamentos Previstos:" | sed 's/.*Lançamentos Previstos: //' || echo "N/A")
 else
-    echo "  (Estatísticas não encontradas no log - verificar logs/staging_seed_${TIMESTAMP1}.log)"
+    echo "  ⚠️  Estatísticas não encontradas no log"
+    echo "  📄 Verificar: logs/staging_seed_${TIMESTAMP1}.log"
 fi
 
 echo ""
 echo "📈 Segunda execução (idempotência):"
-STATS2=$(grep -A 6 "ESTATÍSTICAS DO SEED" logs/staging_seed_idempotency_${TIMESTAMP2}.log | tail -6 || echo "")
+STATS2=$(grep -A 6 "ESTATÍSTICAS DO SEED" logs/staging_seed_idempotency_${TIMESTAMP2}.log 2>/dev/null | tail -6 || echo "")
 if [ -n "$STATS2" ]; then
     echo "$STATS2"
+    # Extrair valores para resumo
+    GRUPOS2=$(echo "$STATS2" | grep "Grupos:" | sed 's/.*Grupos: //' || echo "N/A")
+    SUBGRUPOS2=$(echo "$STATS2" | grep "Subgrupos:" | sed 's/.*Subgrupos: //' || echo "N/A")
+    CONTAS2=$(echo "$STATS2" | grep "Contas:" | sed 's/.*Contas: //' || echo "N/A")
+    LANC_DIARIOS2=$(echo "$STATS2" | grep "Lançamentos Diários:" | sed 's/.*Lançamentos Diários: //' || echo "N/A")
+    LANC_PREVISTOS2=$(echo "$STATS2" | grep "Lançamentos Previstos:" | sed 's/.*Lançamentos Previstos: //' || echo "N/A")
 else
-    echo "  (Estatísticas não encontradas no log - verificar logs/staging_seed_idempotency_${TIMESTAMP2}.log)"
+    echo "  ⚠️  Estatísticas não encontradas no log"
+    echo "  📄 Verificar: logs/staging_seed_idempotency_${TIMESTAMP2}.log"
 fi
-echo "------------------------------------------------------------"
 
-# Extrair valores numéricos para resumo
+echo "============================================================"
+
+# Resumo final
 echo ""
-echo "📊 Resumo Final:"
+echo "📊 RESUMO FINAL:"
 echo "------------------------------------------------------------"
-if [ -n "$STATS1" ]; then
-    echo "Primeira execução:"
-    echo "$STATS1" | grep -E "Grupos:|Subgrupos:|Contas:|Lançamentos Diários:|Lançamentos Previstos:" || true
-fi
-if [ -n "$STATS2" ]; then
-    echo ""
-    echo "Segunda execução (idempotência):"
-    echo "$STATS2" | grep -E "Grupos:|Subgrupos:|Contas:|Lançamentos Diários:|Lançamentos Previstos:" || true
-fi
+echo "Primeira execução:"
+echo "  - Grupos: $GRUPOS1"
+echo "  - Subgrupos: $SUBGRUPOS1"
+echo "  - Contas: $CONTAS1"
+echo "  - Lançamentos Diários: $LANC_DIARIOS1"
+echo "  - Lançamentos Previstos: $LANC_PREVISTOS1"
+echo ""
+echo "Segunda execução (idempotência):"
+echo "  - Grupos: $GRUPOS2"
+echo "  - Subgrupos: $SUBGRUPOS2"
+echo "  - Contas: $CONTAS2"
+echo "  - Lançamentos Diários: $LANC_DIARIOS2"
+echo "  - Lançamentos Previstos: $LANC_PREVISTOS2"
 echo "------------------------------------------------------------"
 
 # 8. Parar proxy
@@ -120,15 +141,27 @@ kill $PROXY_PID 2>/dev/null || true
 wait $PROXY_PID 2>/dev/null || true
 echo "✅ Cloud SQL Proxy parado"
 
-# 9. Resumo
+# 8. Parar proxy
+echo ""
+echo "🛑 8. Parando Cloud SQL Proxy..."
+pkill cloud_sql_proxy 2>/dev/null || true
+wait $PROXY_PID 2>/dev/null || true
+echo "✅ Cloud SQL Proxy parado"
+
+# 9. Resumo final
 echo ""
 echo "============================================================"
-echo "✅ SEED EXECUTADO COM SUCESSO!"
+echo "✅ SEED CONCLUÍDO COM SUCESSO!"
 echo "============================================================"
-echo "📄 Logs salvos em:"
-echo "   - backend/logs/staging_seed_${TIMESTAMP1}.log"
-echo "   - backend/logs/staging_seed_idempotency_${TIMESTAMP2}.log"
 echo ""
-echo "📊 Para ver estatísticas detalhadas, consulte os logs acima."
+echo "📄 Logs completos salvos em:"
+echo "   - ~/finaflow/backend/logs/staging_seed_${TIMESTAMP1}.log"
+echo "   - ~/finaflow/backend/logs/staging_seed_idempotency_${TIMESTAMP2}.log"
+echo ""
+echo "📊 Próximos passos:"
+echo "   1. Validar dados no frontend: https://finaflow-lcz5.vercel.app/"
+echo "   2. Executar QA funcional: docs/CHECKLIST_QA_FUNCIONAL_POS_SEED.md"
+echo "   3. Verificar status: docs/SEED_STAGING_STATUS.md"
+echo ""
 echo "============================================================"
 
