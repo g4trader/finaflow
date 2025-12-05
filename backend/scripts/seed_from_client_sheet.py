@@ -809,6 +809,12 @@ def seed_lancamentos_diarios(
             logger.stats['erros'].append("Colunas necessárias não encontradas em Lançamentos Diários")
             return
         
+        # Processar em lotes para melhor performance
+        BATCH_SIZE = 100
+        lancamentos_batch = []
+        total_rows = len(df)
+        logger.log(f"Processando {total_rows} linhas de lançamentos diários...", "INFO")
+        
         for row_num, row in df.iterrows():
             try:
                 # Parse dos campos
@@ -864,7 +870,6 @@ def seed_lancamentos_diarios(
                         ).first()
                 
                 if not grupo or not subgrupo:
-                    logger.log(f"Grupo/Subgrupo não encontrado: {grupo_nome}/{subgrupo_nome} (linha {row_num + 2})", "WARNING")
                     logger.stats['linhas_ignoradas'] += 1
                     continue
                 
@@ -875,7 +880,6 @@ def seed_lancamentos_diarios(
                 ).first()
                 
                 if not conta:
-                    logger.log(f"Conta não encontrada para subgrupo: {subgrupo_nome} (linha {row_num + 2})", "WARNING")
                     logger.stats['linhas_ignoradas'] += 1
                     continue
                 
@@ -892,7 +896,7 @@ def seed_lancamentos_diarios(
                     logger.stats['lancamentos_diarios_existentes'] += 1
                     continue
                 
-                # Criar lançamento
+                # Criar lançamento (adicionar ao lote)
                 lancamento = LancamentoDiario(
                     id=str(uuid4()),
                     data_movimentacao=data_movimentacao,
@@ -910,12 +914,28 @@ def seed_lancamentos_diarios(
                     is_active=True
                 )
                 
-                db.add(lancamento)
-                db.commit()
+                lancamentos_batch.append(lancamento)
                 logger.stats['lancamentos_diarios_criados'] += 1
                 
-                if logger.stats['lancamentos_diarios_criados'] % 100 == 0:
-                    logger.log(f"Lançamentos diários criados: {logger.stats['lancamentos_diarios_criados']}", "INFO")
+                # Commit em lotes
+                if len(lancamentos_batch) >= BATCH_SIZE:
+                    try:
+                        db.bulk_save_objects(lancamentos_batch)
+                        db.commit()
+                        logger.log(f"✅ Lote commitado: {logger.stats['lancamentos_diarios_criados']} lançamentos criados (linha {row_num + 2}/{total_rows})", "INFO")
+                        lancamentos_batch = []
+                    except Exception as e:
+                        db.rollback()
+                        logger.log(f"Erro ao commitar lote: {str(e)}", "ERROR")
+                        # Tentar commit individual para o lote
+                        for lanc in lancamentos_batch:
+                            try:
+                                db.add(lanc)
+                                db.commit()
+                            except:
+                                db.rollback()
+                                logger.stats['linhas_ignoradas'] += 1
+                        lancamentos_batch = []
             
             except Exception as e:
                 error_msg = f"Erro na linha {row_num + 2}: {str(e)}"
@@ -923,6 +943,24 @@ def seed_lancamentos_diarios(
                 logger.stats['erros'].append(error_msg)
                 logger.stats['linhas_ignoradas'] += 1
                 continue
+        
+        # Commit do lote final
+        if lancamentos_batch:
+            try:
+                db.bulk_save_objects(lancamentos_batch)
+                db.commit()
+                logger.log(f"✅ Lote final commitado: {len(lancamentos_batch)} lançamentos", "INFO")
+            except Exception as e:
+                db.rollback()
+                logger.log(f"Erro ao commitar lote final: {str(e)}", "ERROR")
+                # Tentar commit individual
+                for lanc in lancamentos_batch:
+                    try:
+                        db.add(lanc)
+                        db.commit()
+                    except:
+                        db.rollback()
+                        logger.stats['linhas_ignoradas'] += 1
         
         logger.log("Seed de Lançamentos Diários concluído!", "SUCCESS")
         
