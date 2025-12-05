@@ -69,14 +69,25 @@ if [ $SEED_EXIT_CODE -ne 0 ]; then
     exit 1
 fi
 
-# 7. Parar proxy
+# 7. Extrair estatísticas dos logs
 echo ""
-echo "🛑 7. Parando Cloud SQL Proxy..."
+echo "📊 7. Estatísticas do Seed:"
+echo "------------------------------------------------------------"
+echo "Primeira execução:"
+grep -E "Grupos:|Subgrupos:|Contas:|Lançamentos Diários:|Lançamentos Previstos:|Linhas ignoradas:" logs/staging_seed_${TIMESTAMP1}.log | tail -6 || echo "Estatísticas não encontradas no log"
+echo ""
+echo "Segunda execução (idempotência):"
+grep -E "Grupos:|Subgrupos:|Contas:|Lançamentos Diários:|Lançamentos Previstos:|Linhas ignoradas:" logs/staging_seed_idempotency_${TIMESTAMP2}.log | tail -6 || echo "Estatísticas não encontradas no log"
+echo "------------------------------------------------------------"
+
+# 8. Parar proxy
+echo ""
+echo "🛑 8. Parando Cloud SQL Proxy..."
 kill $PROXY_PID 2>/dev/null || true
 wait $PROXY_PID 2>/dev/null || true
 echo "✅ Cloud SQL Proxy parado"
 
-# 8. Resumo
+# 9. Resumo
 echo ""
 echo "============================================================"
 echo "✅ SEED EXECUTADO COM SUCESSO!"
