@@ -26,6 +26,10 @@ COPY . .
 
 # Garantir que o arquivo Excel está presente (mesmo que esteja no .gitignore)
 # O arquivo foi commitado com git add -f, então deve estar no contexto
+# Copiar explicitamente para garantir que está presente
+COPY data/fluxo_caixa_2025.xlsx data/fluxo_caixa_2025.xlsx 2>/dev/null || echo "Arquivo Excel não encontrado no build context"
+
+# Verificar se o arquivo está presente
 RUN ls -la /app/data/ || echo "Diretório data não existe"
 RUN ls -la /app/data/*.xlsx 2>/dev/null || echo "Nenhum arquivo .xlsx encontrado em data/"
 
