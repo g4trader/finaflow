@@ -24,17 +24,32 @@ sleep 2
 # Remover arquivo antigo se existir
 rm -f cloud_sql_proxy
 # Baixar Cloud SQL Proxy
+echo "   Baixando Cloud SQL Proxy..."
 curl -o cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64
 chmod +x cloud_sql_proxy
-# Iniciar proxy em background
-./cloud_sql_proxy -instances=trivihair:us-central1:finaflow-db-staging=tcp:5432 > /dev/null 2>&1 &
+# Verificar se o download foi bem-sucedido
+if [ ! -f cloud_sql_proxy ]; then
+    echo "❌ Falha ao baixar Cloud SQL Proxy"
+    exit 1
+fi
+# Iniciar proxy em background com logs para debug
+./cloud_sql_proxy -instances=trivihair:us-central1:finaflow-db-staging=tcp:5432 > /tmp/cloud_sql_proxy.log 2>&1 &
 PROXY_PID=$!
-sleep 5
+sleep 8
 # Verificar se o proxy está rodando
 if ps -p $PROXY_PID > /dev/null 2>&1; then
-    echo "✅ Cloud SQL Proxy iniciado (PID: $PROXY_PID)"
+    # Verificar se a porta está ouvindo
+    if netstat -an 2>/dev/null | grep -q ":5432.*LISTEN" || ss -an 2>/dev/null | grep -q ":5432.*LISTEN"; then
+        echo "✅ Cloud SQL Proxy iniciado (PID: $PROXY_PID)"
+    else
+        echo "⚠️  Proxy iniciado mas porta 5432 não está ouvindo. Verificando logs..."
+        tail -20 /tmp/cloud_sql_proxy.log 2>/dev/null || echo "Logs não disponíveis"
+        echo "   Tentando continuar mesmo assim..."
+    fi
 else
     echo "❌ Falha ao iniciar Cloud SQL Proxy"
+    echo "   Logs do proxy:"
+    cat /tmp/cloud_sql_proxy.log 2>/dev/null || echo "   Logs não disponíveis"
     exit 1
 fi
 
