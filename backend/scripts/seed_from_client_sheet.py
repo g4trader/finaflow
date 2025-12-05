@@ -920,7 +920,7 @@ def seed_lancamentos_diarios(
                 # Commit em lotes
                 if len(lancamentos_batch) >= BATCH_SIZE:
                     try:
-                        db.bulk_save_objects(lancamentos_batch)
+                        db.add_all(lancamentos_batch)
                         db.commit()
                         logger.log(f"✅ Lote commitado: {logger.stats['lancamentos_diarios_criados']} lançamentos criados (linha {row_num + 2}/{total_rows})", "INFO")
                         lancamentos_batch = []
@@ -947,7 +947,7 @@ def seed_lancamentos_diarios(
         # Commit do lote final
         if lancamentos_batch:
             try:
-                db.bulk_save_objects(lancamentos_batch)
+                db.add_all(lancamentos_batch)
                 db.commit()
                 logger.log(f"✅ Lote final commitado: {len(lancamentos_batch)} lançamentos", "INFO")
             except Exception as e:
