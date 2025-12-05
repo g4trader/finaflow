@@ -18,12 +18,25 @@ echo "✅ Projeto configurado"
 # 1. Iniciar Cloud SQL Proxy
 echo ""
 echo "🔌 1. Iniciando Cloud SQL Proxy..."
+# Parar qualquer instância anterior do proxy
+pkill cloud_sql_proxy 2>/dev/null || true
+sleep 2
+# Remover arquivo antigo se existir
+rm -f cloud_sql_proxy
+# Baixar Cloud SQL Proxy
 curl -o cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64
 chmod +x cloud_sql_proxy
-./cloud_sql_proxy -instances=trivihair:us-central1:finaflow-db-staging=tcp:5432 &
+# Iniciar proxy em background
+./cloud_sql_proxy -instances=trivihair:us-central1:finaflow-db-staging=tcp:5432 > /dev/null 2>&1 &
 PROXY_PID=$!
 sleep 5
-echo "✅ Cloud SQL Proxy iniciado (PID: $PROXY_PID)"
+# Verificar se o proxy está rodando
+if ps -p $PROXY_PID > /dev/null 2>&1; then
+    echo "✅ Cloud SQL Proxy iniciado (PID: $PROXY_PID)"
+else
+    echo "❌ Falha ao iniciar Cloud SQL Proxy"
+    exit 1
+fi
 
 # 2. Clonar repositório
 echo ""
