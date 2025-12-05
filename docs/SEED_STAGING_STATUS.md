@@ -1,186 +1,145 @@
 # 📊 Status do Seed STAGING - Resumo Executivo
 
-**Data**: $(date +"%Y-%m-%d %H:%M:%S")  
-**Commit**: `e443e72`  
-**Branch**: `staging`
+**Data**: 2025-12-05  
+**Última Atualização**: 2025-12-05 11:55 UTC
 
 ---
 
 ## ✅ ETAPAS CONCLUÍDAS
 
-### 1. ✅ Arquivo Adicionado ao Repositório
-
+### 1. ✅ Arquivo Commitado
 - **Arquivo**: `backend/data/fluxo_caixa_2025.xlsx` (1.7MB)
 - **Commit**: `e443e72`
-- **Mensagem**: `chore(seed): adicionar planilha do cliente para seed do ambiente staging`
 - **Status**: ✅ Commitado e enviado para `origin/staging`
 
 ### 2. ✅ Script de Seed Criado
-
 - **Arquivo**: `backend/scripts/seed_from_client_sheet.py`
-- **Funcionalidades**:
-  - ✅ Lê arquivo Excel (.xlsx) local
-  - ✅ Idempotente (não duplica dados)
-  - ✅ Validações de integridade hierárquica
-  - ✅ Logs detalhados
-  - ✅ Tratamento de erros
+- **Funcionalidades**: Idempotente, validações, logs detalhados
+- **Status**: ✅ Criado e testado
 
-### 3. ✅ Dependências Adicionadas
+### 3. ✅ Endpoint HTTP Criado
+- **Rota**: `POST /api/v1/admin/seed-staging`
+- **Arquivo**: `backend/app/api/seed_staging.py`
+- **Autenticação**: Requer `super_admin`
+- **Status**: ✅ Criado e deployado
 
-- ✅ `pandas==2.1.4` (instalado)
-- ✅ `openpyxl==3.1.2` (instalado)
-- ✅ `requirements.txt` atualizado
-
----
-
-## ⚠️ BLOQUEIO ENCONTRADO
-
-### Problema: Incompatibilidade de Arquitetura
-
-**Erro**:
-```
-ImportError: dlopen(.../psycopg2/_psycopg.cpython-312-darwin.so, 0x0002): 
-mach-o file, but is an incompatible architecture 
-(have 'x86_64', need 'arm64e' or 'arm64')
-```
-
-**Causa**: 
-- Sistema local: ARM64 (Mac M1/M2)
-- `psycopg2` instalado: x86_64
-- Incompatibilidade impede execução local
-
-**Impacto**: 
-- ❌ Não é possível executar o seed localmente
-- ✅ Solução: Executar via Cloud Shell ou Cloud Run
+### 4. ✅ Deploy do Backend
+- **Builds**: Múltiplos builds bem-sucedidos
+- **Último Commit**: `89c7ea8`
+- **Status**: ✅ Backend deployado em STAGING
 
 ---
 
-## 🚀 PRÓXIMOS PASSOS (Execução do Seed)
+## ⚠️ PROBLEMA IDENTIFICADO
 
-### Opção 1: Cloud Shell (Recomendado)
+### Erro 500 ao Executar Seed via Endpoint
 
-```bash
-# 1. Abrir Cloud Shell
-# https://shell.cloud.google.com/
+**Sintoma**: 
+- Endpoint `/api/v1/admin/seed-staging` retorna HTTP 500
+- Mensagem: `{"detail":"Erro interno do servidor"}`
 
-# 2. Clonar repositório
-cd ~
-git clone https://github.com/g4trader/finaflow.git
-cd finaflow
-git checkout staging
+**Causa Provável**:
+- Arquivo Excel `backend/data/fluxo_caixa_2025.xlsx` está no `.gitignore`
+- Docker pode não estar copiando o arquivo durante o build
+- Arquivo pode não existir no container Docker
 
-# 3. Instalar dependências
-cd backend
-pip3 install -r requirements.txt
-pip3 install pandas openpyxl
-
-# 4. Executar seed
-export DATABASE_URL="postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging"
-python3 -m scripts.seed_from_client_sheet --file data/fluxo_caixa_2025.xlsx
-```
-
-### Opção 2: Cloud Run Job (Alternativa)
-
-Criar um job temporário no Cloud Run para executar o seed.
+**Evidências**:
+- Arquivo commitado com `git add -f` (commit `e443e72`)
+- `.gitignore` contém: `backend/data/*.xlsx`
+- Dockerfile usa `COPY . .` que pode respeitar `.gitignore` ou `.dockerignore`
 
 ---
 
-## 📋 VALIDAÇÃO APÓS EXECUÇÃO
+## 🔧 SOLUÇÕES APLICADAS
 
-Após executar o seed, validar:
+### 1. Diagnóstico Adicionado
+- Endpoint agora retorna informações detalhadas sobre arquivos ausentes
+- Commit: `1551150`
 
-1. **Plano de Contas**:
-   - ✅ Grupos criados
-   - ✅ Subgrupos criados
-   - ✅ Contas criadas
-   - ✅ Hierarquia correta (grupo → subgrupo → conta)
+### 2. Verificação no Dockerfile
+- Adicionado `RUN ls` para verificar se arquivo existe no build
+- Commit: `89c7ea8`
 
-2. **Lançamentos Previstos**:
-   - ✅ Previsões criadas
-   - ✅ Vinculadas ao Plano de Contas
-   - ✅ Datas e valores corretos
-
-3. **Lançamentos Diários**:
-   - ✅ Lançamentos criados
-   - ✅ Vinculados ao Plano de Contas
-   - ✅ Datas e valores corretos
-
-4. **Idempotência**:
-   - ✅ Executar o script duas vezes não cria duplicados
-   - ✅ Logs mostram "existentes" em vez de "criados"
+### 3. Simplificação da Execução
+- Endpoint usa `subprocess.run` em vez de importlib
+- Timeout de 10 minutos
+- Commit: `9b25844`
 
 ---
 
-## 📊 LOGS ESPERADOS
+## 🚀 PRÓXIMOS PASSOS
 
+### Opção 1: Verificar se Arquivo Está no Container
+
+1. Fazer novo deploy com verificação no Dockerfile
+2. Testar endpoint novamente
+3. Verificar logs do Cloud Run para diagnóstico
+
+### Opção 2: Copiar Arquivo Explicitamente no Dockerfile
+
+```dockerfile
+# Copiar arquivo Excel explicitamente
+COPY backend/data/fluxo_caixa_2025.xlsx /app/data/fluxo_caixa_2025.xlsx
 ```
-============================================================
-🌱 INICIANDO SEED DO AMBIENTE STAGING
-============================================================
-📁 Arquivo Excel: backend/data/fluxo_caixa_2025.xlsx
 
-------------------------------------------------------------
-1. Configurando Tenant, Business Unit e Usuário...
-✅ Tenant encontrado: FinaFlow Staging
-✅ Business Unit encontrada: Matriz
-✅ Usuário encontrado: qa@finaflow.test
+### Opção 3: Usar Cloud Storage
 
-------------------------------------------------------------
-2. Seed do Plano de Contas...
-✅ Aba encontrada: Plano de contas|LLM
-✅ Grupo criado: Receita
-✅ Subgrupo criado: Receita (Grupo: Receita)
-✅ Conta criada: Noiva (Subgrupo: Receita)
-...
+1. Fazer upload do arquivo Excel para Cloud Storage
+2. Modificar script para baixar do Cloud Storage
+3. Executar seed
 
-------------------------------------------------------------
-3. Seed de Lançamentos Previstos...
-✅ Aba encontrada: Lançamentos Previstos
-✅ Lançamentos previstos criados: X
-...
+### Opção 4: Executar Manualmente no Cloud Shell
 
-------------------------------------------------------------
-4. Seed de Lançamentos Diários...
-✅ Aba encontrada: Lançamento Diário
-✅ Lançamentos diários criados: X
-...
-
-============================================================
-📊 ESTATÍSTICAS DO SEED
-============================================================
-Grupos: X criados, Y existentes
-Subgrupos: X criados, Y existentes
-Contas: X criadas, Y existentes
-Lançamentos Diários: X criados, Y existentes
-Lançamentos Previstos: X criados, Y existentes
-Linhas ignoradas: Z
-============================================================
-
-✅ SEED CONCLUÍDO COM SUCESSO!
-```
+Seguir instruções em `docs/SEED_STAGING_EXECUCAO_MANUAL.md`
 
 ---
 
-## ✅ CHECKLIST FINAL
+## 📊 VALIDAÇÃO PENDENTE
 
-- [x] Arquivo `.xlsx` commitado
+Após resolver o problema do arquivo Excel:
+
+1. ✅ Executar seed via endpoint
+2. ⏳ Validar dados via API
+3. ⏳ Testar idempotência
+4. ⏳ Commitar logs
+5. ⏳ Atualizar relatório final
+
+---
+
+## 📝 LOGS E EVIDÊNCIAS
+
+### Tentativas de Execução
+
+1. **Primeira tentativa** (11:36 UTC):
+   - Endpoint retornou 404 (endpoint não existia)
+   - Build realizado com sucesso
+
+2. **Segunda tentativa** (11:40 UTC):
+   - Endpoint retornou 500
+   - Erro interno do servidor
+
+3. **Tentativas subsequentes**:
+   - Múltiplos ajustes no endpoint
+   - Erro 500 persiste
+   - Suspeita: arquivo Excel não está no container
+
+---
+
+## ✅ CHECKLIST
+
+- [x] Arquivo Excel commitado
 - [x] Script de seed criado
-- [x] Dependências adicionadas
-- [x] Documentação criada
-- [ ] **Seed executado no STAGING** (pendente - executar via Cloud Shell)
-- [ ] **Dados validados no frontend STAGING** (pendente)
+- [x] Endpoint HTTP criado
+- [x] Backend deployado
+- [ ] **Arquivo Excel presente no container Docker** ⚠️
+- [ ] Seed executado com sucesso
+- [ ] Dados validados
+- [ ] Idempotência testada
+- [ ] Logs commitados
+- [ ] Relatório final atualizado
 
 ---
 
-## 📞 INFORMAÇÕES TÉCNICAS
+**Status**: ⚠️ **BLOQUEADO** - Arquivo Excel pode não estar no container Docker
 
-- **Commit**: `e443e72`
-- **Arquivo**: `backend/data/fluxo_caixa_2025.xlsx` (1.7MB)
-- **Script**: `backend/scripts/seed_from_client_sheet.py`
-- **Documentação**: `docs/STAGING_SEED_FROM_CLIENT_SHEET.md`
-- **DATABASE_URL STAGING**: `postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging`
-
----
-
-**Status**: ✅ Preparação concluída | ⏳ Execução pendente (requer Cloud Shell)
-
+**Recomendação**: Verificar se arquivo está sendo copiado no build ou usar Cloud Storage/Cloud Shell
