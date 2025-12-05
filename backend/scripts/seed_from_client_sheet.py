@@ -186,13 +186,22 @@ def parse_date(date_value) -> Optional[datetime]:
     # Tentar converter string
     value_str = str(date_value).strip()
     
-    # Formatos esperados
+    # Remover microsegundos se existirem
+    if '.' in value_str and ' ' in value_str:
+        # Formato: "2025-09-01 00:00:00.000000"
+        parts = value_str.split('.')
+        value_str = parts[0]
+    
+    # Formatos esperados (com e sem hora)
     formats = [
-        "%d/%m/%Y",
-        "%d-%m-%Y",
-        "%Y-%m-%d",
-        "%d/%m/%y",
-        "%d-%m-%y",
+        "%Y-%m-%d %H:%M:%S",  # 2025-09-01 00:00:00
+        "%Y-%m-%d",           # 2025-09-01
+        "%d/%m/%Y %H:%M:%S",  # 01/09/2025 00:00:00
+        "%d/%m/%Y",           # 01/09/2025
+        "%d-%m-%Y %H:%M:%S",  # 01-09-2025 00:00:00
+        "%d-%m-%Y",           # 01-09-2025
+        "%d/%m/%y",           # 01/09/25
+        "%d-%m-%y",           # 01-09-25
     ]
     
     for fmt in formats:
