@@ -24,6 +24,11 @@ RUN pip install -r requirements.txt
 # Copiar toda a estrutura do projeto
 COPY . .
 
+# Garantir que o arquivo Excel está presente (mesmo que esteja no .gitignore)
+# O arquivo foi commitado com git add -f, então deve estar no contexto
+RUN ls -la /app/data/ || echo "Diretório data não existe"
+RUN ls -la /app/data/*.xlsx 2>/dev/null || echo "Nenhum arquivo .xlsx encontrado em data/"
+
 # Alterar proprietário dos arquivos para o usuário não-root
 RUN chown -R appuser:appuser /app
 
