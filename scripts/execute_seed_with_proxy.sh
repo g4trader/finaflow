@@ -44,26 +44,45 @@ PROXY_PID=$!
 echo "   PID do proxy: $PROXY_PID"
 
 # Aguardar e verificar progressivamente
+PROXY_STARTED=false
 for i in {1..10}; do
     sleep 1
+    # Verificar se o processo ainda está rodando
     if ! ps -p $PROXY_PID > /dev/null 2>&1; then
         echo "❌ Cloud SQL Proxy parou após $i segundos"
-        echo "   Logs do proxy:"
-        cat "$LOG_FILE" 2>/dev/null || echo "   Logs não disponíveis"
+        echo ""
+        echo "   === LOGS DO PROXY ==="
+        if [ -f "$LOG_FILE" ]; then
+            cat "$LOG_FILE"
+        else
+            echo "   Arquivo de log não encontrado: $LOG_FILE"
+        fi
+        echo "   ====================="
+        echo ""
         exit 1
     fi
     # Verificar se a porta está ouvindo
     if netstat -an 2>/dev/null | grep -q ":5432.*LISTEN" || ss -an 2>/dev/null | grep -q ":5432.*LISTEN" || lsof -i :5432 >/dev/null 2>&1; then
         echo "✅ Cloud SQL Proxy iniciado e porta 5432 está ouvindo (PID: $PROXY_PID)"
+        PROXY_STARTED=true
         break
     fi
-    if [ $i -eq 10 ]; then
-        echo "⚠️  Proxy iniciado mas porta 5432 ainda não está ouvindo após 10 segundos"
-        echo "   Verificando logs..."
-        tail -30 "$LOG_FILE" 2>/dev/null || echo "   Logs não disponíveis"
-        echo "   Tentando continuar mesmo assim (pode funcionar)..."
-    fi
 done
+
+# Se chegou aqui mas não iniciou, verificar logs
+if [ "$PROXY_STARTED" = false ]; then
+    echo "⚠️  Proxy iniciado mas porta 5432 ainda não está ouvindo após 10 segundos"
+    echo ""
+    echo "   === LOGS DO PROXY ==="
+    if [ -f "$LOG_FILE" ]; then
+        cat "$LOG_FILE"
+    else
+        echo "   Arquivo de log não encontrado: $LOG_FILE"
+    fi
+    echo "   ====================="
+    echo ""
+    echo "   Tentando continuar mesmo assim (pode funcionar)..."
+fi
 
 # 2. Clonar repositório
 echo ""
