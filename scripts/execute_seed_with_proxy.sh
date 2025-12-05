@@ -9,11 +9,29 @@ echo "============================================================"
 echo "🌱 EXECUTAR SEED STAGING - CLOUD SQL PROXY"
 echo "============================================================"
 
-# 0. Configurar projeto gcloud
+# 0. Configurar projeto gcloud e autenticação
 echo ""
-echo "⚙️  0. Configurando projeto gcloud..."
+echo "⚙️  0. Configurando projeto gcloud e autenticação..."
 gcloud config set project trivihair >/dev/null 2>&1 || echo "⚠️  Aviso: não foi possível configurar projeto (continuando...)"
-echo "✅ Projeto configurado"
+
+# Verificar se há conta ativa
+if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q .; then
+    echo "   Nenhuma conta ativa encontrada. Fazendo login..."
+    # No Cloud Shell, usar a autenticação automática
+    gcloud auth application-default login --no-launch-browser 2>/dev/null || {
+        echo "   Tentando usar credenciais do Cloud Shell..."
+        # No Cloud Shell, as credenciais já devem estar disponíveis
+        export GOOGLE_APPLICATION_CREDENTIALS=""
+    }
+fi
+
+# Verificar conta ativa novamente
+ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" | head -1)
+if [ -n "$ACTIVE_ACCOUNT" ]; then
+    echo "✅ Projeto configurado (conta: $ACTIVE_ACCOUNT)"
+else
+    echo "⚠️  Aviso: nenhuma conta ativa, mas continuando (Cloud Shell pode usar credenciais automáticas)"
+fi
 
 # 1. Iniciar Cloud SQL Proxy
 echo ""
@@ -38,7 +56,12 @@ echo "   Arquivo baixado com sucesso"
 LOG_FILE="/tmp/cloud_sql_proxy_$$.log"
 echo "   Iniciando proxy (logs em: $LOG_FILE)..."
 
+# No Cloud Shell, usar credenciais automáticas (sem especificar arquivo)
+# O Cloud Shell já tem credenciais configuradas automaticamente
+echo "   Usando credenciais automáticas do Cloud Shell..."
+
 # Iniciar proxy em background com logs para debug
+# No Cloud Shell, não precisa de -credential_file, usa as credenciais automáticas
 ./cloud_sql_proxy -instances=trivihair:us-central1:finaflow-db-staging=tcp:5432 > "$LOG_FILE" 2>&1 &
 PROXY_PID=$!
 echo "   PID do proxy: $PROXY_PID"
