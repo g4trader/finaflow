@@ -64,7 +64,7 @@ from app.models.conta_bancaria import ContaBancaria
 
 # Modelos de caixa e investimentos (necessário para relacionamento com Tenant)
 from app.models.caixa import Caixa
-from app.models.investments import Investimento
+from app.models.investimento import Investimento
 
 # Modelos de plano de contas
 from app.models.chart_of_accounts import (
