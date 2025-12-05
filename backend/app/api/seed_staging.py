@@ -38,11 +38,32 @@ async def execute_seed_staging(
     script_path = backend_dir / "scripts" / "seed_from_client_sheet.py"
     excel_file = backend_dir / "data" / "fluxo_caixa_2025.xlsx"
     
-    if not script_path.exists():
-        raise HTTPException(status_code=404, detail="Script de seed não encontrado")
+    # Diagnóstico
+    script_exists = script_path.exists()
+    excel_exists = excel_file.exists()
+    backend_dir_exists = backend_dir.exists()
     
-    if not excel_file.exists():
-        raise HTTPException(status_code=404, detail="Arquivo Excel não encontrado")
+    # Listar arquivos para diagnóstico
+    data_dir = backend_dir / "data"
+    data_dir_exists = data_dir.exists()
+    data_files = []
+    if data_dir_exists:
+        try:
+            data_files = [f.name for f in data_dir.iterdir() if f.is_file()]
+        except:
+            pass
+    
+    if not script_exists:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Script de seed não encontrado: {script_path}\nBackend dir existe: {backend_dir_exists}\nBackend dir: {backend_dir}"
+        )
+    
+    if not excel_exists:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Arquivo Excel não encontrado: {excel_file}\nData dir existe: {data_dir_exists}\nArquivos em data/: {data_files}"
+        )
     
     try:
         # Verificar caminhos
