@@ -14,25 +14,27 @@ echo ""
 echo "⚙️  0. Configurando projeto gcloud e autenticação..."
 gcloud config set project trivihair >/dev/null 2>&1 || echo "⚠️  Aviso: não foi possível configurar projeto (continuando...)"
 
-# No Cloud Shell, configurar Application Default Credentials
-# O Cloud Shell tem credenciais automáticas, mas precisamos configurá-las para o proxy
-echo "   Configurando credenciais para Cloud SQL Proxy..."
-gcloud auth application-default print-access-token >/dev/null 2>&1 || {
-    echo "   Configurando Application Default Credentials..."
-    gcloud auth application-default login --no-launch-browser --quiet 2>&1 | head -5 || {
-        echo "   Usando credenciais automáticas do Cloud Shell (metadata server)..."
-        # Limpar variável para usar metadata server
-        unset GOOGLE_APPLICATION_CREDENTIALS
-    }
-}
-
-# Verificar conta ativa
+# Verificar se há conta ativa do gcloud
 ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | head -1)
-if [ -n "$ACTIVE_ACCOUNT" ]; then
-    echo "✅ Projeto configurado (conta: $ACTIVE_ACCOUNT)"
+if [ -z "$ACTIVE_ACCOUNT" ]; then
+    echo "   ⚠️  Nenhuma conta ativa encontrada."
+    echo "   ℹ️  No Cloud Shell, você precisa fazer login uma vez:"
+    echo "      gcloud auth login"
+    echo "   Ou configurar Application Default Credentials:"
+    echo "      gcloud auth application-default login"
+    echo ""
+    echo "   Tentando usar credenciais automáticas do Cloud Shell..."
 else
-    echo "✅ Projeto configurado (usando credenciais automáticas do Cloud Shell)"
+    echo "   ✅ Conta ativa: $ACTIVE_ACCOUNT"
+    # Configurar Application Default Credentials usando a conta ativa
+    echo "   Configurando Application Default Credentials..."
+    gcloud auth application-default print-access-token >/dev/null 2>&1 || {
+        echo "   ⚠️  Application Default Credentials não configuradas."
+        echo "   ℹ️  Execute manualmente: gcloud auth application-default login"
+    }
 fi
+
+echo "✅ Projeto configurado"
 
 # 1. Iniciar Cloud SQL Proxy
 echo ""
