@@ -137,13 +137,6 @@ echo "------------------------------------------------------------"
 # 8. Parar proxy
 echo ""
 echo "🛑 8. Parando Cloud SQL Proxy..."
-kill $PROXY_PID 2>/dev/null || true
-wait $PROXY_PID 2>/dev/null || true
-echo "✅ Cloud SQL Proxy parado"
-
-# 8. Parar proxy
-echo ""
-echo "🛑 8. Parando Cloud SQL Proxy..."
 kill $PROXY_PID 2>/dev/null || pkill cloud_sql_proxy 2>/dev/null || true
 wait $PROXY_PID 2>/dev/null || true
 echo "✅ Cloud SQL Proxy parado"
