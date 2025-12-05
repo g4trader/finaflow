@@ -32,26 +32,38 @@ if [ ! -f cloud_sql_proxy ]; then
     echo "❌ Falha ao baixar Cloud SQL Proxy"
     exit 1
 fi
+echo "   Arquivo baixado com sucesso"
+
+# Criar arquivo de log
+LOG_FILE="/tmp/cloud_sql_proxy_$$.log"
+echo "   Iniciando proxy (logs em: $LOG_FILE)..."
+
 # Iniciar proxy em background com logs para debug
-./cloud_sql_proxy -instances=trivihair:us-central1:finaflow-db-staging=tcp:5432 > /tmp/cloud_sql_proxy.log 2>&1 &
+./cloud_sql_proxy -instances=trivihair:us-central1:finaflow-db-staging=tcp:5432 > "$LOG_FILE" 2>&1 &
 PROXY_PID=$!
-sleep 8
-# Verificar se o proxy está rodando
-if ps -p $PROXY_PID > /dev/null 2>&1; then
-    # Verificar se a porta está ouvindo
-    if netstat -an 2>/dev/null | grep -q ":5432.*LISTEN" || ss -an 2>/dev/null | grep -q ":5432.*LISTEN"; then
-        echo "✅ Cloud SQL Proxy iniciado (PID: $PROXY_PID)"
-    else
-        echo "⚠️  Proxy iniciado mas porta 5432 não está ouvindo. Verificando logs..."
-        tail -20 /tmp/cloud_sql_proxy.log 2>/dev/null || echo "Logs não disponíveis"
-        echo "   Tentando continuar mesmo assim..."
+echo "   PID do proxy: $PROXY_PID"
+
+# Aguardar e verificar progressivamente
+for i in {1..10}; do
+    sleep 1
+    if ! ps -p $PROXY_PID > /dev/null 2>&1; then
+        echo "❌ Cloud SQL Proxy parou após $i segundos"
+        echo "   Logs do proxy:"
+        cat "$LOG_FILE" 2>/dev/null || echo "   Logs não disponíveis"
+        exit 1
     fi
-else
-    echo "❌ Falha ao iniciar Cloud SQL Proxy"
-    echo "   Logs do proxy:"
-    cat /tmp/cloud_sql_proxy.log 2>/dev/null || echo "   Logs não disponíveis"
-    exit 1
-fi
+    # Verificar se a porta está ouvindo
+    if netstat -an 2>/dev/null | grep -q ":5432.*LISTEN" || ss -an 2>/dev/null | grep -q ":5432.*LISTEN" || lsof -i :5432 >/dev/null 2>&1; then
+        echo "✅ Cloud SQL Proxy iniciado e porta 5432 está ouvindo (PID: $PROXY_PID)"
+        break
+    fi
+    if [ $i -eq 10 ]; then
+        echo "⚠️  Proxy iniciado mas porta 5432 ainda não está ouvindo após 10 segundos"
+        echo "   Verificando logs..."
+        tail -30 "$LOG_FILE" 2>/dev/null || echo "   Logs não disponíveis"
+        echo "   Tentando continuar mesmo assim (pode funcionar)..."
+    fi
+done
 
 # 2. Clonar repositório
 echo ""
