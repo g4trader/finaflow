@@ -44,40 +44,55 @@ async def execute_seed_staging(
         raise HTTPException(status_code=404, detail="Arquivo Excel não encontrado")
     
     try:
-        # Executar seed
-        cmd = [
-            sys.executable,
-            str(script_path),
-            "--file", str(excel_file.relative_to(backend_dir))
-        ]
+        # Verificar caminhos
+        script_exists = script_path.exists()
+        excel_exists = excel_file.exists()
         
-        env = os.environ.copy()
+        # Executar seed diretamente importando o módulo (mais confiável que subprocess)
+        import importlib.util
+        import io
+        import contextlib
         
-        process = subprocess.Popen(
-            cmd,
-            cwd=str(backend_dir),
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True
-        )
+        # Capturar stdout
+        output_buffer = io.StringIO()
         
-        output_lines = []
-        for line in process.stdout:
-            output_lines.append(line)
+        with contextlib.redirect_stdout(output_buffer), contextlib.redirect_stderr(output_buffer):
+            # Importar e executar o módulo de seed
+            spec = importlib.util.spec_from_file_location("seed_from_client_sheet", script_path)
+            seed_module = importlib.util.module_from_spec(spec)
+            
+            # Configurar sys.argv para simular chamada via CLI
+            original_argv = sys.argv
+            sys.argv = [str(script_path), "--file", str(excel_file.relative_to(backend_dir))]
+            
+            try:
+                spec.loader.exec_module(seed_module)
+            finally:
+                sys.argv = original_argv
         
-        process.wait()
+        output = output_buffer.getvalue()
+        
+        # Verificar se houve erro (output contém "❌" ou "ERRO")
+        success = "✅ SEED CONCLUÍDO COM SUCESSO!" in output or "SEED CONCLUÍDO" in output
         
         return JSONResponse(
-            status_code=200,
+            status_code=200 if success else 500,
             content={
-                "success": process.returncode == 0,
-                "return_code": process.returncode,
-                "output": "".join(output_lines[-50:]),  # Últimas 50 linhas
-                "timestamp": datetime.now().isoformat()
+                "success": success,
+                "output": output[-2000:],  # Últimas 2000 caracteres
+                "timestamp": datetime.now().isoformat(),
+                "script_path": str(script_path),
+                "excel_path": str(excel_file),
+                "script_exists": script_exists,
+                "excel_exists": excel_exists
             }
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao executar seed: {str(e)}")
+        import traceback
+        error_details = traceback.format_exc()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro ao executar seed: {str(e)}\n\nDetalhes:\n{error_details}"
+        )
 
