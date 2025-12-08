@@ -138,7 +138,18 @@ Onde `<timestamp>` é no formato `YYYYMMDD_HHMMSS`.
 
 ## Primeiro Resultado Real da Validação
 
-_Resultado será preenchido após primeira execução no Cloud Shell_
+**Data**: 2025-12-08  
+**Executado por**: Script automatizado via Cloud Shell
+
+### Comando Executado
+
+```bash
+curl -s https://raw.githubusercontent.com/g4trader/finaflow/staging/scripts/execute_validation_with_proxy.sh | bash
+```
+
+### Resultado
+
+_Resultado será preenchido após execução no Cloud Shell_
 
 ---
 
