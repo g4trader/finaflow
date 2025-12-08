@@ -120,7 +120,7 @@ def generate_code(name: str, prefix: str = "") -> str:
     # Pegar primeiras letras de cada palavra
     if prefix:
         return f"{prefix}{name_clean[:3].upper()}"
-    return name_clean[:3].upper()]
+    return name_clean[:3].upper()
 
 
 def find_sheet_in_excel(excel_file, sheet_names: List[str]) -> Optional[str]:
