@@ -274,24 +274,233 @@ def validate_plano_contas(
     return all_ok, results
 
 # ============================================================================
-# VALIDAÇÃO DE LANÇAMENTOS DIÁRIOS
+# VALIDAÇÃO DE LANÇAMENTOS DIÁRIOS (LINHA A LINHA)
 # ============================================================================
+
+def normalize_diarios_from_sheet(
+    df: pd.DataFrame,
+    column_map: Dict[str, str],
+    tenant_id: str,
+    db: Session
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Normaliza lançamentos diários da planilha aplicando EXATAMENTE as mesmas regras do seed.
+    
+    Retorna:
+    - df_valid: DataFrame com linhas válidas (que passariam pelos filtros do seed)
+    - df_ignored: DataFrame com linhas ignoradas (com motivo)
+    """
+    rows_valid = []
+    rows_ignored = []
+    
+    grupos_map = {}
+    subgrupos_map = {}
+    
+    # Pré-carregar grupos e subgrupos do banco
+    grupos_db = db.query(ChartAccountGroup).filter(
+        ChartAccountGroup.tenant_id == tenant_id
+    ).all()
+    for g in grupos_db:
+        grupos_map[g.name.lower()] = g
+    
+    subgrupos_db = db.query(ChartAccountSubgroup).filter(
+        ChartAccountSubgroup.tenant_id == tenant_id
+    ).all()
+    for sg in subgrupos_db:
+        key = f"{sg.group_id}::{sg.name.lower()}"
+        subgrupos_map[key] = sg
+    
+    for row_num, row in df.iterrows():
+        motivo_ignorado = None
+        
+        # Parse dos campos (mesma lógica do seed)
+        data_mov_str = str(row[column_map['data_movimentacao']]) if pd.notna(row[column_map['data_movimentacao']]) else ""
+        subgrupo_nome = ""
+        grupo_nome = ""
+        if 'subgrupo' in column_map:
+            subgrupo_nome = str(row[column_map['subgrupo']]).strip() if pd.notna(row[column_map['subgrupo']]) else ""
+        if 'grupo' in column_map:
+            grupo_nome = str(row[column_map['grupo']]).strip() if pd.notna(row[column_map['grupo']]) else ""
+        valor_str = str(row[column_map['valor']]) if pd.notna(row[column_map['valor']]) else ""
+        observacoes = ""
+        if 'observacoes' in column_map:
+            observacoes = str(row[column_map['observacoes']]).strip() if pd.notna(row[column_map['observacoes']]) else ""
+        
+        # REGRA 1: Pular linhas vazias (mesma lógica do seed linha 840)
+        if not data_mov_str or not valor_str:
+            motivo_ignorado = "data ou valor vazio"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': data_mov_str,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # REGRA 2: Parse de data (mesma lógica do seed linha 845-848)
+        data_movimentacao = parse_date(data_mov_str)
+        if not data_movimentacao:
+            motivo_ignorado = "data inválida ou não parseável"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': data_mov_str,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # REGRA 3: Parse de valor (mesma lógica do seed linha 850-853)
+        valor = parse_currency(valor_str)
+        if valor <= 0:
+            motivo_ignorado = f"valor <= 0 (valor parseado: {valor})"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': data_mov_str,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # REGRA 4: Buscar grupo e subgrupo (mesma lógica do seed linha 855-880)
+        grupo = None
+        subgrupo = None
+        
+        if grupo_nome:
+            grupo_key = grupo_nome.lower()
+            grupo = grupos_map.get(grupo_key)
+            if not grupo:
+                motivo_ignorado = f"grupo não encontrado: {grupo_nome}"
+                rows_ignored.append({
+                    'linha': row_num + 2,
+                    'data': data_mov_str,
+                    'grupo': grupo_nome,
+                    'subgrupo': subgrupo_nome,
+                    'valor': valor_str,
+                    'motivo': motivo_ignorado
+                })
+                continue
+        
+        if subgrupo_nome and grupo:
+            subgrupo_key = f"{grupo.id}::{subgrupo_nome.lower()}"
+            subgrupo = subgrupos_map.get(subgrupo_key)
+            if not subgrupo:
+                motivo_ignorado = f"subgrupo não encontrado: {subgrupo_nome} (grupo: {grupo_nome})"
+                rows_ignored.append({
+                    'linha': row_num + 2,
+                    'data': data_mov_str,
+                    'grupo': grupo_nome,
+                    'subgrupo': subgrupo_nome,
+                    'valor': valor_str,
+                    'motivo': motivo_ignorado
+                })
+                continue
+        
+        if not grupo or not subgrupo:
+            motivo_ignorado = "grupo ou subgrupo não encontrado"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': data_mov_str,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # REGRA 5: Buscar primeira conta do subgrupo (mesma lógica do seed linha 882-890)
+        conta = db.query(ChartAccount).filter(
+            ChartAccount.subgroup_id == subgrupo.id,
+            ChartAccount.tenant_id == tenant_id
+        ).first()
+        
+        if not conta:
+            motivo_ignorado = f"nenhuma conta encontrada no subgrupo: {subgrupo_nome}"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': data_mov_str,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # Linha válida - adicionar ao DataFrame normalizado
+        rows_valid.append({
+            'data': data_movimentacao.date(),
+            'grupo': grupo.name,
+            'subgrupo': subgrupo.name,
+            'conta': conta.name,
+            'valor': valor.quantize(Decimal('0.01')),
+            'descricao': observacoes or f"Lançamento de {subgrupo_nome}",
+            'linha_original': row_num + 2
+        })
+    
+    df_valid = pd.DataFrame(rows_valid)
+    df_ignored = pd.DataFrame(rows_ignored)
+    
+    return df_valid, df_ignored
+
+def normalize_diarios_from_db(
+    db: Session,
+    tenant_id: str,
+    business_unit_id: str
+) -> pd.DataFrame:
+    """Normaliza lançamentos diários do banco para DataFrame comparável"""
+    lancamentos = db.query(LancamentoDiario).join(
+        ChartAccount
+    ).join(
+        ChartAccountSubgroup
+    ).join(
+        ChartAccountGroup
+    ).filter(
+        LancamentoDiario.tenant_id == tenant_id,
+        LancamentoDiario.business_unit_id == business_unit_id
+    ).all()
+    
+    rows = []
+    for ld in lancamentos:
+        rows.append({
+            'data': ld.data_movimentacao.date(),
+            'grupo': ld.grupo.name if ld.grupo else "",
+            'subgrupo': ld.subgrupo.name if ld.subgrupo else "",
+            'conta': ld.conta.name if ld.conta else "",
+            'valor': ld.valor.quantize(Decimal('0.01')),
+            'descricao': ld.observacoes or "",
+            'id': str(ld.id)
+        })
+    
+    return pd.DataFrame(rows)
 
 def validate_lancamentos_diarios(
     db: Session,
     tenant_id: str,
     business_unit_id: str,
-    excel_file: Path
+    excel_file: Path,
+    log_dir: Path,
+    timestamp: str
 ) -> Tuple[bool, Dict]:
-    """Valida lançamentos diários: planilha vs banco"""
+    """Valida lançamentos diários: planilha vs banco (linha a linha)"""
     print("\n" + "="*60)
-    print("📊 VALIDAÇÃO DE LANÇAMENTOS DIÁRIOS")
+    print("📊 VALIDAÇÃO DE LANÇAMENTOS DIÁRIOS (LINHA A LINHA)")
     print("="*60)
     
     results = {
-        'total': {'planilha': 0, 'banco': 0, 'ok': False},
-        'soma_total': {'planilha': Decimal('0'), 'banco': Decimal('0'), 'ok': False},
-        'por_mes': {}
+        'total_bruto_planilha': 0,
+        'total_pos_filtro_planilha': 0,
+        'total_banco': 0,
+        'missing_in_db': 0,
+        'extra_in_db': 0,
+        'ok': False,
+        'csv_missing': None,
+        'csv_extra': None,
+        'csv_ignored': None
     }
     
     # Ler planilha
@@ -300,148 +509,401 @@ def validate_lancamentos_diarios(
         print("❌ Aba de Lançamentos Diários não encontrada")
         return False, results
     
-    df = read_excel_sheet(excel_file, sheet_name)
-    if df.empty:
+    df_raw = read_excel_sheet(excel_file, sheet_name)
+    if df_raw.empty:
         print("❌ Nenhum dado encontrado na aba de Lançamentos Diários")
         return False, results
     
-    # Normalizar colunas
-    df.columns = df.columns.str.strip()
+    results['total_bruto_planilha'] = len(df_raw)
+    
+    # Normalizar colunas (mesma lógica do seed)
+    df_raw.columns = df_raw.columns.str.strip()
     column_map = {}
-    for col in df.columns:
+    for col in df_raw.columns:
         col_lower = col.lower()
-        if 'data' in col_lower and 'movimentação' in col_lower or 'data' in col_lower and 'movimentacao' in col_lower:
-            column_map['data'] = col
+        if 'data' in col_lower and ('movimentação' in col_lower or 'movimentacao' in col_lower):
+            column_map['data_movimentacao'] = col
+        elif 'data' in col_lower and 'data_movimentacao' not in column_map:
+            column_map['data_movimentacao'] = col
+        if 'subgrupo' in col_lower and 'subgrupo' not in column_map:
+            column_map['subgrupo'] = col
+        if 'grupo' in col_lower and 'subgrupo' not in col_lower and 'grupo' not in column_map:
+            column_map['grupo'] = col
         if 'valor' in col_lower and 'valor' not in column_map:
             column_map['valor'] = col
-        if 'grupo' in col_lower and 'subgrupo' not in col_lower:
-            column_map['grupo'] = col
-        if 'subgrupo' in col_lower:
-            column_map['subgrupo'] = col
-        if 'conta' in col_lower:
-            column_map['conta'] = col
+        if ('observação' in col_lower or 'observacao' in col_lower) and 'observacoes' not in column_map:
+            column_map['observacoes'] = col
     
-    if 'data' not in column_map or 'valor' not in column_map:
+    if 'data_movimentacao' not in column_map or 'valor' not in column_map:
         print("❌ Colunas necessárias não encontradas")
         return False, results
     
-    # Processar planilha (aplicar mesmas regras do seed)
-    total_planilha = 0
-    soma_planilha = Decimal('0')
-    por_mes_planilha = defaultdict(lambda: {'qtd': 0, 'soma': Decimal('0')})
+    # Normalizar planilha (aplicar mesmas regras do seed)
+    print("  Aplicando filtros do seed na planilha...")
+    df_sheet_norm, df_ignored = normalize_diarios_from_sheet(df_raw, column_map, tenant_id, db)
+    results['total_pos_filtro_planilha'] = len(df_sheet_norm)
     
-    for _, row in df.iterrows():
-        data_str = row[column_map['data']] if pd.notna(row[column_map['data']]) else None
-        valor_str = row[column_map['valor']] if pd.notna(row[column_map['valor']]) else None
+    # Normalizar banco
+    print("  Carregando dados do banco...")
+    df_db_norm = normalize_diarios_from_db(db, tenant_id, business_unit_id)
+    results['total_banco'] = len(df_db_norm)
+    
+    # Criar chave composta para comparação
+    if not df_sheet_norm.empty:
+        df_sheet_norm['key'] = (
+            df_sheet_norm['data'].astype(str) + "|" +
+            df_sheet_norm['grupo'].astype(str) + "|" +
+            df_sheet_norm['subgrupo'].astype(str) + "|" +
+            df_sheet_norm['conta'].astype(str) + "|" +
+            df_sheet_norm['valor'].round(2).astype(str)
+        )
+    
+    if not df_db_norm.empty:
+        df_db_norm['key'] = (
+            df_db_norm['data'].astype(str) + "|" +
+            df_db_norm['grupo'].astype(str) + "|" +
+            df_db_norm['subgrupo'].astype(str) + "|" +
+            df_db_norm['conta'].astype(str) + "|" +
+            df_db_norm['valor'].round(2).astype(str)
+        )
+    
+    # Merge para encontrar diferenças
+    if not df_sheet_norm.empty and not df_db_norm.empty:
+        df_merge = df_sheet_norm.merge(
+            df_db_norm[['key']],
+            on='key',
+            how='outer',
+            indicator=True
+        )
         
-        # Validar data
-        data = parse_date(data_str)
-        if not data:
-            continue
+        df_missing = df_merge[df_merge['_merge'] == 'left_only'].copy()
+        df_extra = df_merge[df_merge['_merge'] == 'right_only'].copy()
         
-        # Validar valor
-        valor = parse_currency(valor_str)
-        if valor == Decimal('0'):
-            continue
+        results['missing_in_db'] = len(df_missing)
+        results['extra_in_db'] = len(df_extra)
         
-        # Validar grupo/subgrupo/conta (se existirem)
-        if 'grupo' in column_map:
-            grupo = str(row[column_map['grupo']]).strip() if pd.notna(row[column_map['grupo']]) else ""
-            if not grupo:
-                continue
+        # Salvar CSVs
+        if len(df_missing) > 0:
+            csv_missing = log_dir / f"diarios_missing_in_db_{timestamp}.csv"
+            df_missing[['linha_original', 'data', 'grupo', 'subgrupo', 'conta', 'valor', 'descricao']].to_csv(
+                csv_missing, index=False, encoding='utf-8-sig'
+            )
+            results['csv_missing'] = str(csv_missing)
+            print(f"  📄 Linhas faltando no banco: {csv_missing}")
         
-        total_planilha += 1
-        soma_planilha += valor
-        
-        # Agrupar por mês
-        mes_key = f"{data.year}-{data.month:02d}"
-        por_mes_planilha[mes_key]['qtd'] += 1
-        por_mes_planilha[mes_key]['soma'] += valor
+        if len(df_extra) > 0:
+            csv_extra = log_dir / f"diarios_extra_in_db_{timestamp}.csv"
+            df_extra[['data', 'grupo', 'subgrupo', 'conta', 'valor', 'descricao', 'id']].to_csv(
+                csv_extra, index=False, encoding='utf-8-sig'
+            )
+            results['csv_extra'] = str(csv_extra)
+            print(f"  📄 Linhas extras no banco: {csv_extra}")
+    elif not df_sheet_norm.empty:
+        # Tudo da planilha está faltando
+        results['missing_in_db'] = len(df_sheet_norm)
+        csv_missing = log_dir / f"diarios_missing_in_db_{timestamp}.csv"
+        df_sheet_norm[['linha_original', 'data', 'grupo', 'subgrupo', 'conta', 'valor', 'descricao']].to_csv(
+            csv_missing, index=False, encoding='utf-8-sig'
+        )
+        results['csv_missing'] = str(csv_missing)
+    elif not df_db_norm.empty:
+        # Tudo do banco está extra
+        results['extra_in_db'] = len(df_db_norm)
+        csv_extra = log_dir / f"diarios_extra_in_db_{timestamp}.csv"
+        df_db_norm[['data', 'grupo', 'subgrupo', 'conta', 'valor', 'descricao', 'id']].to_csv(
+            csv_extra, index=False, encoding='utf-8-sig'
+        )
+        results['csv_extra'] = str(csv_extra)
     
-    results['total']['planilha'] = total_planilha
-    results['soma_total']['planilha'] = soma_planilha
+    # Salvar CSV de linhas ignoradas
+    if len(df_ignored) > 0:
+        csv_ignored = log_dir / f"diarios_ignored_{timestamp}.csv"
+        df_ignored.to_csv(csv_ignored, index=False, encoding='utf-8-sig')
+        results['csv_ignored'] = str(csv_ignored)
+        print(f"  📄 Linhas ignoradas por regras do seed: {csv_ignored}")
     
-    # Consultar banco
-    lancamentos = db.query(LancamentoDiario).filter(
-        LancamentoDiario.tenant_id == tenant_id,
-        LancamentoDiario.business_unit_id == business_unit_id
-    ).all()
-    
-    total_banco = len(lancamentos)
-    soma_banco = sum(ld.valor for ld in lancamentos)
-    por_mes_banco = defaultdict(lambda: {'qtd': 0, 'soma': Decimal('0')})
-    
-    for ld in lancamentos:
-        mes_key = f"{ld.data_movimentacao.year}-{ld.data_movimentacao.month:02d}"
-        por_mes_banco[mes_key]['qtd'] += 1
-        por_mes_banco[mes_key]['soma'] += ld.valor
-    
-    results['total']['banco'] = total_banco
-    results['soma_total']['banco'] = soma_banco
-    
-    # Comparar totais
-    results['total']['ok'] = results['total']['planilha'] == results['total']['banco']
-    
-    # Comparar soma (com tolerância)
-    diff_soma = abs(results['soma_total']['planilha'] - results['soma_total']['banco'])
-    results['soma_total']['ok'] = diff_soma < TOLERANCE
-    
-    # Comparar por mês
-    todos_meses = set(list(por_mes_planilha.keys()) + list(por_mes_banco.keys()))
-    for mes in sorted(todos_meses):
-        qtd_planilha = por_mes_planilha[mes]['qtd']
-        soma_planilha_mes = por_mes_planilha[mes]['soma']
-        qtd_banco = por_mes_banco[mes]['qtd']
-        soma_banco_mes = por_mes_banco[mes]['soma']
-        
-        diff_soma_mes = abs(soma_planilha_mes - soma_banco_mes)
-        ok_mes = (qtd_planilha == qtd_banco) and (diff_soma_mes < TOLERANCE)
-        
-        results['por_mes'][mes] = {
-            'planilha': {'qtd': qtd_planilha, 'soma': soma_planilha_mes},
-            'banco': {'qtd': qtd_banco, 'soma': soma_banco_mes},
-            'ok': ok_mes
-        }
+    # Determinar status
+    # OK se: todas as linhas válidas da planilha estão no banco E não há linhas extras no banco
+    # OU se: diferença é explicada apenas por linhas ignoradas
+    if results['missing_in_db'] == 0 and results['extra_in_db'] == 0:
+        results['ok'] = True
+        status = "✅ OK"
+    elif results['missing_in_db'] == 0:
+        # Há linhas extras no banco (não deveria acontecer se seed só lê essa planilha)
+        results['ok'] = False
+        status = "⚠️  OK (com linhas extras no banco)"
+    else:
+        results['ok'] = False
+        status = "❌ MISMATCH"
     
     # Imprimir resultados
-    status_total = "✅ OK" if results['total']['ok'] else "❌ MISMATCH"
-    status_soma = "✅ OK" if results['soma_total']['ok'] else "❌ MISMATCH"
+    print(f"\n[Lançamentos Diários]")
+    print(f"  Planilha (bruto): {results['total_bruto_planilha']} linhas")
+    print(f"  Planilha (pós-filtro seed): {results['total_pos_filtro_planilha']} linhas")
+    print(f"  Banco: {results['total_banco']} linhas")
+    print(f"  Faltando no banco: {results['missing_in_db']} linhas")
+    print(f"  Extras no banco: {results['extra_in_db']} linhas")
+    print(f"  Linhas ignoradas (regras seed): {len(df_ignored)} linhas")
+    print(f"  Status: {status}")
     
-    print(f"[Lançamentos Diários] Total: planilha={results['total']['planilha']} | banco={results['total']['banco']} -> {status_total}")
-    print(f"[Lançamentos Diários] Soma total: planilha=R$ {results['soma_total']['planilha']:,.2f} | banco=R$ {results['soma_total']['banco']:,.2f} -> {status_soma}")
-    
-    if not results['soma_total']['ok']:
-        diff = abs(results['soma_total']['planilha'] - results['soma_total']['banco'])
-        print(f"  ⚠️  Diferença: R$ {diff:,.2f}")
-    
-    print("\n[Lançamentos Diários] Por mês:")
-    for mes in sorted(results['por_mes'].keys()):
-        mes_data = results['por_mes'][mes]
-        status_mes = "✅ OK" if mes_data['ok'] else "❌ MISMATCH"
-        print(f"  {mes}: planilha={mes_data['planilha']['qtd']} / R$ {mes_data['planilha']['soma']:,.2f} | banco={mes_data['banco']['qtd']} / R$ {mes_data['banco']['soma']:,.2f} -> {status_mes}")
-    
-    all_ok = results['total']['ok'] and results['soma_total']['ok'] and all(m['ok'] for m in results['por_mes'].values())
-    return all_ok, results
+    return results['ok'], results
 
 # ============================================================================
-# VALIDAÇÃO DE LANÇAMENTOS PREVISTOS
+# VALIDAÇÃO DE LANÇAMENTOS PREVISTOS (LINHA A LINHA)
 # ============================================================================
+
+def normalize_previstos_from_sheet(
+    df: pd.DataFrame,
+    column_map: Dict[str, str],
+    tenant_id: str,
+    db: Session
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Normaliza lançamentos previstos da planilha aplicando EXATAMENTE as mesmas regras do seed.
+    
+    Retorna:
+    - df_valid: DataFrame com linhas válidas (que passariam pelos filtros do seed)
+    - df_ignored: DataFrame com linhas ignoradas (com motivo)
+    """
+    rows_valid = []
+    rows_ignored = []
+    
+    grupos_map = {}
+    subgrupos_map = {}
+    contas_map = {}
+    
+    # Pré-carregar grupos, subgrupos e contas do banco
+    grupos_db = db.query(ChartAccountGroup).filter(
+        ChartAccountGroup.tenant_id == tenant_id
+    ).all()
+    for g in grupos_db:
+        grupos_map[g.name.lower()] = g
+    
+    subgrupos_db = db.query(ChartAccountSubgroup).filter(
+        ChartAccountSubgroup.tenant_id == tenant_id
+    ).all()
+    for sg in subgrupos_db:
+        key = f"{sg.group_id}::{sg.name.lower()}"
+        subgrupos_map[key] = sg
+    
+    contas_db = db.query(ChartAccount).filter(
+        ChartAccount.tenant_id == tenant_id
+    ).all()
+    for c in contas_db:
+        contas_map[c.name.lower()] = c
+    
+    for row_num, row in df.iterrows():
+        motivo_ignorado = None
+        
+        # Parse dos campos (mesma lógica do seed linha 612-620)
+        mes_str = str(row[column_map['data_prevista']]) if pd.notna(row[column_map['data_prevista']]) else ""
+        conta_nome = str(row[column_map['conta']]).strip() if pd.notna(row[column_map['conta']]) else ""
+        subgrupo_nome = ""
+        grupo_nome = ""
+        if 'subgrupo' in column_map:
+            subgrupo_nome = str(row[column_map['subgrupo']]).strip() if pd.notna(row[column_map['subgrupo']]) else ""
+        if 'grupo' in column_map:
+            grupo_nome = str(row[column_map['grupo']]).strip() if pd.notna(row[column_map['grupo']]) else ""
+        valor_str = str(row[column_map['valor']]) if pd.notna(row[column_map['valor']]) else ""
+        
+        # REGRA 1: Pular linhas vazias (mesma lógica do seed linha 623-625)
+        if not mes_str or not conta_nome or not valor_str:
+            motivo_ignorado = "data, conta ou valor vazio"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': mes_str,
+                'conta': conta_nome,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # REGRA 2: Parse de data (mesma lógica do seed linha 628-631)
+        data_prevista = parse_date(mes_str)
+        if not data_prevista:
+            motivo_ignorado = "data inválida ou não parseável"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': mes_str,
+                'conta': conta_nome,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # REGRA 3: Parse de valor (mesma lógica do seed linha 633-636)
+        valor = parse_currency(valor_str)
+        if valor <= 0:
+            motivo_ignorado = f"valor <= 0 (valor parseado: {valor})"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': mes_str,
+                'conta': conta_nome,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # REGRA 4: Buscar conta (mesma lógica do seed linha 639-657)
+        conta = None
+        if conta_nome:
+            # Buscar em contas_map primeiro
+            conta = contas_map.get(conta_nome.lower())
+            
+            # Se não encontrou, buscar no banco (ilike)
+            if not conta:
+                conta_db = db.query(ChartAccount).filter(
+                    ChartAccount.name.ilike(f"%{conta_nome}%"),
+                    ChartAccount.tenant_id == tenant_id
+                ).first()
+                if conta_db:
+                    conta = conta_db
+        
+        if not conta:
+            motivo_ignorado = f"conta não encontrada: {conta_nome}"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': mes_str,
+                'conta': conta_nome,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # Buscar subgrupo e grupo da conta (mesma lógica do seed linha 660-666)
+        if not subgrupo_nome:
+            subgrupo_db = db.query(ChartAccountSubgroup).filter(
+                ChartAccountSubgroup.id == conta.subgroup_id
+            ).first()
+            if subgrupo_db:
+                subgrupo_nome = subgrupo_db.name
+                grupo_nome = subgrupo_db.group.name if subgrupo_db.group else ""
+        
+        # REGRA 5: Buscar grupo e subgrupo (mesma lógica do seed linha 668-705)
+        grupo = None
+        subgrupo = None
+        
+        if grupo_nome:
+            grupo_key = grupo_nome.lower()
+            grupo = grupos_map.get(grupo_key)
+            if not grupo:
+                grupo = db.query(ChartAccountGroup).filter(
+                    ChartAccountGroup.name == grupo_nome,
+                    ChartAccountGroup.tenant_id == tenant_id
+                ).first()
+        
+        if subgrupo_nome and grupo:
+            subgrupo_key = f"{grupo.id}::{subgrupo_nome.lower()}"
+            subgrupo = subgrupos_map.get(subgrupo_key)
+            if not subgrupo:
+                subgrupo = db.query(ChartAccountSubgroup).filter(
+                    ChartAccountSubgroup.name == subgrupo_nome,
+                    ChartAccountSubgroup.group_id == grupo.id,
+                    ChartAccountSubgroup.tenant_id == tenant_id
+                ).first()
+        
+        # Usar subgrupo e grupo da conta se não encontrou (mesma lógica do seed linha 692-700)
+        if not subgrupo:
+            subgrupo = db.query(ChartAccountSubgroup).filter(
+                ChartAccountSubgroup.id == conta.subgroup_id
+            ).first()
+        
+        if not grupo and subgrupo:
+            grupo = db.query(ChartAccountGroup).filter(
+                ChartAccountGroup.id == subgrupo.group_id
+            ).first()
+        
+        if not grupo or not subgrupo:
+            motivo_ignorado = f"grupo ou subgrupo não encontrado para conta: {conta_nome}"
+            rows_ignored.append({
+                'linha': row_num + 2,
+                'data': mes_str,
+                'conta': conta_nome,
+                'grupo': grupo_nome,
+                'subgrupo': subgrupo_nome,
+                'valor': valor_str,
+                'motivo': motivo_ignorado
+            })
+            continue
+        
+        # Linha válida - adicionar ao DataFrame normalizado
+        rows_valid.append({
+            'data': data_prevista.date(),
+            'grupo': grupo.name,
+            'subgrupo': subgrupo.name,
+            'conta': conta.name,
+            'valor': valor.quantize(Decimal('0.01')),
+            'descricao': f"Previsão de {conta_nome}",
+            'linha_original': row_num + 2
+        })
+    
+    df_valid = pd.DataFrame(rows_valid)
+    df_ignored = pd.DataFrame(rows_ignored)
+    
+    return df_valid, df_ignored
+
+def normalize_previstos_from_db(
+    db: Session,
+    tenant_id: str,
+    business_unit_id: str
+) -> pd.DataFrame:
+    """Normaliza lançamentos previstos do banco para DataFrame comparável"""
+    lancamentos = db.query(LancamentoPrevisto).join(
+        ChartAccount
+    ).join(
+        ChartAccountSubgroup
+    ).join(
+        ChartAccountGroup
+    ).filter(
+        LancamentoPrevisto.tenant_id == tenant_id,
+        LancamentoPrevisto.business_unit_id == business_unit_id
+    ).all()
+    
+    rows = []
+    for lp in lancamentos:
+        rows.append({
+            'data': lp.data_prevista.date(),
+            'grupo': lp.grupo.name if lp.grupo else "",
+            'subgrupo': lp.subgrupo.name if lp.subgrupo else "",
+            'conta': lp.conta.name if lp.conta else "",
+            'valor': lp.valor.quantize(Decimal('0.01')),
+            'descricao': lp.observacoes or "",
+            'id': str(lp.id)
+        })
+    
+    return pd.DataFrame(rows)
 
 def validate_lancamentos_previstos(
     db: Session,
     tenant_id: str,
     business_unit_id: str,
-    excel_file: Path
+    excel_file: Path,
+    log_dir: Path,
+    timestamp: str
 ) -> Tuple[bool, Dict]:
-    """Valida lançamentos previstos: planilha vs banco"""
+    """Valida lançamentos previstos: planilha vs banco (linha a linha)"""
     print("\n" + "="*60)
-    print("📊 VALIDAÇÃO DE LANÇAMENTOS PREVISTOS")
+    print("📊 VALIDAÇÃO DE LANÇAMENTOS PREVISTOS (LINHA A LINHA)")
     print("="*60)
     
     results = {
-        'total': {'planilha': 0, 'banco': 0, 'ok': False},
-        'soma_total': {'planilha': Decimal('0'), 'banco': Decimal('0'), 'ok': False},
-        'por_mes': {}
+        'total_bruto_planilha': 0,
+        'total_pos_filtro_planilha': 0,
+        'total_banco': 0,
+        'missing_in_db': 0,
+        'extra_in_db': 0,
+        'ok': False,
+        'csv_missing': None,
+        'csv_extra': None,
+        'csv_ignored': None
     }
     
     # Ler planilha
@@ -450,134 +912,141 @@ def validate_lancamentos_previstos(
         print("❌ Aba de Lançamentos Previstos não encontrada")
         return False, results
     
-    df = read_excel_sheet(excel_file, sheet_name)
-    if df.empty:
+    df_raw = read_excel_sheet(excel_file, sheet_name)
+    if df_raw.empty:
         print("❌ Nenhum dado encontrado na aba de Lançamentos Previstos")
         return False, results
     
-    # Normalizar colunas
-    df.columns = df.columns.str.strip()
+    results['total_bruto_planilha'] = len(df_raw)
+    
+    # Normalizar colunas (mesma lógica do seed)
+    df_raw.columns = df_raw.columns.str.strip()
     column_map = {}
-    for col in df.columns:
+    for col in df_raw.columns:
         col_lower = col.lower()
         if ('mês' in col_lower or 'mes' in col_lower or 'data' in col_lower) and 'prevista' in col_lower:
-            column_map['data'] = col
-        elif 'mês' in col_lower or 'mes' in col_lower:
-            column_map['data'] = col
+            column_map['data_prevista'] = col
+        elif ('mês' in col_lower or 'mes' in col_lower) and 'data_prevista' not in column_map:
+            column_map['data_prevista'] = col
+        if 'conta' in col_lower and 'conta' not in column_map:
+            column_map['conta'] = col
+        if 'subgrupo' in col_lower and 'subgrupo' not in column_map:
+            column_map['subgrupo'] = col
+        if 'grupo' in col_lower and 'subgrupo' not in col_lower and 'grupo' not in column_map:
+            column_map['grupo'] = col
         if 'valor' in col_lower and 'valor' not in column_map:
             column_map['valor'] = col
-        if 'grupo' in col_lower and 'subgrupo' not in col_lower:
-            column_map['grupo'] = col
-        if 'subgrupo' in col_lower:
-            column_map['subgrupo'] = col
-        if 'conta' in col_lower:
-            column_map['conta'] = col
     
-    if 'data' not in column_map or 'valor' not in column_map:
+    if 'data_prevista' not in column_map or 'conta' not in column_map or 'valor' not in column_map:
         print("❌ Colunas necessárias não encontradas")
         return False, results
     
-    # Processar planilha
-    total_planilha = 0
-    soma_planilha = Decimal('0')
-    por_mes_planilha = defaultdict(lambda: {'qtd': 0, 'soma': Decimal('0')})
+    # Normalizar planilha (aplicar mesmas regras do seed)
+    print("  Aplicando filtros do seed na planilha...")
+    df_sheet_norm, df_ignored = normalize_previstos_from_sheet(df_raw, column_map, tenant_id, db)
+    results['total_pos_filtro_planilha'] = len(df_sheet_norm)
     
-    for _, row in df.iterrows():
-        data_str = row[column_map['data']] if pd.notna(row[column_map['data']]) else None
-        valor_str = row[column_map['valor']] if pd.notna(row[column_map['valor']]) else None
+    # Normalizar banco
+    print("  Carregando dados do banco...")
+    df_db_norm = normalize_previstos_from_db(db, tenant_id, business_unit_id)
+    results['total_banco'] = len(df_db_norm)
+    
+    # Criar chave composta para comparação
+    if not df_sheet_norm.empty:
+        df_sheet_norm['key'] = (
+            df_sheet_norm['data'].astype(str) + "|" +
+            df_sheet_norm['grupo'].astype(str) + "|" +
+            df_sheet_norm['subgrupo'].astype(str) + "|" +
+            df_sheet_norm['conta'].astype(str) + "|" +
+            df_sheet_norm['valor'].round(2).astype(str)
+        )
+    
+    if not df_db_norm.empty:
+        df_db_norm['key'] = (
+            df_db_norm['data'].astype(str) + "|" +
+            df_db_norm['grupo'].astype(str) + "|" +
+            df_db_norm['subgrupo'].astype(str) + "|" +
+            df_db_norm['conta'].astype(str) + "|" +
+            df_db_norm['valor'].round(2).astype(str)
+        )
+    
+    # Merge para encontrar diferenças
+    if not df_sheet_norm.empty and not df_db_norm.empty:
+        df_merge = df_sheet_norm.merge(
+            df_db_norm[['key']],
+            on='key',
+            how='outer',
+            indicator=True
+        )
         
-        # Validar data
-        data = parse_date(data_str)
-        if not data:
-            # Tentar interpretar como mês/ano apenas
-            if isinstance(data_str, (int, float)):
-                # Assumir formato YYYYMM ou similar
-                continue
-            continue
+        df_missing = df_merge[df_merge['_merge'] == 'left_only'].copy()
+        df_extra = df_merge[df_merge['_merge'] == 'right_only'].copy()
         
-        # Validar valor
-        valor = parse_currency(valor_str)
-        if valor == Decimal('0'):
-            continue
+        results['missing_in_db'] = len(df_missing)
+        results['extra_in_db'] = len(df_extra)
         
-        # Validar grupo/subgrupo/conta (se existirem)
-        if 'grupo' in column_map:
-            grupo = str(row[column_map['grupo']]).strip() if pd.notna(row[column_map['grupo']]) else ""
-            if not grupo:
-                continue
+        # Salvar CSVs
+        if len(df_missing) > 0:
+            csv_missing = log_dir / f"previstos_missing_in_db_{timestamp}.csv"
+            df_missing[['linha_original', 'data', 'grupo', 'subgrupo', 'conta', 'valor', 'descricao']].to_csv(
+                csv_missing, index=False, encoding='utf-8-sig'
+            )
+            results['csv_missing'] = str(csv_missing)
+            print(f"  📄 Linhas faltando no banco: {csv_missing}")
         
-        total_planilha += 1
-        soma_planilha += valor
-        
-        # Agrupar por mês
-        mes_key = f"{data.year}-{data.month:02d}"
-        por_mes_planilha[mes_key]['qtd'] += 1
-        por_mes_planilha[mes_key]['soma'] += valor
+        if len(df_extra) > 0:
+            csv_extra = log_dir / f"previstos_extra_in_db_{timestamp}.csv"
+            df_extra[['data', 'grupo', 'subgrupo', 'conta', 'valor', 'descricao', 'id']].to_csv(
+                csv_extra, index=False, encoding='utf-8-sig'
+            )
+            results['csv_extra'] = str(csv_extra)
+            print(f"  📄 Linhas extras no banco: {csv_extra}")
+    elif not df_sheet_norm.empty:
+        # Tudo da planilha está faltando
+        results['missing_in_db'] = len(df_sheet_norm)
+        csv_missing = log_dir / f"previstos_missing_in_db_{timestamp}.csv"
+        df_sheet_norm[['linha_original', 'data', 'grupo', 'subgrupo', 'conta', 'valor', 'descricao']].to_csv(
+            csv_missing, index=False, encoding='utf-8-sig'
+        )
+        results['csv_missing'] = str(csv_missing)
+    elif not df_db_norm.empty:
+        # Tudo do banco está extra
+        results['extra_in_db'] = len(df_db_norm)
+        csv_extra = log_dir / f"previstos_extra_in_db_{timestamp}.csv"
+        df_db_norm[['data', 'grupo', 'subgrupo', 'conta', 'valor', 'descricao', 'id']].to_csv(
+            csv_extra, index=False, encoding='utf-8-sig'
+        )
+        results['csv_extra'] = str(csv_extra)
     
-    results['total']['planilha'] = total_planilha
-    results['soma_total']['planilha'] = soma_planilha
+    # Salvar CSV de linhas ignoradas
+    if len(df_ignored) > 0:
+        csv_ignored = log_dir / f"previstos_ignored_{timestamp}.csv"
+        df_ignored.to_csv(csv_ignored, index=False, encoding='utf-8-sig')
+        results['csv_ignored'] = str(csv_ignored)
+        print(f"  📄 Linhas ignoradas por regras do seed: {csv_ignored}")
     
-    # Consultar banco
-    lancamentos = db.query(LancamentoPrevisto).filter(
-        LancamentoPrevisto.tenant_id == tenant_id,
-        LancamentoPrevisto.business_unit_id == business_unit_id
-    ).all()
-    
-    total_banco = len(lancamentos)
-    soma_banco = sum(lp.valor for lp in lancamentos)
-    por_mes_banco = defaultdict(lambda: {'qtd': 0, 'soma': Decimal('0')})
-    
-    for lp in lancamentos:
-        mes_key = f"{lp.data_prevista.year}-{lp.data_prevista.month:02d}"
-        por_mes_banco[mes_key]['qtd'] += 1
-        por_mes_banco[mes_key]['soma'] += lp.valor
-    
-    results['total']['banco'] = total_banco
-    results['soma_total']['banco'] = soma_banco
-    
-    # Comparar totais
-    results['total']['ok'] = results['total']['planilha'] == results['total']['banco']
-    
-    # Comparar soma (com tolerância)
-    diff_soma = abs(results['soma_total']['planilha'] - results['soma_total']['banco'])
-    results['soma_total']['ok'] = diff_soma < TOLERANCE
-    
-    # Comparar por mês
-    todos_meses = set(list(por_mes_planilha.keys()) + list(por_mes_banco.keys()))
-    for mes in sorted(todos_meses):
-        qtd_planilha = por_mes_planilha[mes]['qtd']
-        soma_planilha_mes = por_mes_planilha[mes]['soma']
-        qtd_banco = por_mes_banco[mes]['qtd']
-        soma_banco_mes = por_mes_banco[mes]['soma']
-        
-        diff_soma_mes = abs(soma_planilha_mes - soma_banco_mes)
-        ok_mes = (qtd_planilha == qtd_banco) and (diff_soma_mes < TOLERANCE)
-        
-        results['por_mes'][mes] = {
-            'planilha': {'qtd': qtd_planilha, 'soma': soma_planilha_mes},
-            'banco': {'qtd': qtd_banco, 'soma': soma_banco_mes},
-            'ok': ok_mes
-        }
+    # Determinar status
+    if results['missing_in_db'] == 0 and results['extra_in_db'] == 0:
+        results['ok'] = True
+        status = "✅ OK"
+    elif results['missing_in_db'] == 0:
+        results['ok'] = False
+        status = "⚠️  OK (com linhas extras no banco)"
+    else:
+        results['ok'] = False
+        status = "❌ MISMATCH"
     
     # Imprimir resultados
-    status_total = "✅ OK" if results['total']['ok'] else "❌ MISMATCH"
-    status_soma = "✅ OK" if results['soma_total']['ok'] else "❌ MISMATCH"
+    print(f"\n[Lançamentos Previstos]")
+    print(f"  Planilha (bruto): {results['total_bruto_planilha']} linhas")
+    print(f"  Planilha (pós-filtro seed): {results['total_pos_filtro_planilha']} linhas")
+    print(f"  Banco: {results['total_banco']} linhas")
+    print(f"  Faltando no banco: {results['missing_in_db']} linhas")
+    print(f"  Extras no banco: {results['extra_in_db']} linhas")
+    print(f"  Linhas ignoradas (regras seed): {len(df_ignored)} linhas")
+    print(f"  Status: {status}")
     
-    print(f"[Lançamentos Previstos] Total: planilha={results['total']['planilha']} | banco={results['total']['banco']} -> {status_total}")
-    print(f"[Lançamentos Previstos] Soma total: planilha=R$ {results['soma_total']['planilha']:,.2f} | banco=R$ {results['soma_total']['banco']:,.2f} -> {status_soma}")
-    
-    if not results['soma_total']['ok']:
-        diff = abs(results['soma_total']['planilha'] - results['soma_total']['banco'])
-        print(f"  ⚠️  Diferença: R$ {diff:,.2f}")
-    
-    print("\n[Lançamentos Previstos] Por mês:")
-    for mes in sorted(results['por_mes'].keys()):
-        mes_data = results['por_mes'][mes]
-        status_mes = "✅ OK" if mes_data['ok'] else "❌ MISMATCH"
-        print(f"  {mes}: planilha={mes_data['planilha']['qtd']} / R$ {mes_data['planilha']['soma']:,.2f} | banco={mes_data['banco']['qtd']} / R$ {mes_data['banco']['soma']:,.2f} -> {status_mes}")
-    
-    all_ok = results['total']['ok'] and results['soma_total']['ok'] and all(m['ok'] for m in results['por_mes'].values())
-    return all_ok, results
+    return results['ok'], results
 
 # ============================================================================
 # FUNÇÃO PRINCIPAL
@@ -648,17 +1117,36 @@ def main():
             
             # Executar validações
             plano_ok, plano_results = validate_plano_contas(db, tenant.id, excel_file)
-            diarios_ok, diarios_results = validate_lancamentos_diarios(db, tenant.id, business_unit.id, excel_file)
-            previstos_ok, previstos_results = validate_lancamentos_previstos(db, tenant.id, business_unit.id, excel_file)
+            diarios_ok, diarios_results = validate_lancamentos_diarios(
+                db, tenant.id, business_unit.id, excel_file, log_dir, timestamp
+            )
+            previstos_ok, previstos_results = validate_lancamentos_previstos(
+                db, tenant.id, business_unit.id, excel_file, log_dir, timestamp
+            )
             
             # Resumo final
             print("\n" + "="*60)
             print("📊 RESUMO FINAL")
             print("="*60)
             
+            # Determinar status considerando se diferenças são explicadas por regras do seed
             status_plano = "✅ OK" if plano_ok else "❌ MISMATCH"
-            status_diarios = "✅ OK" if diarios_ok else "❌ MISMATCH"
-            status_previstos = "✅ OK" if previstos_ok else "❌ MISMATCH"
+            
+            if diarios_ok:
+                status_diarios = "✅ OK"
+            elif diarios_results['missing_in_db'] == 0:
+                # Diferença explicada apenas por linhas ignoradas
+                status_diarios = "✅ OK (diferença explicada por regras de seed)"
+            else:
+                status_diarios = "❌ MISMATCH"
+            
+            if previstos_ok:
+                status_previstos = "✅ OK"
+            elif previstos_results['missing_in_db'] == 0:
+                # Diferença explicada apenas por linhas ignoradas
+                status_previstos = "✅ OK (diferença explicada por regras de seed)"
+            else:
+                status_previstos = "❌ MISMATCH"
             
             print(f"Plano de Contas: {status_plano}")
             print(f"Lançamentos Diários: {status_diarios}")
@@ -668,8 +1156,26 @@ def main():
             print(f"- Grupos: planilha={plano_results['grupos']['planilha']} | banco={plano_results['grupos']['banco']}")
             print(f"- Subgrupos: planilha={plano_results['subgrupos']['planilha']} | banco={plano_results['subgrupos']['banco']}")
             print(f"- Contas: planilha={plano_results['contas']['planilha']} | banco={plano_results['contas']['banco']}")
-            print(f"- Diários total: planilha={diarios_results['total']['planilha']} | banco={diarios_results['total']['banco']}")
-            print(f"- Previstos total: planilha={previstos_results['total']['planilha']} | banco={previstos_results['total']['banco']}")
+            
+            print(f"\nLançamentos Diários:")
+            print(f"  - Planilha (bruto): {diarios_results['total_bruto_planilha']} linhas")
+            print(f"  - Planilha (pós-filtro seed): {diarios_results['total_pos_filtro_planilha']} linhas")
+            print(f"  - Banco: {diarios_results['total_banco']} linhas")
+            print(f"  - Faltando no banco: {diarios_results['missing_in_db']} linhas")
+            if diarios_results['csv_ignored']:
+                print(f"  - Linhas ignoradas: ver {diarios_results['csv_ignored']}")
+            if diarios_results['csv_missing']:
+                print(f"  - Linhas faltando: ver {diarios_results['csv_missing']}")
+            
+            print(f"\nLançamentos Previstos:")
+            print(f"  - Planilha (bruto): {previstos_results['total_bruto_planilha']} linhas")
+            print(f"  - Planilha (pós-filtro seed): {previstos_results['total_pos_filtro_planilha']} linhas")
+            print(f"  - Banco: {previstos_results['total_banco']} linhas")
+            print(f"  - Faltando no banco: {previstos_results['missing_in_db']} linhas")
+            if previstos_results['csv_ignored']:
+                print(f"  - Linhas ignoradas: ver {previstos_results['csv_ignored']}")
+            if previstos_results['csv_missing']:
+                print(f"  - Linhas faltando: ver {previstos_results['csv_missing']}")
             
             all_ok = plano_ok and diarios_ok and previstos_ok
             

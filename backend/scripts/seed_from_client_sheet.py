@@ -564,7 +564,18 @@ def seed_lancamentos_previstos(
     contas_map: Dict[str, ChartAccount],
     excel_file: Path
 ):
-    """Seed de lançamentos previstos a partir do Excel"""
+    """
+    Seed de lançamentos previstos a partir do Excel
+    
+    REGRAS DE EXCLUSÃO DE LINHA (linhas ignoradas):
+    - data_prevista (mês) vazia ou inválida (parse_date retorna None)
+    - conta vazia ou não encontrada no banco
+    - valor vazia ou inválida (parse_currency retorna 0 ou <= 0)
+    - grupo não encontrado (quando necessário)
+    - subgrupo não encontrado (quando necessário)
+    - lançamento já existe (idempotência - mesma data, conta, valor, tenant, BU)
+    - exceção durante processamento da linha
+    """
     logger.log("Iniciando seed de Lançamentos Previstos...", "STEP")
     
     # Encontrar a aba correta
@@ -767,7 +778,18 @@ def seed_lancamentos_diarios(
     contas_map: Dict[str, ChartAccount],
     excel_file: Path
 ):
-    """Seed de lançamentos diários a partir do Excel"""
+    """
+    Seed de lançamentos diários a partir do Excel
+    
+    REGRAS DE EXCLUSÃO DE LINHA (linhas ignoradas):
+    - data_movimentacao vazia ou inválida (parse_date retorna None)
+    - valor vazia ou inválida (parse_currency retorna 0 ou <= 0)
+    - grupo não encontrado no banco/planilha
+    - subgrupo não encontrado no banco/planilha
+    - conta não encontrada no subgrupo
+    - lançamento já existe (idempotência - mesma data, conta, valor, tenant, BU)
+    - exceção durante processamento da linha
+    """
     logger.log("Iniciando seed de Lançamentos Diários...", "STEP")
     
     # Encontrar a aba correta

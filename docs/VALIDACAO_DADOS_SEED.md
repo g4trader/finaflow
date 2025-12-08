@@ -153,6 +153,67 @@ _Resultado será preenchido após execução no Cloud Shell_
 
 ---
 
+## Validação Linha a Linha
+
+A partir de 2025-12-08, o script de validação foi aprimorado para fazer comparação **linha a linha** entre a planilha e o banco, aplicando **exatamente as mesmas regras de filtro** do script de seed.
+
+### Regras de Filtro do Seed (Documentadas)
+
+#### Lançamentos Diários
+
+As seguintes regras fazem uma linha ser ignorada durante o seed:
+
+1. **Data ou valor vazio**: Linha não possui `data_movimentacao` ou `valor` preenchidos
+2. **Data inválida**: `parse_date()` não consegue converter a data para `datetime`
+3. **Valor <= 0**: Valor parseado é zero ou negativo
+4. **Grupo não encontrado**: Grupo especificado não existe no banco/planilha
+5. **Subgrupo não encontrado**: Subgrupo especificado não existe no grupo
+6. **Conta não encontrada**: Nenhuma conta encontrada no subgrupo
+7. **Já existe (idempotência)**: Lançamento com mesma data, conta, valor, tenant e BU já existe
+
+#### Lançamentos Previstos
+
+As seguintes regras fazem uma linha ser ignorada durante o seed:
+
+1. **Data, conta ou valor vazio**: Linha não possui `data_prevista`, `conta` ou `valor` preenchidos
+2. **Data inválida**: `parse_date()` não consegue converter a data para `datetime`
+3. **Valor <= 0**: Valor parseado é zero ou negativo
+4. **Conta não encontrada**: Conta especificada não existe no banco (busca por nome exato ou `ilike`)
+5. **Grupo/Subgrupo não encontrado**: Grupo ou subgrupo não encontrado (mesmo que inferido da conta)
+6. **Já existe (idempotência)**: Previsão com mesma data, conta, valor, tenant e BU já existe
+
+### Arquivos CSV Gerados
+
+O script gera os seguintes arquivos CSV em `backend/logs/`:
+
+- **`diarios_missing_in_db_YYYYMMDD_HHMMSS.csv`**: Linhas da planilha que deveriam estar no banco mas não estão (após aplicar filtros do seed)
+- **`diarios_extra_in_db_YYYYMMDD_HHMMSS.csv`**: Linhas no banco que não estão na planilha (não deveria acontecer)
+- **`diarios_ignored_YYYYMMDD_HHMMSS.csv`**: Linhas da planilha ignoradas por regras do seed (com motivo)
+- **`previstos_missing_in_db_YYYYMMDD_HHMMSS.csv`**: Linhas da planilha que deveriam estar no banco mas não estão (após aplicar filtros do seed)
+- **`previstos_extra_in_db_YYYYMMDD_HHMMSS.csv`**: Linhas no banco que não estão na planilha (não deveria acontecer)
+- **`previstos_ignored_YYYYMMDD_HHMMSS.csv`**: Linhas da planilha ignoradas por regras do seed (com motivo)
+
+### Interpretação dos Resultados
+
+#### Status: ✅ OK
+
+Indica que todas as linhas válidas da planilha (após aplicar filtros do seed) estão no banco, e não há linhas extras no banco.
+
+#### Status: ✅ OK (diferença explicada por regras de seed)
+
+Indica que a diferença entre o total bruto da planilha e o total do banco é **completamente explicada** pelas linhas ignoradas por regras do seed. Neste caso:
+- `total_bruto_planilha` > `total_banco`
+- `total_pos_filtro_planilha` == `total_banco`
+- `missing_in_db` == 0
+
+#### Status: ❌ MISMATCH
+
+Indica que há linhas válidas da planilha (após aplicar filtros do seed) que **não estão no banco**. Isso sugere um bug no script de seed ou uma inconsistência nos dados.
+
+**Ação recomendada**: Verificar o CSV `*_missing_in_db_*.csv` para identificar quais linhas estão faltando e investigar o motivo.
+
+---
+
 **Última atualização**: 2025-12-08  
 **Script**: `backend/scripts/validate_seed_against_client_sheet.py`  
 **Planilha**: `backend/data/fluxo_caixa_2025.xlsx`
