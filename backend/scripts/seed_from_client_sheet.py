@@ -127,7 +127,7 @@ class SeedLogger:
             "ERROR": "❌",
             "STEP": "📋"
         }.get(level, "ℹ️ ")
-        print(f"{prefix} {message}")
+        print(f"{prefix} {message}", flush=True)  # flush=True para aparecer imediatamente
     
     def print_stats(self):
         """Imprime estatísticas finais"""
@@ -814,8 +814,14 @@ def seed_lancamentos_diarios(
         lancamentos_batch = []
         total_rows = len(df)
         logger.log(f"Processando {total_rows} linhas de lançamentos diários...", "INFO")
+        logger.log(f"Progresso será mostrado a cada {BATCH_SIZE} lançamentos criados", "INFO")
         
+        processed_count = 0
         for row_num, row in df.iterrows():
+            processed_count += 1
+            # Mostrar progresso a cada 50 linhas processadas (mesmo que não criadas)
+            if processed_count % 50 == 0:
+                logger.log(f"Processando linha {processed_count}/{total_rows}...", "INFO")
             try:
                 # Parse dos campos
                 data_mov_str = str(row[column_map['data_movimentacao']]) if pd.notna(row[column_map['data_movimentacao']]) else ""
@@ -920,6 +926,7 @@ def seed_lancamentos_diarios(
                 # Commit em lotes
                 if len(lancamentos_batch) >= BATCH_SIZE:
                     try:
+                        logger.log(f"💾 Committing lote de {len(lancamentos_batch)} lançamentos...", "INFO")
                         db.add_all(lancamentos_batch)
                         db.commit()
                         logger.log(f"✅ Lote commitado: {logger.stats['lancamentos_diarios_criados']} lançamentos criados (linha {row_num + 2}/{total_rows})", "INFO")
