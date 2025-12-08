@@ -1,0 +1,42 @@
+steps:
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Criar job temporário para executar seed
+        gcloud run jobs create seed-staging-job \
+          --image gcr.io/$PROJECT_ID/finaflow-backend-staging:latest \
+          --region us-central1 \
+          --set-env-vars DATABASE_URL=postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging \
+          --add-cloudsql-instances trivihair:us-central1:finaflow-db-staging \
+          --command python3 \
+          --args -m,scripts.seed_from_client_sheet,--file,data/fluxo_caixa_2025.xlsx \
+          --max-retries 1 \
+          --task-timeout 1800 \
+          --memory 2Gi \
+          --cpu 2 \
+          --project $PROJECT_ID || echo "Job já existe, continuando..."
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Executar o job
+        gcloud run jobs execute seed-staging-job \
+          --region us-central1 \
+          --project $PROJECT_ID \
+          --wait
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Obter logs do job
+        gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=seed-staging-job" \
+          --limit 1000 \
+          --project $PROJECT_ID \
+          --format json > /workspace/seed_logs.json || echo "Logs obtidos"
+
