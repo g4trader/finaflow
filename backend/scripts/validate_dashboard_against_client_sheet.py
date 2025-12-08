@@ -22,7 +22,7 @@ import sys
 import os
 import argparse
 from pathlib import Path
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
@@ -782,6 +782,207 @@ def comparar_totais(
     return all_ok, inconsistencies, stats
 
 # ============================================================================
+# FUNÇÕES DE DRILL DOWN (DEBUG)
+# ============================================================================
+
+def gerar_csv_planilha_filtrada(
+    entries_filtrado: List[Dict],
+    year: int,
+    month: int,
+    tipo: str,
+    log_dir: Path
+) -> Path:
+    """
+    Gera CSV com entradas filtradas da planilha para um mês/tipo específico.
+    """
+    tipo_upper = tipo.upper()
+    filtered_entries = [
+        e for e in entries_filtrado
+        if e["ano"] == year and e["mes"] == month and e["tipo"].upper() == tipo_upper
+    ]
+    
+    csv_path = log_dir / f"debug_{year}_{month:02d}_{tipo_upper}_planilha.csv"
+    
+    with open(csv_path, 'w', encoding='utf-8') as f:
+        f.write("ano,mes,grupo,subgrupo,conta,tipo,origem,valor\n")
+        for entry in filtered_entries:
+            f.write(f"{entry['ano']},{entry['mes']},"
+                   f'"{entry["grupo"]}","{entry["subgrupo"]}","{entry["conta"]}",'
+                   f"{entry['tipo']},{entry['origem']},{float(entry['valor']):.2f}\n")
+    
+    return csv_path
+
+def gerar_csv_banco(
+    db: Session,
+    tenant_id: str,
+    business_unit_id: str,
+    year: int,
+    month: int,
+    tipo: str,
+    log_dir: Path
+) -> Path:
+    """
+    Gera CSV com lançamentos do banco para um mês/tipo específico.
+    """
+    tipo_upper = tipo.upper()
+    
+    # Mapear tipo string para TransactionType
+    tipo_map = {
+        "RECEITA": TransactionType.RECEITA,
+        "DESPESA": TransactionType.DESPESA,
+        "CUSTO": TransactionType.CUSTO
+    }
+    transaction_type = tipo_map.get(tipo_upper)
+    if not transaction_type:
+        raise ValueError(f"Tipo inválido: {tipo}")
+    
+    start_dt = datetime(year, month, 1)
+    if month == 12:
+        end_dt = datetime(year, 12, 31, 23, 59, 59)
+    else:
+        end_dt = datetime(year, month + 1, 1) - timedelta(seconds=1)
+    
+    query = db.query(LancamentoDiario).join(
+        ChartAccount
+    ).join(
+        ChartAccountSubgroup
+    ).join(
+        ChartAccountGroup
+    ).filter(
+        LancamentoDiario.tenant_id == tenant_id,
+        LancamentoDiario.business_unit_id == business_unit_id,
+        LancamentoDiario.is_active.is_(True),
+        LancamentoDiario.data_movimentacao >= start_dt,
+        LancamentoDiario.data_movimentacao <= end_dt,
+        LancamentoDiario.transaction_type == transaction_type
+    )
+    
+    lancamentos = query.all()
+    
+    csv_path = log_dir / f"debug_{year}_{month:02d}_{tipo_upper}_banco.csv"
+    
+    with open(csv_path, 'w', encoding='utf-8') as f:
+        f.write("ano,mes,grupo,subgrupo,conta,tipo,valor\n")
+        for lanc in lancamentos:
+            grupo = lanc.conta.subgroup.group.name if lanc.conta and lanc.conta.subgroup and lanc.conta.subgroup.group else "N/A"
+            subgrupo = lanc.conta.subgroup.name if lanc.conta and lanc.conta.subgroup else "N/A"
+            conta = lanc.conta.name if lanc.conta else "N/A"
+            f.write(f"{lanc.data_movimentacao.year},{lanc.data_movimentacao.month},"
+                   f'"{grupo}","{subgrupo}","{conta}",'
+                   f"{tipo_upper},{float(lanc.valor):.2f}\n")
+    
+    return csv_path
+
+def gerar_csv_comparativo(
+    entries_filtrado: List[Dict],
+    db: Session,
+    tenant_id: str,
+    business_unit_id: str,
+    year: int,
+    month: int,
+    tipo: str,
+    log_dir: Path
+) -> Path:
+    """
+    Gera CSV comparativo entre planilha filtrada e banco para um mês/tipo específico.
+    """
+    tipo_upper = tipo.upper()
+    
+    # Agregar planilha por grupo/subgrupo/conta
+    planilha_agg = defaultdict(lambda: Decimal("0"))
+    for entry in entries_filtrado:
+        if entry["ano"] == year and entry["mes"] == month and entry["tipo"].upper() == tipo_upper:
+            key = (entry["grupo"], entry["subgrupo"], entry["conta"])
+            planilha_agg[key] += entry["valor"]
+    
+    # Agregar banco por grupo/subgrupo/conta
+    tipo_map = {
+        "RECEITA": TransactionType.RECEITA,
+        "DESPESA": TransactionType.DESPESA,
+        "CUSTO": TransactionType.CUSTO
+    }
+    transaction_type = tipo_map.get(tipo_upper)
+    if not transaction_type:
+        raise ValueError(f"Tipo inválido: {tipo}")
+    
+    start_dt = datetime(year, month, 1)
+    if month == 12:
+        end_dt = datetime(year, 12, 31, 23, 59, 59)
+    else:
+        end_dt = datetime(year, month + 1, 1) - timedelta(seconds=1)
+    
+    query = db.query(LancamentoDiario).join(
+        ChartAccount
+    ).join(
+        ChartAccountSubgroup
+    ).join(
+        ChartAccountGroup
+    ).filter(
+        LancamentoDiario.tenant_id == tenant_id,
+        LancamentoDiario.business_unit_id == business_unit_id,
+        LancamentoDiario.is_active.is_(True),
+        LancamentoDiario.data_movimentacao >= start_dt,
+        LancamentoDiario.data_movimentacao <= end_dt,
+        LancamentoDiario.transaction_type == transaction_type
+    )
+    
+    lancamentos = query.all()
+    
+    banco_agg = defaultdict(lambda: Decimal("0"))
+    for lanc in lancamentos:
+        grupo = lanc.conta.subgroup.group.name if lanc.conta and lanc.conta.subgroup and lanc.conta.subgroup.group else "N/A"
+        subgrupo = lanc.conta.subgroup.name if lanc.conta and lanc.conta.subgroup else "N/A"
+        conta = lanc.conta.name if lanc.conta else "N/A"
+        key = (grupo, subgrupo, conta)
+        banco_agg[key] += lanc.valor
+    
+    # Criar conjunto de todas as chaves
+    all_keys = set(planilha_agg.keys()) | set(banco_agg.keys())
+    
+    # Criar lista de comparação
+    comparativo = []
+    for key in all_keys:
+        grupo, subgrupo, conta = key
+        valor_planilha = planilha_agg.get(key, Decimal("0"))
+        valor_banco = banco_agg.get(key, Decimal("0"))
+        delta_abs = abs(valor_banco - valor_planilha)
+        delta_pct = None
+        if valor_planilha != 0:
+            delta_pct = (delta_abs / abs(valor_planilha)) * 100
+        
+        status = "AMBOS"
+        if valor_planilha == 0 and valor_banco != 0:
+            status = "SO_BANCO"
+        elif valor_planilha != 0 and valor_banco == 0:
+            status = "SO_PLANILHA"
+        
+        comparativo.append({
+            "grupo": grupo,
+            "subgrupo": subgrupo,
+            "conta": conta,
+            "valor_planilha": valor_planilha,
+            "valor_banco": valor_banco,
+            "delta_abs": delta_abs,
+            "delta_pct": delta_pct,
+            "status": status
+        })
+    
+    # Ordenar por delta_abs desc
+    comparativo.sort(key=lambda x: x["delta_abs"], reverse=True)
+    
+    csv_path = log_dir / f"debug_{year}_{month:02d}_{tipo_upper}_comparativo.csv"
+    
+    with open(csv_path, 'w', encoding='utf-8') as f:
+        f.write("grupo,subgrupo,conta,valor_planilha,valor_banco,delta_abs,delta_pct,status\n")
+        for item in comparativo:
+            delta_pct_str = f"{float(item['delta_pct']):.2f}" if item['delta_pct'] is not None else "N/A"
+            f.write(f'"{item["grupo"]}","{item["subgrupo"]}","{item["conta"]}",'
+                   f"{float(item['valor_planilha']):.2f},{float(item['valor_banco']):.2f},"
+                   f"{float(item['delta_abs']):.2f},{delta_pct_str},{item['status']}\n")
+    
+    return csv_path
+
+# ============================================================================
 # FUNÇÕES DE IMPRESSÃO
 # ============================================================================
 
@@ -971,8 +1172,31 @@ def main():
         default=DEFAULT_BACKEND_URL,
         help=f'URL do backend (default: {DEFAULT_BACKEND_URL})'
     )
+    parser.add_argument(
+        '--debug-month',
+        type=int,
+        default=None,
+        help='Mês para drill down detalhado (1-12, opcional)'
+    )
+    parser.add_argument(
+        '--debug-type',
+        type=str,
+        default=None,
+        choices=['RECEITA', 'DESPESA', 'CUSTO'],
+        help='Tipo para drill down detalhado (RECEITA, DESPESA, CUSTO, opcional)'
+    )
     
     args = parser.parse_args()
+    
+    # Validar parâmetros de debug
+    if (args.debug_month is not None and args.debug_type is None) or \
+       (args.debug_month is None and args.debug_type is not None):
+        print("❌ --debug-month e --debug-type devem ser fornecidos juntos")
+        sys.exit(1)
+    
+    if args.debug_month is not None and (args.debug_month < 1 or args.debug_month > 12):
+        print("❌ --debug-month deve estar entre 1 e 12")
+        sys.exit(1)
     
     excel_file = Path(args.file)
     if not excel_file.exists():
@@ -1087,15 +1311,64 @@ def main():
             # Imprimir tabela de comparação
             imprimir_tabela_comparacao(sheet_summary, db_summary, api_summary, args.year)
             
+            # Modo de drill down (se solicitado)
+            if args.debug_month and args.debug_type:
+                print("\n" + "="*80)
+                print(f"🔍 MODO DRILL DOWN - {args.year}-{args.debug_month:02d} | {args.debug_type}")
+                print("="*80)
+                
+                print(f"\n📊 Gerando CSVs de drill down...")
+                
+                csv_planilha = gerar_csv_planilha_filtrada(
+                    entries_filtrado, args.year, args.debug_month, args.debug_type, log_dir
+                )
+                print(f"✅ CSV da planilha filtrada: {csv_planilha}")
+                
+                csv_banco = gerar_csv_banco(
+                    db, tenant.id, business_unit.id, args.year, args.debug_month, args.debug_type, log_dir
+                )
+                print(f"✅ CSV do banco: {csv_banco}")
+                
+                csv_comparativo = gerar_csv_comparativo(
+                    entries_filtrado, db, tenant.id, business_unit.id,
+                    args.year, args.debug_month, args.debug_type, log_dir
+                )
+                print(f"✅ CSV comparativo: {csv_comparativo}")
+                
+                print(f"\n📁 CSVs salvos em: {log_dir}")
+                print(f"   - {csv_planilha.name}")
+                print(f"   - {csv_banco.name}")
+                print(f"   - {csv_comparativo.name}")
+            
             # Resumo final
             print("\n" + "="*80)
             print("📊 RESUMO FINAL")
             print("="*80)
             
-            print(f"\nEstatísticas de Mismatches:")
-            print(f"  - BRUTA→FILTRO: {stats['mismatch_bruta_filtro']} meses/tipos")
-            print(f"  - FILTRO→BANCO: {stats['mismatch_filtro_banco']} meses/tipos")
-            print(f"  - BANCO→API: {stats['mismatch_banco_api']} meses/tipos")
+            # Contar meses únicos com mismatch
+            meses_bruta_filtro = set()
+            meses_filtro_banco = set()
+            meses_banco_api = set()
+            
+            for inc in inconsistencies:
+                key = (inc['ano'], inc['mes'])
+                if inc['delta_bruta_filtro'] > TOLERANCE_ABS or \
+                   (inc['delta_pct_bruta_filtro'] and inc['delta_pct_bruta_filtro'] > TOLERANCE_PCT):
+                    meses_bruta_filtro.add(key)
+                if inc['delta_filtro_banco'] > TOLERANCE_ABS or \
+                   (inc['delta_pct_filtro_banco'] and inc['delta_pct_filtro_banco'] > TOLERANCE_PCT):
+                    meses_filtro_banco.add(key)
+                if inc['delta_banco_api'] > TOLERANCE_ABS or \
+                   (inc['delta_pct_banco_api'] and inc['delta_pct_banco_api'] > TOLERANCE_PCT):
+                    meses_banco_api.add(key)
+            
+            print(f"\n📈 Estatísticas de Mismatches (por mês/tipo):")
+            print(f"  - BRUTA→FILTRO: {stats['mismatch_bruta_filtro']} ocorrências em {len(meses_bruta_filtro)} meses distintos")
+            print(f"    (Diferenças explicadas por regras do seed - linhas filtradas/ignoradas)")
+            print(f"  - FILTRO→BANCO: {stats['mismatch_filtro_banco']} ocorrências em {len(meses_filtro_banco)} meses distintos")
+            print(f"    (Possível bug no seed - dados não foram persistidos corretamente)")
+            print(f"  - BANCO→API: {stats['mismatch_banco_api']} ocorrências em {len(meses_banco_api)} meses distintos")
+            print(f"    (Possível bug no dashboard/endpoint - cálculo incorreto na API)")
             
             if all_ok:
                 print("\n✅ TODOS OS TOTAIS ESTÃO CONSISTENTES (planilha, banco, API)")
