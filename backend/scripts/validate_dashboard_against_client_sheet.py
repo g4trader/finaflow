@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Script de Validação Profunda - Dashboard vs Planilha vs Banco
+Script de Validação Profunda - Dashboard vs Planilha vs Banco (Auditoria)
 
 Compara os totais mensais (receita, despesa, custo, saldo) entre:
-- Planilha do cliente (Excel)
+- Planilha BRUTA do cliente (Excel, sem filtros)
+- Planilha FILTRADA (aplicando regras do seed)
 - Banco de dados STAGING
 - Endpoints de dashboard do backend
 
@@ -25,7 +26,6 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
-import re
 
 # Adicionar backend ao path
 backend_path = Path(__file__).parent.parent
@@ -40,7 +40,6 @@ except ImportError as e:
     sys.exit(1)
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract
 from app.database import SessionLocal
 
 # Importar TODOS os modelos para garantir que os relacionamentos sejam resolvidos
@@ -62,8 +61,8 @@ from app.models.lancamento_previsto import (
     LancamentoPrevisto
 )
 
-# Reutilizar funções do seed
-from scripts.seed_from_client_sheet import (
+# Reutilizar funções do seed_utils
+from scripts.seed_utils import (
     parse_currency,
     parse_date,
     determine_transaction_type,
@@ -89,20 +88,17 @@ TOLERANCE_PCT = Decimal("0.1")   # 0,1%
 # ESTRUTURAS DE DADOS
 # ============================================================================
 
-# Estrutura canônica de um lançamento
-CanonicalEntry = Dict[str, any]  # {
-#     "data": date,
-#     "ano": int,
-#     "mes": int,
-#     "grupo": str,
-#     "subgrupo": str,
-#     "conta": str,
-#     "tipo": "RECEITA" | "DESPESA" | "CUSTO",
-#     "valor": Decimal,
-#     "origem": "DIARIO" | "PREVISTO"
+# Estrutura de resumo mensal com valores brutos e filtrados
+MonthlySummaryWithBruto = Dict[Tuple[int, int], Dict[str, Dict[str, Decimal]]]  # {
+#     (ano, mes): {
+#         "receita": {"bruto": Decimal, "filtrado": Decimal},
+#         "despesa": {"bruto": Decimal, "filtrado": Decimal},
+#         "custo": {"bruto": Decimal, "filtrado": Decimal},
+#         "saldo": {"bruto": Decimal, "filtrado": Decimal}
+#     }
 # }
 
-# Estrutura de resumo mensal
+# Estrutura de resumo mensal simples (banco/API)
 MonthlySummary = Dict[Tuple[int, int], Dict[str, Decimal]]  # {
 #     (ano, mes): {
 #         "receita": Decimal,
@@ -113,10 +109,61 @@ MonthlySummary = Dict[Tuple[int, int], Dict[str, Decimal]]  # {
 # }
 
 # ============================================================================
-# FUNÇÕES DE NORMALIZAÇÃO DA PLANILHA
+# FUNÇÕES DE NORMALIZAÇÃO DA PLANILHA (BRUTA E FILTRADA)
 # ============================================================================
 
-def normalize_diarios_from_sheet(
+def normalize_diarios_bruto(
+    df: pd.DataFrame,
+    column_map: Dict[str, str],
+    year: int
+) -> List[Dict]:
+    """
+    Normaliza lançamentos diários da planilha SEM aplicar filtros do seed.
+    Retorna lista de entradas canônicas (BRUTA).
+    """
+    entries = []
+    
+    for row_num, row in df.iterrows():
+        # Parse dos campos
+        data_mov_str = str(row[column_map['data_movimentacao']]) if pd.notna(row[column_map['data_movimentacao']]) else ""
+        subgrupo_nome = ""
+        grupo_nome = ""
+        if 'subgrupo' in column_map:
+            subgrupo_nome = str(row[column_map['subgrupo']]).strip() if pd.notna(row[column_map['subgrupo']]) else ""
+        if 'grupo' in column_map:
+            grupo_nome = str(row[column_map['grupo']]).strip() if pd.notna(row[column_map['grupo']]) else ""
+        valor_str = str(row[column_map['valor']]) if pd.notna(row[column_map['valor']]) else ""
+        
+        # Parse básico (sem filtros)
+        data_movimentacao = parse_date(data_mov_str)
+        if not data_movimentacao or data_movimentacao.year != year:
+            continue
+        
+        valor = parse_currency(valor_str)
+        if valor == 0:
+            continue
+        
+        # Determinar tipo baseado apenas no nome do grupo (sem validação de existência)
+        tx_type = determine_transaction_type(grupo_nome, subgrupo_nome)
+        tipo_str = "RECEITA" if tx_type == TransactionType.RECEITA else \
+                   "DESPESA" if tx_type == TransactionType.DESPESA else \
+                   "CUSTO"
+        
+        entries.append({
+            "data": data_movimentacao.date(),
+            "ano": data_movimentacao.year,
+            "mes": data_movimentacao.month,
+            "grupo": grupo_nome or "N/A",
+            "subgrupo": subgrupo_nome or "N/A",
+            "conta": "N/A",
+            "tipo": tipo_str,
+            "valor": valor,
+            "origem": "DIARIO"
+        })
+    
+    return entries
+
+def normalize_diarios_filtrado(
     df: pd.DataFrame,
     column_map: Dict[str, str],
     tenant_id: str,
@@ -124,7 +171,7 @@ def normalize_diarios_from_sheet(
 ) -> List[Dict]:
     """
     Normaliza lançamentos diários da planilha aplicando EXATAMENTE as mesmas regras do seed.
-    Retorna lista de entradas canônicas.
+    Retorna lista de entradas canônicas (FILTRADA).
     """
     entries = []
     
@@ -210,7 +257,6 @@ def normalize_diarios_from_sheet(
                    "DESPESA" if tx_type == TransactionType.DESPESA else \
                    "CUSTO"
         
-        # Criar entrada canônica
         entries.append({
             "data": data_movimentacao.date(),
             "ano": data_movimentacao.year,
@@ -225,7 +271,58 @@ def normalize_diarios_from_sheet(
     
     return entries
 
-def normalize_previstos_from_sheet(
+def normalize_previstos_bruto(
+    df: pd.DataFrame,
+    column_map: Dict[str, str],
+    year: int
+) -> List[Dict]:
+    """
+    Normaliza lançamentos previstos da planilha SEM aplicar filtros do seed.
+    Retorna lista de entradas canônicas (BRUTA).
+    """
+    entries = []
+    
+    for row_num, row in df.iterrows():
+        mes_str = str(row[column_map['data_prevista']]) if pd.notna(row[column_map['data_prevista']]) else ""
+        conta_nome = str(row[column_map['conta']]).strip() if pd.notna(row[column_map['conta']]) else ""
+        subgrupo_nome = ""
+        grupo_nome = ""
+        if 'subgrupo' in column_map:
+            subgrupo_nome = str(row[column_map['subgrupo']]).strip() if pd.notna(row[column_map['subgrupo']]) else ""
+        if 'grupo' in column_map:
+            grupo_nome = str(row[column_map['grupo']]).strip() if pd.notna(row[column_map['grupo']]) else ""
+        valor_str = str(row[column_map['valor']]) if pd.notna(row[column_map['valor']]) else ""
+        
+        # Parse básico (sem filtros)
+        data_prevista = parse_date(mes_str)
+        if not data_prevista or data_prevista.year != year:
+            continue
+        
+        valor = parse_currency(valor_str)
+        if valor == 0:
+            continue
+        
+        # Determinar tipo baseado apenas no nome do grupo
+        tx_type = determine_transaction_type(grupo_nome, subgrupo_nome)
+        tipo_str = "RECEITA" if tx_type == TransactionType.RECEITA else \
+                   "DESPESA" if tx_type == TransactionType.DESPESA else \
+                   "CUSTO"
+        
+        entries.append({
+            "data": data_prevista.date(),
+            "ano": data_prevista.year,
+            "mes": data_prevista.month,
+            "grupo": grupo_nome or "N/A",
+            "subgrupo": subgrupo_nome or "N/A",
+            "conta": conta_nome or "N/A",
+            "tipo": tipo_str,
+            "valor": valor,
+            "origem": "PREVISTO"
+        })
+    
+    return entries
+
+def normalize_previstos_filtrado(
     df: pd.DataFrame,
     column_map: Dict[str, str],
     tenant_id: str,
@@ -233,7 +330,7 @@ def normalize_previstos_from_sheet(
 ) -> List[Dict]:
     """
     Normaliza lançamentos previstos da planilha aplicando EXATAMENTE as mesmas regras do seed.
-    Retorna lista de entradas canônicas.
+    Retorna lista de entradas canônicas (FILTRADA).
     """
     entries = []
     
@@ -261,7 +358,6 @@ def normalize_previstos_from_sheet(
         contas_map[c.name.lower()] = c
     
     for row_num, row in df.iterrows():
-        # Parse dos campos (mesma lógica do seed)
         mes_str = str(row[column_map['data_prevista']]) if pd.notna(row[column_map['data_prevista']]) else ""
         conta_nome = str(row[column_map['conta']]).strip() if pd.notna(row[column_map['conta']]) else ""
         subgrupo_nome = ""
@@ -350,7 +446,6 @@ def normalize_previstos_from_sheet(
                    "DESPESA" if tx_type == TransactionType.DESPESA else \
                    "CUSTO"
         
-        # Criar entrada canônica
         entries.append({
             "data": data_prevista.date(),
             "ano": data_prevista.year,
@@ -365,19 +460,24 @@ def normalize_previstos_from_sheet(
     
     return entries
 
-def build_sheet_summary(entries: List[Dict], year: int) -> MonthlySummary:
+def agregar_planilha_bruta_e_filtrada(
+    entries_bruto: List[Dict],
+    entries_filtrado: List[Dict],
+    year: int
+) -> MonthlySummaryWithBruto:
     """
-    Agrega entradas canônicas por mês e tipo.
-    Retorna dicionário: {(ano, mes): {"receita": Decimal, "despesa": Decimal, "custo": Decimal, "saldo": Decimal}}
+    Agrega entradas brutas e filtradas por mês e tipo.
+    Retorna dicionário com valores brutos e filtrados.
     """
     summary = defaultdict(lambda: {
-        "receita": Decimal("0"),
-        "despesa": Decimal("0"),
-        "custo": Decimal("0"),
-        "saldo": Decimal("0")
+        "receita": {"bruto": Decimal("0"), "filtrado": Decimal("0")},
+        "despesa": {"bruto": Decimal("0"), "filtrado": Decimal("0")},
+        "custo": {"bruto": Decimal("0"), "filtrado": Decimal("0")},
+        "saldo": {"bruto": Decimal("0"), "filtrado": Decimal("0")}
     })
     
-    for entry in entries:
+    # Agregar valores brutos
+    for entry in entries_bruto:
         if entry["ano"] != year:
             continue
         
@@ -386,18 +486,39 @@ def build_sheet_summary(entries: List[Dict], year: int) -> MonthlySummary:
         valor = entry["valor"]
         
         if tipo == "RECEITA":
-            summary[key]["receita"] += valor
+            summary[key]["receita"]["bruto"] += valor
         elif tipo == "DESPESA":
-            summary[key]["despesa"] += valor
+            summary[key]["despesa"]["bruto"] += valor
         elif tipo == "CUSTO":
-            summary[key]["custo"] += valor
+            summary[key]["custo"]["bruto"] += valor
+    
+    # Agregar valores filtrados
+    for entry in entries_filtrado:
+        if entry["ano"] != year:
+            continue
+        
+        key = (entry["ano"], entry["mes"])
+        tipo = entry["tipo"].upper()
+        valor = entry["valor"]
+        
+        if tipo == "RECEITA":
+            summary[key]["receita"]["filtrado"] += valor
+        elif tipo == "DESPESA":
+            summary[key]["despesa"]["filtrado"] += valor
+        elif tipo == "CUSTO":
+            summary[key]["custo"]["filtrado"] += valor
     
     # Calcular saldo para cada mês
     for key in summary:
-        summary[key]["saldo"] = (
-            summary[key]["receita"] -
-            summary[key]["despesa"] -
-            summary[key]["custo"]
+        summary[key]["saldo"]["bruto"] = (
+            summary[key]["receita"]["bruto"] -
+            summary[key]["despesa"]["bruto"] -
+            summary[key]["custo"]["bruto"]
+        )
+        summary[key]["saldo"]["filtrado"] = (
+            summary[key]["receita"]["filtrado"] -
+            summary[key]["despesa"]["filtrado"] -
+            summary[key]["custo"]["filtrado"]
         )
     
     return dict(summary)
@@ -406,7 +527,7 @@ def build_sheet_summary(entries: List[Dict], year: int) -> MonthlySummary:
 # FUNÇÕES DE AGREGAÇÃO DO BANCO
 # ============================================================================
 
-def build_db_summary(
+def agregar_banco(
     db: Session,
     tenant_id: str,
     business_unit_id: str,
@@ -467,27 +588,7 @@ def build_db_summary(
 # FUNÇÕES DE CONSUMO DA API
 # ============================================================================
 
-def login_api(backend_url: str) -> Optional[str]:
-    """
-    Faz login na API e retorna o access_token.
-    """
-    try:
-        response = requests.post(
-            f"{backend_url}/api/v1/auth/login",
-            json={
-                "username": "qa@finaflow.test",
-                "password": "QaFinaflow123!"
-            },
-            timeout=10
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("access_token")
-    except Exception as e:
-        print(f"❌ Erro ao fazer login na API: {e}")
-        return None
-
-def build_api_summary(backend_url: str, year: int, token: str) -> MonthlySummary:
+def consumir_api(backend_url: str, year: int, token: str) -> MonthlySummary:
     """
     Consome o endpoint /financial/annual-summary e retorna resumo mensal.
     Retorna dicionário: {(ano, mes): {"receita": Decimal, "despesa": Decimal, "custo": Decimal, "saldo": Decimal}}
@@ -533,20 +634,45 @@ def build_api_summary(backend_url: str, year: int, token: str) -> MonthlySummary
     
     return dict(summary)
 
+def login_api(backend_url: str) -> Optional[str]:
+    """
+    Faz login na API e retorna o access_token.
+    """
+    try:
+        response = requests.post(
+            f"{backend_url}/api/v1/auth/login",
+            json={
+                "username": "qa@finaflow.test",
+                "password": "QaFinaflow123!"
+            },
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get("access_token")
+    except Exception as e:
+        print(f"❌ Erro ao fazer login na API: {e}")
+        return None
+
 # ============================================================================
 # FUNÇÕES DE COMPARAÇÃO
 # ============================================================================
 
-def compare_summaries(
-    sheet_summary: MonthlySummary,
+def comparar_totais(
+    sheet_summary: MonthlySummaryWithBruto,
     db_summary: MonthlySummary,
     api_summary: MonthlySummary,
     year: int
-) -> Tuple[bool, List[Dict]]:
+) -> Tuple[bool, List[Dict], Dict[str, int]]:
     """
-    Compara os três resumos e retorna (ok, lista_de_inconsistencias).
+    Compara os três resumos e retorna (ok, lista_de_inconsistencias, estatisticas).
     """
     inconsistencies = []
+    stats = {
+        "mismatch_bruta_filtro": 0,
+        "mismatch_filtro_banco": 0,
+        "mismatch_banco_api": 0
+    }
     all_ok = True
     
     # Coletar todos os meses presentes em qualquer resumo
@@ -566,10 +692,10 @@ def compare_summaries(
         
         # Obter valores (default 0 se não existir)
         sheet = sheet_summary.get(key, {
-            "receita": Decimal("0"),
-            "despesa": Decimal("0"),
-            "custo": Decimal("0"),
-            "saldo": Decimal("0")
+            "receita": {"bruto": Decimal("0"), "filtrado": Decimal("0")},
+            "despesa": {"bruto": Decimal("0"), "filtrado": Decimal("0")},
+            "custo": {"bruto": Decimal("0"), "filtrado": Decimal("0")},
+            "saldo": {"bruto": Decimal("0"), "filtrado": Decimal("0")}
         })
         db = db_summary.get(key, {
             "receita": Decimal("0"),
@@ -586,56 +712,240 @@ def compare_summaries(
         
         # Comparar cada tipo
         for tipo in ["receita", "despesa", "custo", "saldo"]:
-            sheet_val = sheet[tipo]
+            sheet_bruto = sheet[tipo]["bruto"]
+            sheet_filtrado = sheet[tipo]["filtrado"]
             db_val = db[tipo]
             api_val = api[tipo]
             
-            # Comparar planilha vs banco
-            delta_sheet_db = abs(db_val - sheet_val)
-            delta_pct_sheet_db = None
-            if sheet_val != 0:
-                delta_pct_sheet_db = (delta_sheet_db / abs(sheet_val)) * 100
+            # Comparar BRUTA→FILTRO
+            delta_bruta_filtro = abs(sheet_filtrado - sheet_bruto)
+            delta_pct_bruta_filtro = None
+            if sheet_bruto != 0:
+                delta_pct_bruta_filtro = (delta_bruta_filtro / abs(sheet_bruto)) * 100
             
-            # Comparar banco vs API
-            delta_db_api = abs(api_val - db_val)
-            delta_pct_db_api = None
+            mismatch_bruta_filtro = (
+                delta_bruta_filtro > TOLERANCE_ABS or
+                (delta_pct_bruta_filtro is not None and delta_pct_bruta_filtro > TOLERANCE_PCT)
+            )
+            
+            # Comparar FILTRO→BANCO
+            delta_filtro_banco = abs(db_val - sheet_filtrado)
+            delta_pct_filtro_banco = None
+            if sheet_filtrado != 0:
+                delta_pct_filtro_banco = (delta_filtro_banco / abs(sheet_filtrado)) * 100
+            
+            mismatch_filtro_banco = (
+                delta_filtro_banco > TOLERANCE_ABS or
+                (delta_pct_filtro_banco is not None and delta_pct_filtro_banco > TOLERANCE_PCT)
+            )
+            
+            # Comparar BANCO→API
+            delta_banco_api = abs(api_val - db_val)
+            delta_pct_banco_api = None
             if db_val != 0:
-                delta_pct_db_api = (delta_db_api / abs(db_val)) * 100
+                delta_pct_banco_api = (delta_banco_api / abs(db_val)) * 100
             
-            # Verificar tolerâncias
-            mismatch_sheet_db = (
-                delta_sheet_db > TOLERANCE_ABS or
-                (delta_pct_sheet_db is not None and delta_pct_sheet_db > TOLERANCE_PCT)
-            )
-            mismatch_db_api = (
-                delta_db_api > TOLERANCE_ABS or
-                (delta_pct_db_api is not None and delta_pct_db_api > TOLERANCE_PCT)
+            mismatch_banco_api = (
+                delta_banco_api > TOLERANCE_ABS or
+                (delta_pct_banco_api is not None and delta_pct_banco_api > TOLERANCE_PCT)
             )
             
-            if mismatch_sheet_db or mismatch_db_api:
+            if mismatch_bruta_filtro:
+                stats["mismatch_bruta_filtro"] += 1
                 all_ok = False
+            
+            if mismatch_filtro_banco:
+                stats["mismatch_filtro_banco"] += 1
+                all_ok = False
+            
+            if mismatch_banco_api:
+                stats["mismatch_banco_api"] += 1
+                all_ok = False
+            
+            if mismatch_bruta_filtro or mismatch_filtro_banco or mismatch_banco_api:
                 inconsistencies.append({
                     "ano": year,
                     "mes": mes,
                     "tipo": tipo,
-                    "sheet": sheet_val,
+                    "sheet_bruto": sheet_bruto,
+                    "sheet_filtrado": sheet_filtrado,
                     "db": db_val,
                     "api": api_val,
-                    "delta_sheet_db": delta_sheet_db,
-                    "delta_pct_sheet_db": delta_pct_sheet_db,
-                    "delta_db_api": delta_db_api,
-                    "delta_pct_db_api": delta_pct_db_api
+                    "delta_bruta_filtro": delta_bruta_filtro,
+                    "delta_pct_bruta_filtro": delta_pct_bruta_filtro,
+                    "delta_filtro_banco": delta_filtro_banco,
+                    "delta_pct_filtro_banco": delta_pct_filtro_banco,
+                    "delta_banco_api": delta_banco_api,
+                    "delta_pct_banco_api": delta_pct_banco_api
                 })
     
-    return all_ok, inconsistencies
+    return all_ok, inconsistencies, stats
+
+# ============================================================================
+# FUNÇÕES DE IMPRESSÃO
+# ============================================================================
+
+def imprimir_tabela_comparacao(
+    sheet_summary: MonthlySummaryWithBruto,
+    db_summary: MonthlySummary,
+    api_summary: MonthlySummary,
+    year: int
+):
+    """
+    Imprime tabela de comparação expandida.
+    """
+    print("\n" + "="*140)
+    print("TABELA DE COMPARAÇÃO")
+    print("="*140)
+    print(f"{'ANO-MÊS':<10} {'TIPO':<10} {'PLAN_BRUTA':>15} {'PLAN_FILTRO':>15} {'BANCO':>15} {'API':>15} "
+          f"{'Δ BRUT→FILT':>12} {'Δ%':>8} {'Δ FILT→BAN':>12} {'Δ%':>8} {'Δ BAN→API':>12} {'Δ%':>8}")
+    print("-"*140)
+    
+    all_months = set()
+    for key in sheet_summary.keys():
+        if key[0] == year:
+            all_months.add(key[1])
+    for key in db_summary.keys():
+        if key[0] == year:
+            all_months.add(key[1])
+    for key in api_summary.keys():
+        if key[0] == year:
+            all_months.add(key[1])
+    
+    for mes in sorted(all_months):
+        key = (year, mes)
+        sheet = sheet_summary.get(key, {
+            "receita": {"bruto": Decimal("0"), "filtrado": Decimal("0")},
+            "despesa": {"bruto": Decimal("0"), "filtrado": Decimal("0")},
+            "custo": {"bruto": Decimal("0"), "filtrado": Decimal("0")},
+            "saldo": {"bruto": Decimal("0"), "filtrado": Decimal("0")}
+        })
+        db = db_summary.get(key, {
+            "receita": Decimal("0"),
+            "despesa": Decimal("0"),
+            "custo": Decimal("0"),
+            "saldo": Decimal("0")
+        })
+        api = api_summary.get(key, {
+            "receita": Decimal("0"),
+            "despesa": Decimal("0"),
+            "custo": Decimal("0"),
+            "saldo": Decimal("0")
+        })
+        
+        for tipo in ["receita", "despesa", "custo", "saldo"]:
+            sheet_bruto = sheet[tipo]["bruto"]
+            sheet_filtrado = sheet[tipo]["filtrado"]
+            db_val = db[tipo]
+            api_val = api[tipo]
+            
+            # Calcular deltas
+            delta_bruta_filtro = abs(sheet_filtrado - sheet_bruto)
+            delta_pct_bruta_filtro = (delta_bruta_filtro / abs(sheet_bruto) * 100) if sheet_bruto != 0 else None
+            delta_filtro_banco = abs(db_val - sheet_filtrado)
+            delta_pct_filtro_banco = (delta_filtro_banco / abs(sheet_filtrado) * 100) if sheet_filtrado != 0 else None
+            delta_banco_api = abs(api_val - db_val)
+            delta_pct_banco_api = (delta_banco_api / abs(db_val) * 100) if db_val != 0 else None
+            
+            # Marcar warnings
+            status = ""
+            if delta_bruta_filtro > TOLERANCE_ABS or (delta_pct_bruta_filtro and delta_pct_bruta_filtro > TOLERANCE_PCT):
+                status += "⚠️ "
+            if delta_filtro_banco > TOLERANCE_ABS or (delta_pct_filtro_banco and delta_pct_filtro_banco > TOLERANCE_PCT):
+                status += "⚠️ "
+            if delta_banco_api > TOLERANCE_ABS or (delta_pct_banco_api and delta_pct_banco_api > TOLERANCE_PCT):
+                status += "⚠️ "
+            
+            print(f"{year}-{mes:02d}  {tipo.upper():<10} "
+                  f"{float(sheet_bruto):>15,.2f} {float(sheet_filtrado):>15,.2f} {float(db_val):>15,.2f} {float(api_val):>15,.2f} "
+                  f"{float(delta_bruta_filtro):>12,.2f} "
+                  f"{f'{float(delta_pct_bruta_filtro):.2f}%' if delta_pct_bruta_filtro is not None else 'N/A':>8} "
+                  f"{float(delta_filtro_banco):>12,.2f} "
+                  f"{f'{float(delta_pct_filtro_banco):.2f}%' if delta_pct_filtro_banco is not None else 'N/A':>8} "
+                  f"{float(delta_banco_api):>12,.2f} "
+                  f"{f'{float(delta_pct_banco_api):.2f}%' if delta_pct_banco_api is not None else 'N/A':>8} "
+                  f"{status}")
 
 # ============================================================================
 # FUNÇÃO PRINCIPAL
 # ============================================================================
 
+def carregar_e_normalizar_planilha(
+    excel_file: Path,
+    tenant_id: str,
+    year: int,
+    db: Session
+) -> Tuple[List[Dict], List[Dict]]:
+    """
+    Carrega e normaliza a planilha, retornando entradas brutas e filtradas.
+    """
+    entries_bruto = []
+    entries_filtrado = []
+    
+    # Ler lançamentos diários
+    sheet_name_diarios = find_sheet_in_excel(excel_file, LANCAMENTOS_DIARIOS_SHEETS)
+    if not sheet_name_diarios:
+        print("❌ Aba de Lançamentos Diários não encontrada")
+        return entries_bruto, entries_filtrado
+    
+    df_diarios = read_excel_sheet(excel_file, sheet_name_diarios)
+    df_diarios.columns = df_diarios.columns.str.strip()
+    
+    # Mapear colunas
+    column_map_diarios = {}
+    for col in df_diarios.columns:
+        col_lower = col.lower()
+        if 'data' in col_lower and ('movimentação' in col_lower or 'movimentacao' in col_lower):
+            column_map_diarios['data_movimentacao'] = col
+        elif 'data' in col_lower and 'data_movimentacao' not in column_map_diarios:
+            column_map_diarios['data_movimentacao'] = col
+        if 'subgrupo' in col_lower and 'subgrupo' not in column_map_diarios:
+            column_map_diarios['subgrupo'] = col
+        if 'grupo' in col_lower and 'subgrupo' not in col_lower and 'grupo' not in column_map_diarios:
+            column_map_diarios['grupo'] = col
+        if 'valor' in col_lower and 'valor' not in column_map_diarios:
+            column_map_diarios['valor'] = col
+    
+    if 'data_movimentacao' not in column_map_diarios or 'valor' not in column_map_diarios:
+        print("❌ Colunas necessárias não encontradas em Lançamentos Diários")
+        return entries_bruto, entries_filtrado
+    
+    # Normalizar (bruto e filtrado)
+    entries_bruto.extend(normalize_diarios_bruto(df_diarios, column_map_diarios, year))
+    entries_filtrado.extend(normalize_diarios_filtrado(df_diarios, column_map_diarios, tenant_id, db))
+    
+    # Ler lançamentos previstos
+    sheet_name_previstos = find_sheet_in_excel(excel_file, LANCAMENTOS_PREVISTOS_SHEETS)
+    if sheet_name_previstos:
+        df_previstos = read_excel_sheet(excel_file, sheet_name_previstos)
+        df_previstos.columns = df_previstos.columns.str.strip()
+        
+        # Mapear colunas
+        column_map_previstos = {}
+        for col in df_previstos.columns:
+            col_lower = col.lower()
+            if ('mês' in col_lower or 'mes' in col_lower or 'data' in col_lower) and 'prevista' in col_lower:
+                column_map_previstos['data_prevista'] = col
+            elif ('mês' in col_lower or 'mes' in col_lower) and 'data_prevista' not in column_map_previstos:
+                column_map_previstos['data_prevista'] = col
+            if 'conta' in col_lower and 'conta' not in column_map_previstos:
+                column_map_previstos['conta'] = col
+            if 'subgrupo' in col_lower and 'subgrupo' not in column_map_previstos:
+                column_map_previstos['subgrupo'] = col
+            if 'grupo' in col_lower and 'subgrupo' not in col_lower and 'grupo' not in column_map_previstos:
+                column_map_previstos['grupo'] = col
+            if 'valor' in col_lower and 'valor' not in column_map_previstos:
+                column_map_previstos['valor'] = col
+        
+        if 'data_prevista' in column_map_previstos and 'conta' in column_map_previstos and 'valor' in column_map_previstos:
+            entries_bruto.extend(normalize_previstos_bruto(df_previstos, column_map_previstos, year))
+            entries_filtrado.extend(normalize_previstos_filtrado(df_previstos, column_map_previstos, tenant_id, db))
+    
+    return entries_bruto, entries_filtrado
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Validar dashboard contra planilha e banco"
+        description="Validar dashboard contra planilha e banco (auditoria profunda)"
     )
     parser.add_argument(
         '--file',
@@ -697,7 +1007,7 @@ def main():
     
     try:
         print("="*80)
-        print("🔍 VALIDAÇÃO PROFUNDA - DASHBOARD vs PLANILHA vs BANCO")
+        print("🔍 VALIDAÇÃO PROFUNDA - DASHBOARD vs PLANILHA vs BANCO (AUDITORIA)")
         print("="*80)
         print(f"📁 Arquivo Excel: {excel_file}")
         print(f"📅 Ano: {args.year}")
@@ -726,89 +1036,35 @@ def main():
             print(f"✅ Business Unit: {business_unit.name} (ID: {business_unit.id})")
             print()
             
-            # 1. Normalizar planilha
+            # 1. Carregar e normalizar planilha (bruto e filtrado)
             print("="*80)
-            print("1. NORMALIZANDO PLANILHA")
+            print("1. CARREGANDO E NORMALIZANDO PLANILHA (BRUTA E FILTRADA)")
             print("="*80)
-            
-            # Ler lançamentos diários
-            sheet_name_diarios = find_sheet_in_excel(excel_file, LANCAMENTOS_DIARIOS_SHEETS)
-            if not sheet_name_diarios:
-                print("❌ Aba de Lançamentos Diários não encontrada")
-                sys.exit(1)
-            
-            df_diarios = read_excel_sheet(excel_file, sheet_name_diarios)
-            df_diarios.columns = df_diarios.columns.str.strip()
-            
-            # Mapear colunas (mesma lógica do seed)
-            column_map_diarios = {}
-            for col in df_diarios.columns:
-                col_lower = col.lower()
-                if 'data' in col_lower and ('movimentação' in col_lower or 'movimentacao' in col_lower):
-                    column_map_diarios['data_movimentacao'] = col
-                elif 'data' in col_lower and 'data_movimentacao' not in column_map_diarios:
-                    column_map_diarios['data_movimentacao'] = col
-                if 'subgrupo' in col_lower and 'subgrupo' not in column_map_diarios:
-                    column_map_diarios['subgrupo'] = col
-                if 'grupo' in col_lower and 'subgrupo' not in col_lower and 'grupo' not in column_map_diarios:
-                    column_map_diarios['grupo'] = col
-                if 'valor' in col_lower and 'valor' not in column_map_diarios:
-                    column_map_diarios['valor'] = col
-            
-            if 'data_movimentacao' not in column_map_diarios or 'valor' not in column_map_diarios:
-                print("❌ Colunas necessárias não encontradas em Lançamentos Diários")
-                sys.exit(1)
-            
-            entries_diarios = normalize_diarios_from_sheet(
-                df_diarios, column_map_diarios, tenant.id, db
+            entries_bruto, entries_filtrado = carregar_e_normalizar_planilha(
+                excel_file, tenant.id, args.year, db
             )
-            print(f"✅ Lançamentos diários normalizados: {len(entries_diarios)}")
+            print(f"✅ Entradas brutas: {len(entries_bruto)}")
+            print(f"✅ Entradas filtradas: {len(entries_filtrado)}")
             
-            # Ler lançamentos previstos
-            entries_previstos = []
-            sheet_name_previstos = find_sheet_in_excel(excel_file, LANCAMENTOS_PREVISTOS_SHEETS)
-            if sheet_name_previstos:
-                df_previstos = read_excel_sheet(excel_file, sheet_name_previstos)
-                df_previstos.columns = df_previstos.columns.str.strip()
-                
-                # Mapear colunas (mesma lógica do seed)
-                column_map_previstos = {}
-                for col in df_previstos.columns:
-                    col_lower = col.lower()
-                    if ('mês' in col_lower or 'mes' in col_lower or 'data' in col_lower) and 'prevista' in col_lower:
-                        column_map_previstos['data_prevista'] = col
-                    elif ('mês' in col_lower or 'mes' in col_lower) and 'data_prevista' not in column_map_previstos:
-                        column_map_previstos['data_prevista'] = col
-                    if 'conta' in col_lower and 'conta' not in column_map_previstos:
-                        column_map_previstos['conta'] = col
-                    if 'subgrupo' in col_lower and 'subgrupo' not in column_map_previstos:
-                        column_map_previstos['subgrupo'] = col
-                    if 'grupo' in col_lower and 'subgrupo' not in col_lower and 'grupo' not in column_map_previstos:
-                        column_map_previstos['grupo'] = col
-                    if 'valor' in col_lower and 'valor' not in column_map_previstos:
-                        column_map_previstos['valor'] = col
-                
-                if 'data_prevista' in column_map_previstos and 'conta' in column_map_previstos and 'valor' in column_map_previstos:
-                    entries_previstos = normalize_previstos_from_sheet(
-                        df_previstos, column_map_previstos, tenant.id, db
-                    )
-                    print(f"✅ Lançamentos previstos normalizados: {len(entries_previstos)}")
-            
-            # Agregar planilha
-            all_entries = entries_diarios + entries_previstos
-            sheet_summary = build_sheet_summary(all_entries, args.year)
+            # 2. Agregar planilha (bruto e filtrado)
+            print("\n" + "="*80)
+            print("2. AGREGANDO PLANILHA (BRUTA E FILTRADA)")
+            print("="*80)
+            sheet_summary = agregar_planilha_bruta_e_filtrada(
+                entries_bruto, entries_filtrado, args.year
+            )
             print(f"✅ Resumo da planilha: {len(sheet_summary)} meses")
             
-            # 2. Agregar banco
+            # 3. Agregar banco
             print("\n" + "="*80)
-            print("2. AGREGANDO DADOS DO BANCO")
+            print("3. AGREGANDO DADOS DO BANCO")
             print("="*80)
-            db_summary = build_db_summary(db, tenant.id, business_unit.id, args.year)
+            db_summary = agregar_banco(db, tenant.id, business_unit.id, args.year)
             print(f"✅ Resumo do banco: {len(db_summary)} meses")
             
-            # 3. Consumir API
+            # 4. Consumir API
             print("\n" + "="*80)
-            print("3. CONSUMINDO API DE DASHBOARD")
+            print("4. CONSUMINDO API DE DASHBOARD")
             print("="*80)
             token = login_api(args.backend_url)
             if not token:
@@ -816,84 +1072,52 @@ def main():
                 sys.exit(1)
             print("✅ Login realizado com sucesso")
             
-            api_summary = build_api_summary(args.backend_url, args.year, token)
+            api_summary = consumir_api(args.backend_url, args.year, token)
             print(f"✅ Resumo da API: {len(api_summary)} meses")
             
-            # 4. Comparar
+            # 5. Comparar
             print("\n" + "="*80)
-            print("4. COMPARANDO RESULTADOS")
+            print("5. COMPARANDO RESULTADOS")
             print("="*80)
             
-            all_ok, inconsistencies = compare_summaries(
+            all_ok, inconsistencies, stats = comparar_totais(
                 sheet_summary, db_summary, api_summary, args.year
             )
             
             # Imprimir tabela de comparação
-            print("\n" + "-"*80)
-            print("TABELA DE COMPARAÇÃO")
-            print("-"*80)
-            print(f"{'ANO-MÊS':<10} {'TIPO':<10} {'PLANILHA':>15} {'BANCO':>15} {'API':>15} "
-                  f"{'Δ PLAN→BAN':>12} {'Δ%':>8} {'Δ BAN→API':>12} {'Δ%':>8}")
-            print("-"*80)
-            
-            all_months = set()
-            for key in sheet_summary.keys():
-                if key[0] == args.year:
-                    all_months.add(key[1])
-            for key in db_summary.keys():
-                if key[0] == args.year:
-                    all_months.add(key[1])
-            for key in api_summary.keys():
-                if key[0] == args.year:
-                    all_months.add(key[1])
-            
-            for mes in sorted(all_months):
-                key = (args.year, mes)
-                sheet = sheet_summary.get(key, {"receita": Decimal("0"), "despesa": Decimal("0"), "custo": Decimal("0"), "saldo": Decimal("0")})
-                db_val = db_summary.get(key, {"receita": Decimal("0"), "despesa": Decimal("0"), "custo": Decimal("0"), "saldo": Decimal("0")})
-                api = api_summary.get(key, {"receita": Decimal("0"), "despesa": Decimal("0"), "custo": Decimal("0"), "saldo": Decimal("0")})
-                
-                for tipo in ["receita", "despesa", "custo", "saldo"]:
-                    sheet_val = sheet[tipo]
-                    db_val_tipo = db_val[tipo]
-                    api_val = api[tipo]
-                    
-                    delta_sheet_db = abs(db_val_tipo - sheet_val)
-                    delta_pct_sheet_db = (delta_sheet_db / abs(sheet_val) * 100) if sheet_val != 0 else None
-                    delta_db_api = abs(api_val - db_val_tipo)
-                    delta_pct_db_api = (delta_db_api / abs(db_val_tipo) * 100) if db_val_tipo != 0 else None
-                    
-                    status = ""
-                    if delta_sheet_db > TOLERANCE_ABS or (delta_pct_sheet_db and delta_pct_sheet_db > TOLERANCE_PCT):
-                        status += "⚠️ "
-                    if delta_db_api > TOLERANCE_ABS or (delta_pct_db_api and delta_pct_db_api > TOLERANCE_PCT):
-                        status += "⚠️ "
-                    
-                    print(f"{args.year}-{mes:02d}  {tipo.upper():<10} "
-                          f"{float(sheet_val):>15,.2f} {float(db_val_tipo):>15,.2f} {float(api_val):>15,.2f} "
-                          f"{float(delta_sheet_db):>12,.2f} "
-                          f"{f'{float(delta_pct_sheet_db):.2f}%' if delta_pct_sheet_db is not None else 'N/A':>8} "
-                          f"{float(delta_db_api):>12,.2f} "
-                          f"{f'{float(delta_pct_db_api):.2f}%' if delta_pct_db_api is not None else 'N/A':>8} "
-                          f"{status}")
+            imprimir_tabela_comparacao(sheet_summary, db_summary, api_summary, args.year)
             
             # Resumo final
             print("\n" + "="*80)
             print("📊 RESUMO FINAL")
             print("="*80)
             
+            print(f"\nEstatísticas de Mismatches:")
+            print(f"  - BRUTA→FILTRO: {stats['mismatch_bruta_filtro']} meses/tipos")
+            print(f"  - FILTRO→BANCO: {stats['mismatch_filtro_banco']} meses/tipos")
+            print(f"  - BANCO→API: {stats['mismatch_banco_api']} meses/tipos")
+            
             if all_ok:
-                print("✅ TODOS OS TOTAIS ESTÃO CONSISTENTES (planilha, banco, API)")
+                print("\n✅ TODOS OS TOTAIS ESTÃO CONSISTENTES (planilha, banco, API)")
+                print("✅ Todas as regras do seed estão sendo respeitadas no dashboard.")
+                print("✅ As diferenças entre planilha bruta e sistema são exclusivamente de linhas filtradas/ignoradas pelo seed.")
             else:
-                print(f"❌ FORAM ENCONTRADOS {len(inconsistencies)} MISMATCHES DE TOTAIS")
-                print("\nInconsistências:")
-                for inc in inconsistencies[:20]:  # Mostrar apenas as 20 primeiras
+                print(f"\n❌ FORAM ENCONTRADOS {len(inconsistencies)} MISMATCHES DE TOTAIS")
+                print("\nInconsistências (primeiras 20):")
+                for inc in inconsistencies[:20]:
                     print(f"  - {inc['ano']}-{inc['mes']:02d} | {inc['tipo'].upper()} | "
-                          f"Planilha: R$ {float(inc['sheet']):,.2f} | "
+                          f"Bruto: R$ {float(inc['sheet_bruto']):,.2f} | "
+                          f"Filtrado: R$ {float(inc['sheet_filtrado']):,.2f} | "
                           f"Banco: R$ {float(inc['db']):,.2f} | "
-                          f"API: R$ {float(inc['api']):,.2f} | "
-                          f"Δ Plan→Ban: R$ {float(inc['delta_sheet_db']):,.2f} | "
-                          f"Δ Ban→API: R$ {float(inc['delta_db_api']):,.2f}")
+                          f"API: R$ {float(inc['api']):,.2f}")
+                    if inc['delta_filtro_banco'] > TOLERANCE_ABS:
+                        print(f"    ⚠️  Δ FILTRO→BANCO: R$ {float(inc['delta_filtro_banco']):,.2f} "
+                              f"({float(inc['delta_pct_filtro_banco']):.2f}%)" if inc['delta_pct_filtro_banco'] else "")
+                    if inc['delta_banco_api'] > TOLERANCE_ABS:
+                        print(f"    ⚠️  Δ BANCO→API: R$ {float(inc['delta_banco_api']):,.2f} "
+                              f"({float(inc['delta_pct_banco_api']):.2f}%)" if inc['delta_pct_banco_api'] else "")
+            
+            print("\n" + "="*80)
             
             sys.stdout = original_stdout
             log_f.close()
@@ -913,4 +1137,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
