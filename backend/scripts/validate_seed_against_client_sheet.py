@@ -549,7 +549,11 @@ def validate_lancamentos_diarios(
     results['total_banco'] = len(df_db_norm)
     
     # Criar chave composta para comparação
+    # Garantir que 'valor' esteja em float antes de usar .round()
     if not df_sheet_norm.empty:
+        df_sheet_norm['valor'] = df_sheet_norm['valor'].apply(
+            lambda v: float(v) if v is not None else 0.0
+        )
         df_sheet_norm['key'] = (
             df_sheet_norm['data'].astype(str) + "|" +
             df_sheet_norm['grupo'].astype(str) + "|" +
@@ -559,6 +563,9 @@ def validate_lancamentos_diarios(
         )
     
     if not df_db_norm.empty:
+        df_db_norm['valor'] = df_db_norm['valor'].apply(
+            lambda v: float(v) if v is not None else 0.0
+        )
         df_db_norm['key'] = (
             df_db_norm['data'].astype(str) + "|" +
             df_db_norm['grupo'].astype(str) + "|" +
@@ -952,7 +959,11 @@ def validate_lancamentos_previstos(
     results['total_banco'] = len(df_db_norm)
     
     # Criar chave composta para comparação
+    # Garantir que 'valor' esteja em float antes de usar .round()
     if not df_sheet_norm.empty:
+        df_sheet_norm['valor'] = df_sheet_norm['valor'].apply(
+            lambda v: float(v) if v is not None else 0.0
+        )
         df_sheet_norm['key'] = (
             df_sheet_norm['data'].astype(str) + "|" +
             df_sheet_norm['grupo'].astype(str) + "|" +
@@ -962,6 +973,9 @@ def validate_lancamentos_previstos(
         )
     
     if not df_db_norm.empty:
+        df_db_norm['valor'] = df_db_norm['valor'].apply(
+            lambda v: float(v) if v is not None else 0.0
+        )
         df_db_norm['key'] = (
             df_db_norm['data'].astype(str) + "|" +
             df_db_norm['grupo'].astype(str) + "|" +
