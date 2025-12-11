@@ -20,21 +20,37 @@ LANCAMENTOS_PREVISTOS_SHEETS = ["Lançamentos Previstos", "Lancamentos Previstos
 
 
 def parse_currency(value) -> Decimal:
-    """Converte valor para Decimal"""
+    """Converte valor monetário (BRL) para Decimal sem inflar valores.
+
+    Regras:
+    - Se tiver "." e ",": assume "." como milhar e "," como decimal (ex: 1.234,56).
+    - Se tiver só ",": assume "," como decimal (ex: 1234,56).
+    - Se tiver só ".": assume "." como decimal (ex: 1234.56).
+    """
     if pd.isna(value) or value == "" or value is None:
-        return Decimal("0.00")
-    
-    # Converter para string
-    value_str = str(value).strip()
-    
-    # Remover R$, espaços e vírgulas
-    value_str = value_str.replace("R$", "").replace("$", "").strip()
-    value_str = value_str.replace(".", "").replace(",", ".")
-    
+        return Decimal("0")
+
+    s = str(value).strip()
+    s = s.replace("R$", "").replace("$", "").replace(" ", "")
+    if s == "":
+        return Decimal("0")
+
+    has_dot = "." in s
+    has_comma = "," in s
+
     try:
-        return Decimal(value_str)
-    except:
-        return Decimal("0.00")
+        if has_dot and has_comma:
+            # Formato brasileiro típico: milhar com ponto, decimal com vírgula
+            s_clean = s.replace(".", "").replace(",", ".")
+        elif has_comma:
+            # Apenas vírgula, tratar como decimal
+            s_clean = s.replace(",", ".")
+        else:
+            # Apenas ponto ou número puro, tratar ponto como decimal
+            s_clean = s
+        return Decimal(s_clean)
+    except Exception:
+        return Decimal("0")
 
 
 def parse_date(date_value) -> Optional[datetime]:
