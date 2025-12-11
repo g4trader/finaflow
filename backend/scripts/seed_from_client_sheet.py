@@ -153,22 +153,35 @@ logger = SeedLogger()
 # ============================================================================
 
 def parse_currency(value) -> Decimal:
-    """Converte valor para Decimal"""
+    """Converte valor monetário (BRL) para Decimal sem inflar valores.
+
+    Regras:
+    - Se tiver "." e ",": assume "." como milhar e "," como decimal (ex: 1.234,56).
+    - Se tiver só ",": assume "," como decimal (ex: 1234,56).
+    - Se tiver só ".": assume "." como decimal (ex: 1234.56).
+    """
     if pd.isna(value) or value == "" or value is None:
-        return Decimal("0.00")
-    
-    # Converter para string
-    value_str = str(value).strip()
-    
-    # Remover R$, espaços e vírgulas
-    value_str = value_str.replace("R$", "").replace("$", "").strip()
-    value_str = value_str.replace(".", "").replace(",", ".")
-    
+        return Decimal("0")
+
+    s = str(value).strip()
+    s = s.replace("R$", "").replace("$", "").replace(" ", "")
+    if s == "":
+        return Decimal("0")
+
+    has_dot = "." in s
+    has_comma = "," in s
+
     try:
-        return Decimal(value_str)
-    except:
+        if has_dot and has_comma:
+            s_clean = s.replace(".", "").replace(",", ".")
+        elif has_comma:
+            s_clean = s.replace(",", ".")
+        else:
+            s_clean = s
+        return Decimal(s_clean)
+    except Exception:
         logger.log(f"Erro ao converter valor: {value}", "WARNING")
-        return Decimal("0.00")
+        return Decimal("0")
 
 def parse_date(date_value) -> Optional[datetime]:
     """Converte valor para datetime"""
@@ -1033,6 +1046,11 @@ def main():
         default=None,
         help='ID do usuário (opcional, busca ou cria automaticamente)'
     )
+    parser.add_argument(
+        '--reset-data',
+        action='store_true',
+        help='Apaga lançamentos diários e previstos do tenant antes de semear (use em staging).'
+    )
     
     args = parser.parse_args()
     
@@ -1069,6 +1087,19 @@ def main():
             tenant = get_or_create_tenant(db, args.tenant_id)
             business_unit = get_or_create_business_unit(db, tenant, args.business_unit_id)
             user = get_or_create_user(db, tenant, business_unit, args.user_id)
+
+            # Opcional: reset de dados anteriores (corrige seeds inflados)
+            if args.reset_data:
+                logger.log("\n" + "-"*60, "STEP")
+                logger.log("⚠️  Resetando lançamentos existentes do tenant antes de semear...", "WARNING")
+                deleted_diarios = db.query(LancamentoDiario).filter(
+                    LancamentoDiario.tenant_id == tenant.id
+                ).delete(synchronize_session=False)
+                deleted_prev = db.query(LancamentoPrevisto).filter(
+                    LancamentoPrevisto.tenant_id == tenant.id
+                ).delete(synchronize_session=False)
+                db.commit()
+                logger.log(f"✅ Removidos {deleted_diarios} lançamentos diários e {deleted_prev} lançamentos previstos.", "SUCCESS")
             
             # 2. Seed do Plano de Contas
             logger.log("\n" + "-"*60, "STEP")
