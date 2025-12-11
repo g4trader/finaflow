@@ -23,6 +23,7 @@ from app.models.chart_of_accounts import (
 from app.models.lancamento_diario import LancamentoDiario, TransactionType
 from app.models.lancamento_previsto import LancamentoPrevisto
 from app.services.dependencies import get_current_active_user
+from app.services.financial_aggregation_service import FinancialAggregationService
 
 router = APIRouter(tags=["dashboard"])
 
@@ -157,61 +158,58 @@ def annual_summary(
 ) -> Dict[str, Any]:
     """
     Consolida receitas, despesas e custos por mês para o ano informado.
+    
+    Retorna:
+    - 12 meses completos (mesmo sem lançamentos)
+    - Totais anuais de receita, despesa, custo e saldo
+    - Saldo mensal e saldo acumulado por mês
+    
+    Cálculos:
+    - receita = soma(lancamentos.tipo == RECEITA)
+    - despesa = soma(lancamentos.tipo == DESPESA)
+    - custo = soma(lancamentos.tipo == CUSTO)
+    - saldo = receita - despesa - custo
+    - saldo_acumulado[jan] = saldo[jan]
+    - saldo_acumulado[fev] = saldo_acumulado[jan] + saldo[fev]
+    - ...
     """
     target_year = year or datetime.utcnow().year
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    start_dt = datetime(target_year, 1, 1)
-    end_dt = datetime(target_year, 12, 31, 23, 59, 59)
-
-    query = (
-        db.query(LancamentoDiario)
-        .filter(
-            LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.is_active.is_(True),
-            LancamentoDiario.data_movimentacao >= start_dt,
-            LancamentoDiario.data_movimentacao <= end_dt,
-        )
+    return FinancialAggregationService.aggregate_monthly_summary(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=target_year,
     )
+
+
+@router.get("/financial/annual-summary/debug")
+def annual_summary_debug(
+    year: Optional[int] = Query(default=None, ge=1900),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Endpoint auxiliar para QA/Debug.
     
-    # Filtrar por business_unit_id apenas se fornecido
-    if business_unit_id:
-        query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+    Retorna comparação entre:
+    - Agregação SQL direta (GROUP BY)
+    - Agregação em memória (método atual)
     
-    transactions: List[LancamentoDiario] = query.all()
+    Útil para identificar discrepâncias entre métodos de cálculo.
+    """
+    target_year = year or datetime.utcnow().year
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
 
-    monthly: Dict[int, Dict[str, float]] = {
-        month: {"month": month, "revenue": 0.0, "expense": 0.0, "cost": 0.0}
-        for month in range(1, 13)
-    }
-
-    for tx in transactions:
-        if tx.transaction_type is None:
-            continue
-        month = tx.data_movimentacao.month
-        amount = _decimal_to_float(tx.valor)
-        if tx.transaction_type == TransactionType.RECEITA:
-            monthly[month]["revenue"] += amount
-        elif tx.transaction_type == TransactionType.DESPESA:
-            monthly[month]["expense"] += amount
-        elif tx.transaction_type == TransactionType.CUSTO:
-            monthly[month]["cost"] += amount
-
-    totals = {"revenue": 0.0, "expense": 0.0, "cost": 0.0}
-    monthly_list: List[Dict[str, float]] = []
-    for month in range(1, 13):
-        bucket = monthly[month]
-        totals["revenue"] += bucket["revenue"]
-        totals["expense"] += bucket["expense"]
-        totals["cost"] += bucket["cost"]
-        monthly_list.append(bucket)
-
-    return {
-        "year": target_year,
-        "totals": totals,
-        "monthly": monthly_list,
-    }
+    return FinancialAggregationService.get_debug_summary(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=target_year,
+    )
 
 
 @router.get("/financial/wallet")
