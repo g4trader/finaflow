@@ -1240,7 +1240,27 @@ def main():
         print()
         
         # Conectar ao banco
-        db = SessionLocal()
+        print("🔗 Conectando ao banco de dados...")
+        try:
+            db = SessionLocal()
+            # Testar conexão
+            from sqlalchemy import text
+            db.execute(text("SELECT 1"))
+            print("✅ Conexão com banco estabelecida")
+        except Exception as e:
+            print(f"❌ Erro ao conectar ao banco: {e}")
+            print("")
+            print("💡 Dicas:")
+            print("   1. Verifique se Cloud SQL Proxy está rodando:")
+            print("      ps aux | grep cloud_sql_proxy")
+            print("   2. Verifique se DATABASE_URL está configurado:")
+            print(f"      echo $DATABASE_URL")
+            print("   3. Para iniciar proxy:")
+            print("      ./cloud_sql_proxy -instances=trivihair:us-central1:finaflow-db-staging=tcp:5432 &")
+            print("   4. Use o script helper:")
+            print("      ./scripts/run_validation_with_proxy.sh")
+            sys.exit(1)
+        
         try:
             # Obter tenant e business unit
             tenant = db.query(Tenant).filter(Tenant.name == "FinaFlow Staging").first()
