@@ -385,20 +385,57 @@ gcloud run jobs execute finaflow-validate-dashboard-staging-job --region=us-cent
 
 **Erro Identificado**: Container exit code 1 (logs não disponíveis via CLI)
 
-### Análise do Problema
+### Análise do Problema e Correções Aplicadas
 
-**Possíveis Causas**:
-1. **Imagem desatualizada**: A imagem do Cloud Run pode não conter os scripts mais recentes
-2. **Arquivo Excel ausente**: O arquivo `data/fluxo_caixa_2025.xlsx` pode não estar na imagem
+**Erro Original Identificado**:
+- Jobs falhavam com exit code 1
+- Logs não acessíveis via CLI (necessário verificar no Console GCP)
+
+**Correções Aplicadas**:
+
+1. **Ajuste de PYTHONPATH**:
+   - Adicionado `PYTHONPATH=/app` nas env vars dos jobs
+   - Garante que Python encontre os módulos em `/app/scripts/`
+
+2. **Ajuste de Comando de Execução**:
+   - Mudado de `python -m scripts.xxx` para `sh -c "cd /app && python -m scripts.xxx"`
+   - Garante que o diretório de trabalho seja `/app` antes de executar
+
+3. **Verificação de Estrutura**:
+   - Dockerfile confirma que arquivos são copiados para `/app`
+   - Arquivo Excel deve estar em `/app/data/fluxo_caixa_2025.xlsx`
+   - Scripts devem estar em `/app/scripts/`
+
+**Possíveis Causas Remanescentes**:
+1. **Imagem desatualizada**: A imagem do Cloud Run pode não conter os scripts mais recentes (necessário rebuild)
+2. **Arquivo Excel ausente**: O arquivo `data/fluxo_caixa_2025.xlsx` pode não estar na imagem (verificar no build)
 3. **Problemas de permissão**: Service account pode não ter acesso ao Cloud SQL
-4. **Logs não acessíveis**: Logs podem estar em formato diferente ou requerer permissões adicionais
+4. **Logs não acessíveis**: Logs devem ser verificados no Console GCP (https://console.cloud.google.com/run/jobs)
 
 ### Próximos Passos Recomendados
 
-1. **Verificar imagem**: Confirmar que a imagem contém os scripts mais recentes
-2. **Verificar arquivo Excel**: Confirmar que `data/fluxo_caixa_2025.xlsx` está na imagem
-3. **Ver logs no Console**: Acessar Console GCP para ver logs detalhados
-4. **Reexecutar após correções**: Executar jobs novamente após resolver problemas
+1. **Verificar logs no Console GCP** (CRÍTICO):
+   - Acessar: https://console.cloud.google.com/run/jobs
+   - Selecionar job → "Execuções" → Ver logs detalhados
+   - Identificar erro exato (FileNotFoundError, ModuleNotFoundError, etc.)
+
+2. **Verificar/Atualizar Imagem**:
+   - Se imagem estiver desatualizada, disparar rebuild do Cloud Build
+   - Verificar se arquivo Excel está sendo copiado no Dockerfile
+   - Confirmar que scripts estão na imagem
+
+3. **Reexecutar Jobs**:
+   ```bash
+   # Atualizar jobs (se necessário)
+   cd ~/finaflow/backend
+   ./scripts/setup_cloud_run_jobs.sh
+   
+   # Executar seed
+   gcloud run jobs execute finaflow-seed-staging-job --region=us-central1 --project=trivihair --wait
+   
+   # Executar validação
+   gcloud run jobs execute finaflow-validate-dashboard-staging-job --region=us-central1 --project=trivihair --wait
+   ```
 
 ### Hash dos Commits
 

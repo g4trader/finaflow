@@ -88,12 +88,14 @@ gcloud run jobs deploy "$SEED_JOB_NAME" \
     --image="$IMAGE" \
     --service-account="$SERVICE_ACCOUNT" \
     $ENV_VARS_ARGS \
+    --set-env-vars="PYTHONPATH=/app" \
+    --set-env-vars="WORKDIR=/app" \
     --max-retries=0 \
     --tasks=1 \
     --cpu=1 \
     --memory=1Gi \
-    --command=python \
-    --args="-m","scripts.seed_from_client_sheet","--file","data/fluxo_caixa_2025.xlsx" \
+    --command=sh \
+    --args="-c","cd /app && python -m scripts.seed_from_client_sheet --file data/fluxo_caixa_2025.xlsx" \
     --quiet
 
 if [ $? -eq 0 ]; then
@@ -124,12 +126,14 @@ gcloud run jobs deploy "$VALIDATION_JOB_NAME" \
     --image="$IMAGE" \
     --service-account="$SERVICE_ACCOUNT" \
     $VALIDATION_ENV_VARS_ARGS \
+    --set-env-vars="PYTHONPATH=/app" \
+    --set-env-vars="WORKDIR=/app" \
     --max-retries=0 \
     --tasks=1 \
     --cpu=1 \
     --memory=1Gi \
-    --command=python \
-    --args="-m","scripts.validate_dashboard_against_client_sheet","--file","data/fluxo_caixa_2025.xlsx","--year","2025","--backend-url","$BACKEND_URL" \
+    --command=sh \
+    --args="-c","cd /app && python -m scripts.validate_dashboard_against_client_sheet --file data/fluxo_caixa_2025.xlsx --year 2025 --backend-url $BACKEND_URL" \
     --quiet
 
 if [ $? -eq 0 ]; then
