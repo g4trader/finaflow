@@ -89,13 +89,15 @@ gcloud run jobs deploy "$SEED_JOB_NAME" \
     --service-account="$SERVICE_ACCOUNT" \
     $ENV_VARS_ARGS \
     --set-env-vars="PYTHONPATH=/app" \
-    --set-env-vars="WORKDIR=/app" \
+    --set-env-vars="SEED_EXCEL_FILE=/app/data/fluxo_caixa_2025.xlsx" \
+    --set-env-vars="SEED_TENANT_NAME=FinaFlow Staging" \
+    --set-env-vars="SEED_RESET_DATA=false" \
     --max-retries=0 \
     --tasks=1 \
     --cpu=1 \
     --memory=1Gi \
     --command=sh \
-    --args="-c","cd /app && python -m scripts.seed_from_client_sheet --file data/fluxo_caixa_2025.xlsx" \
+    --args="-c","cd /app && python -m scripts.run_seed_job" \
     --quiet
 
 if [ $? -eq 0 ]; then
@@ -115,10 +117,9 @@ echo ""
 
 # Construir env vars para validação (remover BACKEND_URL das env vars do serviço se existir)
 VALIDATION_ENV_VARS_ARGS="$ENV_VARS_ARGS"
-if echo "$ENV_VARS" | grep -q "BACKEND_URL"; then
-    # Remover BACKEND_URL das env vars do serviço e adicionar o correto
-    VALIDATION_ENV_VARS_ARGS=$(echo "$VALIDATION_ENV_VARS_ARGS" | sed 's/--set-env-vars=BACKEND_URL=[^ ]*//g')
-fi
+# Remover BACKEND_URL das env vars do serviço se existir (usando sed para remover a linha completa)
+VALIDATION_ENV_VARS_ARGS=$(echo "$VALIDATION_ENV_VARS_ARGS" | sed 's/--set-env-vars=BACKEND_URL=[^ ]* *//g')
+# Adicionar BACKEND_URL correto
 VALIDATION_ENV_VARS_ARGS="$VALIDATION_ENV_VARS_ARGS --set-env-vars=BACKEND_URL=$BACKEND_URL"
 
 gcloud run jobs deploy "$VALIDATION_JOB_NAME" \
@@ -127,13 +128,14 @@ gcloud run jobs deploy "$VALIDATION_JOB_NAME" \
     --service-account="$SERVICE_ACCOUNT" \
     $VALIDATION_ENV_VARS_ARGS \
     --set-env-vars="PYTHONPATH=/app" \
-    --set-env-vars="WORKDIR=/app" \
+    --set-env-vars="VALIDATION_EXCEL_FILE=/app/data/fluxo_caixa_2025.xlsx" \
+    --set-env-vars="VALIDATION_YEAR=2025" \
     --max-retries=0 \
     --tasks=1 \
     --cpu=1 \
     --memory=1Gi \
     --command=sh \
-    --args="-c","cd /app && python -m scripts.validate_dashboard_against_client_sheet --file data/fluxo_caixa_2025.xlsx --year 2025 --backend-url $BACKEND_URL" \
+    --args="-c","cd /app && python -m scripts.run_validation_job" \
     --quiet
 
 if [ $? -eq 0 ]; then
