@@ -601,6 +601,64 @@ Os Cloud Run Jobs foram criados com sucesso e estão configurados corretamente. 
 
 ---
 
+---
+
+## 🔧 Correção Final - Cloud SQL e Configuração Completa
+
+### Data/Hora: 2025-12-12 15:00 UTC (12:00 Brasília)
+
+### Diagnóstico Realizado
+
+1. **Comparação de Env Vars**:
+   - ✅ Serviço tem: `DATABASE_URL` com Unix socket (`host=/cloudsql/trivihair:us-central1:finaflow-db-staging`)
+   - ✅ Serviço tem: `--add-cloudsql-instances trivihair:us-central1:finaflow-db-staging` (no cloudbuild)
+   - ❌ Jobs não tinham: Cloud SQL instances configurado
+
+2. **Correções Aplicadas**:
+   - ✅ Adicionado `--set-cloudsql-instances="trivihair:us-central1:finaflow-db-staging"` nos jobs
+   - ✅ Replicadas todas as env vars do serviço (DATABASE_URL, SECRET_KEY, JWT_SECRET, etc.)
+   - ✅ Aumentado recursos: CPU=2, Memory=2Gi, Timeout=1800s
+   - ✅ Jobs usando scripts diretamente (sem wrappers)
+
+### Status Atual
+
+**Jobs Configurados**: ✅  
+**Cloud SQL Configurado**: ✅  
+**Execução**: ⚠️ **AINDA FALHANDO** (exit code 1)
+
+**Última Execução Seed**: `finaflow-seed-staging-job-rffc6`
+
+### Observações
+
+- Logs não acessíveis via CLI (necessário Console GCP)
+- Cloud SQL está configurado nos jobs
+- Env vars estão replicadas do serviço
+- Recursos aumentados (CPU, memória, timeout)
+
+### Próximos Passos Críticos
+
+1. **Verificar logs no Console GCP** (OBRIGATÓRIO):
+   - Acessar: https://console.cloud.google.com/run/jobs
+   - Selecionar `finaflow-seed-staging-job` → "Execuções" → Ver logs detalhados
+   - Identificar erro exato (pode ser timeout, memória, ou erro no script)
+
+2. **Possíveis Causas Remanescentes**:
+   - Timeout insuficiente (mesmo com 1800s)
+   - Erro no script de seed (validação, conexão, etc.)
+   - Permissões do service account
+
+3. **Após identificar causa**:
+   - Aplicar correção específica
+   - Reexecutar jobs
+   - Documentar sucesso
+
+### Hash dos Commits
+
+- `8d64445` - fix(cloud-run-jobs): usar scripts diretamente sem wrappers após rebuild
+- `[próximo commit]` - fix(cloud-run-jobs): adicionar Cloud SQL instances e aumentar recursos
+
+---
+
 **Relatório gerado em**: 2025-12-12  
-**Próxima ação**: Verificar logs no Console GCP para identificar causa raiz do problema
+**Próxima ação**: Verificar logs detalhados no Console GCP para identificar causa raiz
 

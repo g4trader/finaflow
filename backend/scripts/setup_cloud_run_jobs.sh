@@ -17,6 +17,7 @@ REGION="us-central1"
 SERVICE_NAME="finaflow-backend-staging"
 SEED_JOB_NAME="finaflow-seed-staging-job"
 VALIDATION_JOB_NAME="finaflow-validate-dashboard-staging-job"
+CLOUDSQL_INSTANCE="trivihair:us-central1:finaflow-db-staging"
 
 echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
 echo -e "${BLUE}   Configurando Cloud Run Jobs para Seed e Validação${NC}"
@@ -44,10 +45,14 @@ IMAGE=$(echo "$SERVICE_JSON" | jq -r '.spec.template.spec.containers[0].image')
 SERVICE_ACCOUNT=$(echo "$SERVICE_JSON" | jq -r '.spec.template.spec.serviceAccountName // .spec.template.spec.serviceAccountName // ""')
 BACKEND_URL=$(echo "$SERVICE_JSON" | jq -r '.status.url')
 
+# Cloud SQL instance (do cloudbuild-staging.yaml)
+CLOUDSQL_INSTANCES="$CLOUDSQL_INSTANCE"
+
 echo -e "${GREEN}✅ Configuração descoberta:${NC}"
 echo "   Image: $IMAGE"
 echo "   Service Account: ${SERVICE_ACCOUNT:-default}"
 echo "   Backend URL: $BACKEND_URL"
+echo "   Cloud SQL Instance: $CLOUDSQL_INSTANCES"
 echo ""
 
 # 3. Extrair env vars do serviço
@@ -87,12 +92,14 @@ gcloud run jobs deploy "$SEED_JOB_NAME" \
     --region="$REGION" \
     --image="$IMAGE" \
     --service-account="$SERVICE_ACCOUNT" \
+    --set-cloudsql-instances="$CLOUDSQL_INSTANCES" \
     $ENV_VARS_ARGS \
     --set-env-vars="PYTHONPATH=/app" \
     --max-retries=0 \
     --tasks=1 \
-    --cpu=1 \
-    --memory=1Gi \
+    --cpu=2 \
+    --memory=2Gi \
+    --task-timeout=1800 \
     --command=sh \
     --args="-c","cd /app && python -m scripts.seed_from_client_sheet --file data/fluxo_caixa_2025.xlsx" \
     --quiet
@@ -124,13 +131,15 @@ gcloud run jobs deploy "$VALIDATION_JOB_NAME" \
     --region="$REGION" \
     --image="$IMAGE" \
     --service-account="$SERVICE_ACCOUNT" \
+    --set-cloudsql-instances="$CLOUDSQL_INSTANCES" \
     $VALIDATION_ENV_VARS_ARGS \
     --set-env-vars="PYTHONPATH=/app" \
     --set-env-vars="BACKEND_URL=$BACKEND_URL" \
     --max-retries=0 \
     --tasks=1 \
-    --cpu=1 \
-    --memory=1Gi \
+    --cpu=2 \
+    --memory=2Gi \
+    --task-timeout=1800 \
     --command=sh \
     --args="-c","cd /app && python -m scripts.validate_dashboard_against_client_sheet --file data/fluxo_caixa_2025.xlsx --year 2025 --backend-url $BACKEND_URL" \
     --quiet
