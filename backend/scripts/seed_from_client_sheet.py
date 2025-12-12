@@ -1133,6 +1133,9 @@ def main():
             logger.log("✅ SEED CONCLUÍDO COM SUCESSO!", "SUCCESS")
             logger.log("="*60, "STEP")
             
+            # Retornar exit code 0 em caso de sucesso
+            sys.exit(0)
+            
         except Exception as e:
             db.rollback()
             error_msg = f"Erro durante o seed: {str(e)}"
@@ -1140,7 +1143,7 @@ def main():
             logger.stats['erros'].append(error_msg)
             import traceback
             traceback.print_exc()
-            raise
+            sys.exit(1)
         finally:
             db.close()
     

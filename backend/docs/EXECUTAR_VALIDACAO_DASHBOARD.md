@@ -1,12 +1,104 @@
-# 🚀 Executar Validação do Dashboard - Cloud SQL Proxy
+# 🚀 Executar Validação do Dashboard
 
-**Método**: Cloud SQL Proxy + Script Python  
-**Ambiente**: Cloud Shell ou Local (com proxy)  
+**Métodos Disponíveis**:
+1. **Cloud Run Job** (Recomendado - Automatizado)
+2. **Cloud SQL Proxy** (Manual - Cloud Shell)
+
 **Data**: 2025-12-11
 
 ---
 
-## ⚡ EXECUÇÃO RÁPIDA (RECOMENDADO)
+## 🚀 EXECUÇÃO VIA CLOUD RUN JOB (STAGING) - RECOMENDADO
+
+### Pré-requisitos
+
+- ✅ Jobs já criados no projeto GCP (executar `setup_cloud_run_jobs.sh` uma vez)
+- ✅ Arquivo Excel em `backend/data/fluxo_caixa_2025.xlsx` (deve estar na imagem)
+- ✅ Acesso ao projeto GCP `trivihair`
+
+### Criar/Atualizar Jobs (Primeira vez ou após mudanças)
+
+```bash
+cd ~/finaflow/backend
+./scripts/setup_cloud_run_jobs.sh
+```
+
+Este script:
+- ✅ Descobre configuração do serviço `finaflow-backend-staging`
+- ✅ Cria/atualiza job `finaflow-seed-staging-job`
+- ✅ Cria/atualiza job `finaflow-validate-dashboard-staging-job`
+- ✅ Reutiliza mesma imagem, service account e env vars do serviço
+
+### Executar Validação
+
+```bash
+gcloud run jobs execute finaflow-validate-dashboard-staging-job \
+  --region=us-central1 \
+  --wait
+```
+
+**O que acontece:**
+- ✅ Job conecta ao Cloud SQL nativamente (sem proxy)
+- ✅ Executa validação completa
+- ✅ Compara Planilha → Banco → API
+- ✅ Retorna exit code 0 se sem mismatches, ≠0 se houver problemas
+
+### Executar Seed (se necessário)
+
+```bash
+gcloud run jobs execute finaflow-seed-staging-job \
+  --region=us-central1 \
+  --wait
+```
+
+### Ver Logs
+
+**Via Console:**
+1. Acesse: https://console.cloud.google.com/run/jobs
+2. Selecione o job
+3. Clique em "Execuções" → Selecione execução → "Logs"
+
+**Via CLI:**
+```bash
+# Logs do job de validação
+gcloud logging read \
+  "resource.type=cloud_run_job AND resource.labels.job_name=finaflow-validate-dashboard-staging-job" \
+  --limit=50 \
+  --format="value(textPayload)" \
+  --region=us-central1
+
+# Logs do job de seed
+gcloud logging read \
+  "resource.type=cloud_run_job AND resource.labels.job_name=finaflow-seed-staging-job" \
+  --limit=50 \
+  --format="value(textPayload)" \
+  --region=us-central1
+```
+
+### Interpretar Resultado
+
+**Exit Code 0 (SUCCESS):**
+```
+✅ FILTRO→BANCO: 0 ocorrências
+✅ BANCO→API: 0 ocorrências
+✅ Nenhuma inconsistência de totais
+```
+
+**Exit Code ≠0 (FAILURE):**
+- Verificar logs para detalhes dos mismatches
+- Investigar usando modo drill down (se necessário)
+
+### Vantagens do Cloud Run Job
+
+- ✅ **Sem Cloud SQL Proxy**: Acesso nativo ao banco
+- ✅ **Automatizado**: Pode ser integrado em CI/CD
+- ✅ **Isolado**: Não depende de Cloud Shell
+- ✅ **Reprodutível**: Mesma imagem e configuração do serviço
+- ✅ **Logs centralizados**: Fácil de debugar
+
+---
+
+## ⚡ EXECUÇÃO MANUAL (Cloud SQL Proxy)
 
 ### Opção 1: Script Helper Automático
 
@@ -227,6 +319,31 @@ Após validação bem-sucedida, verificar:
 
 ---
 
+---
+
+## 📚 REFERÊNCIAS ADICIONAIS
+
+### Scripts Criados
+
+- **`backend/scripts/run_validation_job.py`**: Wrapper para Cloud Run Job de validação
+- **`backend/scripts/run_seed_job.py`**: Wrapper para Cloud Run Job de seed
+- **`backend/scripts/setup_cloud_run_jobs.sh`**: Script para criar/atualizar jobs
+
+### Jobs Cloud Run
+
+- **`finaflow-validate-dashboard-staging-job`**: Job de validação
+- **`finaflow-seed-staging-job`**: Job de seed
+
+### Configuração
+
+Os jobs usam:
+- ✅ Mesma imagem do serviço `finaflow-backend-staging`
+- ✅ Mesma service account
+- ✅ Mesmas env vars de banco (acesso nativo ao Cloud SQL)
+- ✅ Memória: 1Gi, CPU: 1
+
+---
+
 **Última atualização**: 2025-12-11  
-**Status**: ✅ Pronto para uso
+**Status**: ✅ Pronto para uso (Cloud Run Jobs + Cloud SQL Proxy)
 
