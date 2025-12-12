@@ -532,6 +532,75 @@ Os Cloud Run Jobs foram criados com sucesso e estão configurados corretamente. 
 
 ---
 
+---
+
+## 🔧 Rebuild da Imagem e Atualização dos Jobs
+
+### Data/Hora: 2025-12-12 14:00 UTC (11:00 Brasília)
+
+### Ações Realizadas
+
+1. **Rebuild da Imagem**:
+   - ✅ Executado: `gcloud builds submit --config backend/cloudbuild-staging.yaml --project=trivihair`
+   - ✅ Build ID: `5c3b6ba2-c431-4b51-a240-c03cd17b0b6d`
+   - ✅ Status: SUCCESS (3m50s)
+   - ✅ Imagem: `gcr.io/trivihair/finaflow-backend-staging`
+
+2. **Serviço Cloud Run Atualizado**:
+   - ✅ O `cloudbuild-staging.yaml` já faz deploy automático do serviço
+   - ✅ Serviço `finaflow-backend-staging` está usando a nova imagem
+
+3. **Jobs Atualizados**:
+   - ✅ Jobs recriados usando scripts diretamente (sem wrappers)
+   - ✅ Seed: `python -m scripts.seed_from_client_sheet --file data/fluxo_caixa_2025.xlsx`
+   - ✅ Validação: `python -m scripts.validate_dashboard_against_client_sheet --file data/fluxo_caixa_2025.xlsx --year 2025 --backend-url $BACKEND_URL`
+
+### Status das Execuções
+
+#### Job de Seed: finaflow-seed-staging-job
+
+**Status**: ⚠️ **AINDA FALHANDO** (exit code 1)
+
+**Última Execução**: `finaflow-seed-staging-job-kh9bs`
+
+**Observações**:
+- Script direto testado com sucesso (job `finaflow-test-direct`)
+- Job configurado está falhando
+- Logs não acessíveis via CLI (necessário verificar no Console GCP)
+
+#### Job de Validação: finaflow-validate-dashboard-staging-job
+
+**Status**: ⏳ **NÃO EXECUTADO** (aguardando seed bem-sucedido)
+
+### Próximos Passos
+
+1. **Verificar logs no Console GCP** (CRÍTICO):
+   - Acessar: https://console.cloud.google.com/run/jobs
+   - Selecionar `finaflow-seed-staging-job` → "Execuções" → Ver logs detalhados
+   - Identificar erro exato (timeout, memória, conexão com banco, etc.)
+
+2. **Possíveis Ajustes**:
+   - Aumentar timeout do job (se necessário)
+   - Aumentar memória (se necessário)
+   - Verificar conexão com Cloud SQL
+
+3. **Reexecutar após correções**:
+   ```bash
+   # Executar seed
+   gcloud run jobs execute finaflow-seed-staging-job --region=us-central1 --project=trivihair --wait
+   
+   # Executar validação
+   gcloud run jobs execute finaflow-validate-dashboard-staging-job --region=us-central1 --project=trivihair --wait
+   ```
+
+### Hash dos Commits
+
+- `[próximo commit]` - fix(cloud-run-jobs): usar scripts diretamente sem wrappers
+- `3c5fa0a` - docs: atualizar relatório com correções de caminhos absolutos
+- `090d1b3` - fix(cloud-run-jobs): ajustar wrappers para usar caminhos absolutos
+
+---
+
 **Relatório gerado em**: 2025-12-12  
-**Próxima ação**: Verificar se imagem precisa ser reconstruída e reexecutar jobs
+**Próxima ação**: Verificar logs no Console GCP para identificar causa raiz do problema
 

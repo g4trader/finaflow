@@ -10,7 +10,12 @@ import os
 from pathlib import Path
 
 # Adicionar backend ao path
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Dentro do container, sempre usar /app como base
+BASE_DIR = os.getenv("WORKDIR", "/app")
+if not os.path.isabs(BASE_DIR):
+    # Se não for absoluto, calcular a partir do arquivo
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 DEFAULT_EXCEL = os.path.join(BASE_DIR, "data", "fluxo_caixa_2025.xlsx")
 
 sys.path.insert(0, BASE_DIR)
