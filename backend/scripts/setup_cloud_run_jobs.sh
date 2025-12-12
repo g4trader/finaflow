@@ -72,10 +72,7 @@ if [ -n "$ENV_VARS" ]; then
     done <<< "$ENV_VARS"
 fi
 
-# Adicionar BACKEND_URL se não estiver nas env vars
-if ! echo "$ENV_VARS" | grep -q "BACKEND_URL"; then
-    ENV_VARS_ARGS="$ENV_VARS_ARGS --set-env-vars=BACKEND_URL=$BACKEND_URL"
-fi
+# BACKEND_URL será adicionado explicitamente no job de validação, não aqui
 
 echo -e "${GREEN}✅ Variáveis de ambiente extraídas${NC}"
 echo ""
@@ -91,16 +88,12 @@ gcloud run jobs deploy "$SEED_JOB_NAME" \
     --image="$IMAGE" \
     --service-account="$SERVICE_ACCOUNT" \
     $ENV_VARS_ARGS \
-    --set-env-vars="SEED_EXCEL_FILE=data/fluxo_caixa_2025.xlsx" \
-    --set-env-vars="SEED_TENANT_NAME=FinaFlow Staging" \
-    --set-env-vars="SEED_RESET_DATA=false" \
     --max-retries=0 \
     --tasks=1 \
     --cpu=1 \
     --memory=1Gi \
-    --execute-now=false \
     --command=python \
-    --args="-m","scripts.run_seed_job" \
+    --args="-m","scripts.seed_from_client_sheet","--file","data/fluxo_caixa_2025.xlsx" \
     --quiet
 
 if [ $? -eq 0 ]; then
@@ -118,21 +111,25 @@ echo -e "${BLUE}   2. Criando/Atualizando Job de Validação${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
 echo ""
 
+# Construir env vars para validação (remover BACKEND_URL das env vars do serviço se existir)
+VALIDATION_ENV_VARS_ARGS="$ENV_VARS_ARGS"
+if echo "$ENV_VARS" | grep -q "BACKEND_URL"; then
+    # Remover BACKEND_URL das env vars do serviço e adicionar o correto
+    VALIDATION_ENV_VARS_ARGS=$(echo "$VALIDATION_ENV_VARS_ARGS" | sed 's/--set-env-vars=BACKEND_URL=[^ ]*//g')
+fi
+VALIDATION_ENV_VARS_ARGS="$VALIDATION_ENV_VARS_ARGS --set-env-vars=BACKEND_URL=$BACKEND_URL"
+
 gcloud run jobs deploy "$VALIDATION_JOB_NAME" \
     --region="$REGION" \
     --image="$IMAGE" \
     --service-account="$SERVICE_ACCOUNT" \
-    $ENV_VARS_ARGS \
-    --set-env-vars="VALIDATION_EXCEL_FILE=data/fluxo_caixa_2025.xlsx" \
-    --set-env-vars="VALIDATION_YEAR=2025" \
-    --set-env-vars="BACKEND_URL=$BACKEND_URL" \
+    $VALIDATION_ENV_VARS_ARGS \
     --max-retries=0 \
     --tasks=1 \
     --cpu=1 \
     --memory=1Gi \
-    --execute-now=false \
     --command=python \
-    --args="-m","scripts.run_validation_job" \
+    --args="-m","scripts.validate_dashboard_against_client_sheet","--file","data/fluxo_caixa_2025.xlsx","--year","2025","--backend-url","$BACKEND_URL" \
     --quiet
 
 if [ $? -eq 0 ]; then

@@ -338,6 +338,105 @@ gcloud run jobs execute finaflow-validate-dashboard-staging-job --region=us-cent
 
 ---
 
-**Relatório gerado em**: 2025-12-11  
-**Próxima ação**: Verificar status do deploy e executar validação completa via Cloud Run Job
+---
+
+## 🔧 Execução dos Cloud Run Jobs – Validação Dashboard 2.0 (STAGING)
+
+### Status: ⚠️ **JOBS CRIADOS - AGUARDANDO EXECUÇÃO BEM-SUCEDIDA**
+
+**Data/Hora da Execução**: 2025-12-12 12:54 UTC (09:54 Brasília)
+
+### Jobs Criados
+
+✅ **finaflow-seed-staging-job**: Criado com sucesso  
+✅ **finaflow-validate-dashboard-staging-job**: Criado com sucesso
+
+**Configuração dos Jobs**:
+- **Projeto GCP**: `trivihair`
+- **Região**: `us-central1`
+- **Imagem**: `gcr.io/trivihair/finaflow-backend-staging`
+- **Service Account**: `642830139828-compute@developer.gserviceaccount.com`
+- **Backend URL**: `https://finaflow-backend-staging-6arhlm3mha-uc.a.run.app`
+
+### Execuções Realizadas
+
+#### Job de Seed: finaflow-seed-staging-job
+
+**Status**: ❌ **FALHOU** (exit code 1)
+
+**Tentativas**:
+- Execução 1: `finaflow-seed-staging-job-tb6z5` - Falhou
+- Execução 2: `finaflow-seed-staging-job-b4w7d` - Falhou
+
+**Erro Identificado**: 
+- Primeira execução: `No module named scripts.run_seed_job`
+- Segunda execução: Container exit code 1 (logs não disponíveis via CLI)
+
+**Ação Corretiva Aplicada**:
+- Script atualizado para usar `scripts.seed_from_client_sheet` diretamente (sem wrapper)
+- Jobs atualizados com nova configuração
+
+#### Job de Validação: finaflow-validate-dashboard-staging-job
+
+**Status**: ❌ **FALHOU** (exit code 1)
+
+**Tentativa**:
+- Execução 1: `finaflow-validate-dashboard-staging-job-dkgx5` - Falhou
+
+**Erro Identificado**: Container exit code 1 (logs não disponíveis via CLI)
+
+### Análise do Problema
+
+**Possíveis Causas**:
+1. **Imagem desatualizada**: A imagem do Cloud Run pode não conter os scripts mais recentes
+2. **Arquivo Excel ausente**: O arquivo `data/fluxo_caixa_2025.xlsx` pode não estar na imagem
+3. **Problemas de permissão**: Service account pode não ter acesso ao Cloud SQL
+4. **Logs não acessíveis**: Logs podem estar em formato diferente ou requerer permissões adicionais
+
+### Próximos Passos Recomendados
+
+1. **Verificar imagem**: Confirmar que a imagem contém os scripts mais recentes
+2. **Verificar arquivo Excel**: Confirmar que `data/fluxo_caixa_2025.xlsx` está na imagem
+3. **Ver logs no Console**: Acessar Console GCP para ver logs detalhados
+4. **Reexecutar após correções**: Executar jobs novamente após resolver problemas
+
+### Hash dos Commits
+
+**Commits usados na validação**:
+- `59ea45e` - docs: adicionar instruções rápidas para Cloud Run Jobs
+- `a4f84d8` - docs: adicionar resumo dos Cloud Run Jobs criados
+- `e4c2c3b` - feat(cloud-run-jobs): criar jobs automatizados para seed e validação
+
+### Comandos para Reexecução
+
+```bash
+# Atualizar jobs
+cd ~/finaflow/backend
+./scripts/setup_cloud_run_jobs.sh
+
+# Executar seed
+gcloud run jobs execute finaflow-seed-staging-job --region=us-central1 --wait
+
+# Executar validação
+gcloud run jobs execute finaflow-validate-dashboard-staging-job --region=us-central1 --wait
+
+# Ver logs (Console GCP recomendado)
+# https://console.cloud.google.com/run/jobs
+```
+
+### Conclusão Técnica
+
+**Status Atual**: ⚠️ **JOBS CRIADOS MAS EXECUÇÃO FALHANDO**
+
+Os Cloud Run Jobs foram criados com sucesso e estão configurados corretamente. No entanto, as execuções estão falhando. É necessário investigar os logs no Console GCP para identificar a causa raiz e aplicar correções.
+
+**Recomendação**: 
+- Acessar Console GCP para ver logs detalhados das execuções
+- Verificar se a imagem contém os scripts e arquivos necessários
+- Reexecutar após correções
+
+---
+
+**Relatório gerado em**: 2025-12-12  
+**Próxima ação**: Investigar logs no Console GCP e corrigir problemas de execução
 
