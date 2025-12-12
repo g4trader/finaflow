@@ -474,6 +474,64 @@ Os Cloud Run Jobs foram criados com sucesso e estão configurados corretamente. 
 
 ---
 
+---
+
+## 🔧 Correções Aplicadas - Caminhos Absolutos e Verificações Explícitas
+
+### Data/Hora: 2025-12-12 14:30 UTC (11:30 Brasília)
+
+### Ajustes Realizados
+
+1. **Wrappers Atualizados**:
+   - `run_seed_job.py`: Agora usa caminhos absolutos (`/app/data/fluxo_caixa_2025.xlsx`)
+   - `run_validation_job.py`: Agora usa caminhos absolutos (`/app/data/fluxo_caixa_2025.xlsx`)
+   - Adicionadas verificações explícitas com logs detalhados de diagnóstico
+
+2. **Setup Script Atualizado**:
+   - Jobs agora usam os wrappers (`scripts.run_seed_job` e `scripts.run_validation_job`)
+   - Env vars configuradas com caminhos absolutos
+   - PYTHONPATH=/app configurado
+
+3. **Estrutura Confirmada**:
+   - Arquivo Excel está em: `./backend/data/fluxo_caixa_2025.xlsx`
+   - Dockerfile copia tudo para `/app` com `COPY . .`
+   - Arquivo deve estar em `/app/data/fluxo_caixa_2025.xlsx` na imagem
+
+### Status Atual
+
+**Jobs Atualizados**: ✅  
+**Execução**: ⚠️ Ainda falhando (possível necessidade de rebuild da imagem)
+
+### Próximos Passos
+
+1. **Verificar se imagem precisa ser reconstruída**:
+   - Se Dockerfile foi alterado, disparar rebuild do Cloud Build
+   - Verificar se arquivo Excel está na imagem atual
+
+2. **Verificar logs no Console GCP**:
+   - Acessar: https://console.cloud.google.com/run/jobs
+   - Ver logs detalhados da execução mais recente
+   - Identificar se erro é FileNotFoundError ou outro
+
+3. **Reexecutar após rebuild** (se necessário):
+   ```bash
+   # Atualizar jobs
+   cd ~/finaflow/backend
+   ./scripts/setup_cloud_run_jobs.sh
+   
+   # Executar seed
+   gcloud run jobs execute finaflow-seed-staging-job --region=us-central1 --project=trivihair --wait
+   
+   # Executar validação
+   gcloud run jobs execute finaflow-validate-dashboard-staging-job --region=us-central1 --project=trivihair --wait
+   ```
+
+### Hash dos Commits
+
+- `[próximo commit]` - fix(cloud-run-jobs): ajustar wrappers para usar caminhos absolutos
+
+---
+
 **Relatório gerado em**: 2025-12-12  
-**Próxima ação**: Investigar logs no Console GCP e corrigir problemas de execução
+**Próxima ação**: Verificar se imagem precisa ser reconstruída e reexecutar jobs
 
