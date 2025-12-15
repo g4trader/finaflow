@@ -1,0 +1,18 @@
+# Arquivos e diretórios a serem ignorados pelo Cloud Build
+# Mas INCLUIR explicitamente o arquivo Excel necessário
+
+# Ignorar padrões comuns
+.gcloudignore
+.git
+.gitignore
+*.pyc
+__pycache__
+*.log
+.env
+.venv
+venv/
+node_modules/
+
+# MAS INCLUIR o arquivo Excel necessário para seed
+!backend/data/fluxo_caixa_2025.xlsx
+
