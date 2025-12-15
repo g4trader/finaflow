@@ -13,26 +13,48 @@ steps:
     id: 'push-image'
     args: ['push', 'gcr.io/$PROJECT_ID/finaflow-backend-staging']
 
-  # 3. Executar seed dentro do container (usa Cloud SQL via Unix socket)
-  # O Cloud Build tem acesso nativo ao Cloud SQL via service account
-  - name: 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
+  # 3. Executar seed dentro do container (monta workspace e usa Cloud SQL via Unix socket)
+  - name: 'gcr.io/cloud-builders/docker'
     id: 'run-seed'
-    entrypoint: 'python'
+    entrypoint: 'docker'
     args:
+      - 'run'
+      - '--rm'
+      - '-v'
+      - '/workspace/backend:/workspace/backend:ro'
+      - '-w'
+      - '/workspace/backend'
+      - '-e'
+      - 'DATABASE_URL=postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging'
+      - '-e'
+      - 'PYTHONPATH=/workspace/backend'
+      - 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
+      - 'python'
       - '-m'
       - 'scripts.seed_from_client_sheet'
       - '--file'
       - 'data/fluxo_caixa_2025.xlsx'
-    env:
-      - 'DATABASE_URL=postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging'
-      - 'PYTHONPATH=/app'
     waitFor: ['push-image']
 
   # 4. Executar validação dentro do container
-  - name: 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
+  - name: 'gcr.io/cloud-builders/docker'
     id: 'run-validation'
-    entrypoint: 'python'
+    entrypoint: 'docker'
     args:
+      - 'run'
+      - '--rm'
+      - '-v'
+      - '/workspace/backend:/workspace/backend:ro'
+      - '-w'
+      - '/workspace/backend'
+      - '-e'
+      - 'DATABASE_URL=postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging'
+      - '-e'
+      - 'BACKEND_URL=https://finaflow-backend-staging-642830139828.us-central1.run.app'
+      - '-e'
+      - 'PYTHONPATH=/workspace/backend'
+      - 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
+      - 'python'
       - '-m'
       - 'scripts.validate_dashboard_against_client_sheet'
       - '--file'
@@ -41,10 +63,6 @@ steps:
       - '2025'
       - '--backend-url'
       - 'https://finaflow-backend-staging-642830139828.us-central1.run.app'
-    env:
-      - 'DATABASE_URL=postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging'
-      - 'BACKEND_URL=https://finaflow-backend-staging-642830139828.us-central1.run.app'
-      - 'PYTHONPATH=/app'
     waitFor: ['run-seed']
 
   # 4. Deploy do serviço (só executa se seed + validação passarem)
