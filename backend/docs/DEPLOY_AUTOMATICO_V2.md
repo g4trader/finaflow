@@ -104,7 +104,28 @@ Este comando:
 
 ---
 
+## ⚠️ Limitação Atual
+
+**Status**: O deploy automatizado completo está **parcialmente implementado**. O build da imagem e push funcionam, mas a execução de seed e validação dentro do Cloud Build requer acesso ao Cloud SQL, que atualmente não está configurado para acesso direto do Cloud Build.
+
+**Soluções Possíveis**:
+1. **Habilitar acesso público ao Cloud SQL** (não recomendado por segurança)
+2. **Usar VPC Connector** para conectar Cloud Build ao Cloud SQL via rede privada
+3. **Usar Cloud SQL Proxy manualmente** (não totalmente automatizado)
+
+**Recomendação**: Por enquanto, usar o script `run_seed_and_validate.sh` no Cloud Shell após o deploy manual.
+
+---
+
 ## 🔧 Troubleshooting
+
+### Erro: "Connection timed out" ao Cloud SQL
+
+**Causa**: Cloud Build não tem acesso ao Cloud SQL (IP público bloqueado ou não configurado).
+
+**Solução**: 
+- Usar script `run_seed_and_validate.sh` no Cloud Shell após deploy
+- Ou configurar VPC Connector para acesso privado
 
 ### Erro: "Permission denied" no Cloud Build
 
