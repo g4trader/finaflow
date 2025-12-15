@@ -13,7 +13,16 @@ steps:
     id: 'push-image'
     args: ['push', 'gcr.io/$PROJECT_ID/finaflow-backend-staging']
 
-  # 3. Executar seed dentro do container (monta workspace e usa Cloud SQL via Unix socket)
+  # 3. Verificar se arquivo Excel existe no workspace
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'check-excel'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - 'ls -la /workspace/backend/data/ && ls -la /workspace/backend/data/*.xlsx || echo "Arquivo Excel não encontrado"'
+    waitFor: ['push-image']
+
+  # 4. Executar seed dentro do container (monta workspace e usa Cloud SQL via Unix socket)
   - name: 'gcr.io/cloud-builders/docker'
     id: 'run-seed'
     entrypoint: 'docker'
@@ -34,7 +43,7 @@ steps:
       - 'scripts.seed_from_client_sheet'
       - '--file'
       - 'data/fluxo_caixa_2025.xlsx'
-    waitFor: ['push-image']
+    waitFor: ['check-excel']
 
   # 4. Executar validação dentro do container
   - name: 'gcr.io/cloud-builders/docker'
