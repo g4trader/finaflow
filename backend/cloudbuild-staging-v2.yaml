@@ -13,26 +13,63 @@ steps:
     id: 'push-image'
     args: ['push', 'gcr.io/$PROJECT_ID/finaflow-backend-staging']
 
-  # 3. Executar seed + validação dentro do container
-  # Usa script wrapper que gerencia Cloud SQL Proxy
+  # 3. Iniciar Cloud SQL Proxy em background
+  - name: 'gcr.io/cloud-sql-proxy'
+    id: 'start-proxy'
+    args:
+      - '--port=5432'
+      - 'trivihair:us-central1:finaflow-db-staging'
+    waitFor: ['push-image']
+
+  # 4. Executar seed dentro do container (conecta via TCP no proxy)
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'run-seed-and-validate'
+    id: 'run-seed'
     entrypoint: 'docker'
     args:
       - 'run'
       - '--rm'
-      - '--network=host'
+      - '--network=cloudbuild'
+      - '-e'
+      - 'DATABASE_URL=postgresql://finaflow_user:Finaflow123!@172.17.0.1:5432/finaflow'
       - '-e'
       - 'PYTHONPATH=/app'
       - '-v'
       - '/workspace/backend:/app'
       - 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
-      - 'bash'
-      - '/app/scripts/run_seed_and_validate_in_build.sh'
+      - 'python'
+      - '-m'
+      - 'scripts.seed_from_client_sheet'
+      - '--file'
       - 'data/fluxo_caixa_2025.xlsx'
+    waitFor: ['start-proxy']
+
+  # 5. Executar validação dentro do container
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'run-validation'
+    entrypoint: 'docker'
+    args:
+      - 'run'
+      - '--rm'
+      - '--network=cloudbuild'
+      - '-e'
+      - 'DATABASE_URL=postgresql://finaflow_user:Finaflow123!@172.17.0.1:5432/finaflow'
+      - '-e'
+      - 'BACKEND_URL=https://finaflow-backend-staging-642830139828.us-central1.run.app'
+      - '-e'
+      - 'PYTHONPATH=/app'
+      - '-v'
+      - '/workspace/backend:/app'
+      - 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
+      - 'python'
+      - '-m'
+      - 'scripts.validate_dashboard_against_client_sheet'
+      - '--file'
+      - 'data/fluxo_caixa_2025.xlsx'
+      - '--year'
       - '2025'
+      - '--backend-url'
       - 'https://finaflow-backend-staging-642830139828.us-central1.run.app'
-    waitFor: ['push-image']
+    waitFor: ['run-seed']
 
   # 4. Deploy do serviço (só executa se seed + validação passarem)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -68,7 +105,7 @@ steps:
       - '--max-instances'
       - '10'
       - '--cpu-boost'
-    waitFor: ['run-seed-and-validate']
+    waitFor: ['run-validation']
 
 images:
   - 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
