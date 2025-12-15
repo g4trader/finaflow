@@ -1,14 +1,55 @@
 # 🚀 Executar Validação do Dashboard
 
-**Métodos Disponíveis**:
-1. **Cloud Run Job** (Recomendado - Automatizado)
-2. **Cloud SQL Proxy** (Manual - Cloud Shell)
+**Fluxo Recomendado (v2.0)**:
+1. **Script unificado de Seed + Validação** (Cloud Shell / Local)
+2. **Cloud Run Jobs** (Opcional / Futuro)
 
-**Data**: 2025-12-11
+**Data**: 2025-12-12
 
 ---
 
-## 🚀 EXECUÇÃO VIA CLOUD RUN JOB (STAGING) - RECOMENDADO
+## ✅ Fluxo recomendado (v2.0) – Script Unificado
+
+### Pré-requisitos
+
+- ✅ Acessar o Cloud Shell no projeto `trivihair`
+- ✅ Repositório `finaflow` já clonado em `~/finaflow`
+- ✅ Banco STAGING acessível via `DATABASE_URL` (ou usar default)
+
+### Passos
+
+```bash
+cd ~/finaflow/backend
+./scripts/run_seed_and_validate.sh --year 2025
+```
+
+### O que o script faz
+
+1. Lê (ou assume) as variáveis:
+   - `DATABASE_URL` (default: `postgresql://finaflow_user:Finaflow123!@127.0.0.1:5432/finaflow`)
+   - `BACKEND_URL` (default: `https://finaflow-backend-staging-642830139828.us-central1.run.app`)
+2. Executa:
+   - `python3 -m scripts.seed_from_client_sheet --file data/fluxo_caixa_2025.xlsx`
+   - `python3 -m scripts.validate_dashboard_against_client_sheet --file data/fluxo_caixa_2025.xlsx --year 2025 --backend-url \"$BACKEND_URL\"` (com log em `logs/validate_dashboard_YYYYMMDD_HHMMSS.log`)
+
+### Critério de aprovação (v2.0)
+
+- ✅ Exit code `0`
+- ✅ Mensagem:
+  - `✅ Seed + validação concluídos sem mismatches.`
+  - `✅ Versão 2.0 consistente entre planilha, banco e API.`
+- ✅ Nenhum mismatch `BANCO→API` no resumo da validação
+
+### Em caso de erro
+
+- Exit code `1`: falha no seed (`scripts.seed_from_client_sheet`)
+- Exit code `2`: falha na validação (`scripts.validate_dashboard_against_client_sheet`)
+
+Ver detalhes no log indicado pelo script (em `backend/logs/`).
+
+---
+
+## 🚀 EXECUÇÃO VIA CLOUD RUN JOB (STAGING) – OPCIONAL / FUTURO
 
 ### Pré-requisitos
 
