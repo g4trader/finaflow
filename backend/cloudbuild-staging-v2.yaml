@@ -1,0 +1,77 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+steps:
+  # 1. Build da imagem
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/finaflow-backend-staging', '-f', 'backend/Dockerfile', 'backend']
+
+  # 2. Push da imagem
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-image'
+    args: ['push', 'gcr.io/$PROJECT_ID/finaflow-backend-staging']
+
+  # 3. Executar seed + validação dentro do container
+  # Usa script wrapper que gerencia Cloud SQL Proxy
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'run-seed-and-validate'
+    entrypoint: 'docker'
+    args:
+      - 'run'
+      - '--rm'
+      - '--network=host'
+      - '-e'
+      - 'PYTHONPATH=/app'
+      - '-v'
+      - '/workspace/backend:/app'
+      - 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
+      - 'bash'
+      - '/app/scripts/run_seed_and_validate_in_build.sh'
+      - 'data/fluxo_caixa_2025.xlsx'
+      - '2025'
+      - 'https://finaflow-backend-staging-642830139828.us-central1.run.app'
+    waitFor: ['push-image']
+
+  # 4. Deploy do serviço (só executa se seed + validação passarem)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-service'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'finaflow-backend-staging'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--add-cloudsql-instances'
+      - 'trivihair:us-central1:finaflow-db-staging'
+      - '--set-env-vars'
+      - 'DATABASE_URL=postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging,SECRET_KEY=finaflow-secret-key-2024-staging,JWT_SECRET=finaflow-secret-key-2024-staging,CORS_ORIGINS=*,ALLOWED_HOSTS=*,PROJECT_ID=trivihair,ENVIRONMENT=staging'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '600'
+      - '--concurrency'
+      - '80'
+      - '--min-instances'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--cpu-boost'
+    waitFor: ['run-seed-and-validate']
+
+images:
+  - 'gcr.io/$PROJECT_ID/finaflow-backend-staging'
+
+timeout: '3600s'
+
