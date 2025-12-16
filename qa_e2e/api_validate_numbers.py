@@ -88,78 +88,139 @@ def fetch_annual_summary(backend_url: str, token: str, year: int) -> Dict:
     return response.json()
 
 def aggregate_excel(file_path: Path, year: int) -> Dict[Tuple[int, int], Dict[str, Decimal]]:
-    """Agrega totais mensais do Excel"""
+    """Agrega totais mensais do Excel - reutiliza lógica do seed"""
     print(f"📊 Lendo Excel: {file_path}")
     
-    # Tentar encontrar a aba de lançamentos diários
-    excel_file = pd.ExcelFile(file_path)
-    sheet_name = None
-    for name in excel_file.sheet_names:
-        if "diário" in name.lower() or "diarios" in name.lower() or "lançamento" in name.lower():
-            sheet_name = name
-            break
-    
-    if not sheet_name:
-        # Usar primeira aba
-        sheet_name = excel_file.sheet_names[0]
-    
-    df = pd.read_excel(file_path, sheet_name=sheet_name)
-    
-    # Tentar identificar colunas
-    col_map = {}
-    for col in df.columns:
-        col_lower = str(col).lower()
-        if "data" in col_lower and "mov" in col_lower:
-            col_map['data'] = col
-        elif "valor" in col_lower:
-            col_map['valor'] = col
-        elif "grupo" in col_lower:
-            col_map['grupo'] = col
-        elif "subgrupo" in col_lower:
-            col_map['subgrupo'] = col
-    
-    if 'data' not in col_map or 'valor' not in col_map:
-        print("❌ Não foi possível identificar colunas necessárias no Excel")
-        print(f"Colunas encontradas: {list(df.columns)}")
-        sys.exit(1)
-    
-    # Agregar por mês
-    monthly = {}
-    for _, row in df.iterrows():
-        data_str = str(row[col_map['data']]) if pd.notna(row[col_map['data']]) else ""
-        valor_str = str(row[col_map['valor']]) if pd.notna(row[col_map['valor']]) else ""
-        grupo_str = str(row[col_map.get('grupo', '')]) if col_map.get('grupo') and pd.notna(row[col_map['grupo']]) else ""
+    # Tentar importar funções do seed_utils
+    try:
+        sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+        from scripts.seed_utils import (
+            find_sheet_in_excel,
+            read_excel_sheet,
+            LANCAMENTOS_DIARIOS_SHEETS,
+            normalize_diarios_filtrado
+        )
         
-        data = parse_date(data_str)
-        if not data or data.year != year:
-            continue
+        # Encontrar aba de lançamentos diários
+        sheet_name = find_sheet_in_excel(file_path, LANCAMENTOS_DIARIOS_SHEETS)
+        if not sheet_name:
+            print("❌ Aba de lançamentos diários não encontrada")
+            sys.exit(1)
         
-        valor = parse_currency(valor_str)
-        if valor == 0:
-            continue
+        # Ler dados
+        df = read_excel_sheet(file_path, sheet_name)
+        if df is None or df.empty:
+            print("❌ Planilha vazia ou inválida")
+            sys.exit(1)
         
-        tipo = determine_transaction_type(grupo_str)
-        key = (year, data.month)
+        # Normalizar usando a mesma lógica do seed
+        entries = normalize_diarios_filtrado(df, year)
         
-        if key not in monthly:
-            monthly[key] = {
-                "receita": Decimal(0),
-                "despesa": Decimal(0),
-                "custo": Decimal(0)
-            }
+        # Agregar por mês
+        monthly = {}
+        for entry in entries:
+            data = entry.get("data_movimentacao")
+            if not data or data.year != year:
+                continue
+            
+            valor = entry.get("valor", Decimal(0))
+            if valor == 0:
+                continue
+            
+            tipo = entry.get("transaction_type", "DESPESA")
+            key = (year, data.month)
+            
+            if key not in monthly:
+                monthly[key] = {
+                    "receita": Decimal(0),
+                    "despesa": Decimal(0),
+                    "custo": Decimal(0)
+                }
+            
+            if tipo == "RECEITA":
+                monthly[key]["receita"] += valor
+            elif tipo == "DESPESA":
+                monthly[key]["despesa"] += valor
+            elif tipo == "CUSTO":
+                monthly[key]["custo"] += valor
         
-        if tipo == "RECEITA":
-            monthly[key]["receita"] += valor
-        elif tipo == "DESPESA":
-            monthly[key]["despesa"] += valor
-        elif tipo == "CUSTO":
-            monthly[key]["custo"] += valor
-    
-    # Calcular saldo
-    for key in monthly:
-        monthly[key]["saldo"] = monthly[key]["receita"] - monthly[key]["despesa"] - monthly[key]["custo"]
-    
-    return monthly
+        # Calcular saldo
+        for key in monthly:
+            monthly[key]["saldo"] = monthly[key]["receita"] - monthly[key]["despesa"] - monthly[key]["custo"]
+        
+        return monthly
+        
+    except ImportError as e:
+        print(f"⚠️  Não foi possível importar seed_utils: {e}")
+        print("Usando método simplificado...")
+        # Fallback para método simplificado
+        excel_file = pd.ExcelFile(file_path)
+        sheet_name = None
+        for name in excel_file.sheet_names:
+            if "diário" in name.lower() or "diarios" in name.lower() or "lançamento" in name.lower():
+                sheet_name = name
+                break
+        
+        if not sheet_name:
+            sheet_name = excel_file.sheet_names[0]
+        
+        df = pd.read_excel(file_path, sheet_name=sheet_name)
+        
+        # Tentar identificar colunas
+        col_map = {}
+        for col in df.columns:
+            col_lower = str(col).lower()
+            if "data" in col_lower and ("mov" in col_lower or "prevista" in col_lower):
+                col_map['data'] = col
+            elif "valor" in col_lower:
+                col_map['valor'] = col
+            elif "grupo" in col_lower and "sub" not in col_lower:
+                col_map['grupo'] = col
+            elif "subgrupo" in col_lower:
+                col_map['subgrupo'] = col
+        
+        if 'data' not in col_map or 'valor' not in col_map:
+            print("❌ Não foi possível identificar colunas necessárias no Excel")
+            print(f"Colunas encontradas: {list(df.columns)}")
+            sys.exit(1)
+        
+        # Agregar por mês
+        monthly = {}
+        for _, row in df.iterrows():
+            data_str = str(row[col_map['data']]) if pd.notna(row[col_map['data']]) else ""
+            valor_str = str(row[col_map['valor']]) if pd.notna(row[col_map['valor']]) else ""
+            grupo_str = str(row[col_map.get('grupo', '')]) if col_map.get('grupo') and pd.notna(row[col_map.get('grupo', '')]) else ""
+            
+            data = parse_date(data_str)
+            if not data or data.year != year:
+                continue
+            
+            valor = parse_currency(valor_str)
+            if valor == 0:
+                continue
+            
+            tipo = determine_transaction_type(grupo_str)
+            key = (year, data.month)
+            
+            if key not in monthly:
+                monthly[key] = {
+                    "receita": Decimal(0),
+                    "despesa": Decimal(0),
+                    "custo": Decimal(0)
+                }
+            
+            if tipo == "RECEITA":
+                monthly[key]["receita"] += valor
+            elif tipo == "DESPESA":
+                monthly[key]["despesa"] += valor
+            elif tipo == "CUSTO":
+                monthly[key]["custo"] += valor
+        
+        # Calcular saldo
+        for key in monthly:
+            monthly[key]["saldo"] = monthly[key]["receita"] - monthly[key]["despesa"] - monthly[key]["custo"]
+        
+        return monthly
 
 def compare_values(excel_val: Decimal, api_val: Decimal, tolerance: Decimal) -> Tuple[bool, Decimal]:
     """Compara valores com tolerância"""

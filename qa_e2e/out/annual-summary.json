@@ -1,0 +1,114 @@
+{
+  "year": 2025,
+  "totals": {
+    "revenue": 1098490.83,
+    "expense": 712606.65,
+    "cost": 347107.64,
+    "balance": 38776.54
+  },
+  "monthly": [
+    {
+      "month": 1,
+      "revenue": 86153.06,
+      "expense": 56231.57,
+      "cost": 28443.42,
+      "balance": 1478.07,
+      "accumulated_balance": 1478.07
+    },
+    {
+      "month": 2,
+      "revenue": 70722.25,
+      "expense": 46979.07,
+      "cost": 23325.37,
+      "balance": 417.81,
+      "accumulated_balance": 1895.88
+    },
+    {
+      "month": 3,
+      "revenue": 61536.86,
+      "expense": 44479.61,
+      "cost": 27626.11,
+      "balance": -10568.86,
+      "accumulated_balance": -8672.98
+    },
+    {
+      "month": 4,
+      "revenue": 87419.87,
+      "expense": 59242.13,
+      "cost": 25822.33,
+      "balance": 2355.41,
+      "accumulated_balance": -6317.57
+    },
+    {
+      "month": 5,
+      "revenue": 103520.05,
+      "expense": 137917.7,
+      "cost": 29614.17,
+      "balance": -64011.82,
+      "accumulated_balance": -70329.39
+    },
+    {
+      "month": 6,
+      "revenue": 124829.19,
+      "expense": 56886.18,
+      "cost": 40330.01,
+      "balance": 27613.0,
+      "accumulated_balance": -42716.39
+    },
+    {
+      "month": 7,
+      "revenue": 117579.98,
+      "expense": 43338.88,
+      "cost": 41377.85,
+      "balance": 32863.25,
+      "accumulated_balance": -9853.14
+    },
+    {
+      "month": 8,
+      "revenue": 118177.78,
+      "expense": 53686.36,
+      "cost": 28976.61,
+      "balance": 35514.81,
+      "accumulated_balance": 25661.67
+    },
+    {
+      "month": 9,
+      "revenue": 115831.87,
+      "expense": 61068.6,
+      "cost": 36138.16,
+      "balance": 18625.11,
+      "accumulated_balance": 44286.78
+    },
+    {
+      "month": 10,
+      "revenue": 105101.19,
+      "expense": 69341.95,
+      "cost": 33774.16,
+      "balance": 1985.08,
+      "accumulated_balance": 46271.86
+    },
+    {
+      "month": 11,
+      "revenue": 93922.9,
+      "expense": 65085.36,
+      "cost": 31679.45,
+      "balance": -2841.91,
+      "accumulated_balance": 43429.95
+    },
+    {
+      "month": 12,
+      "revenue": 13695.83,
+      "expense": 18349.24,
+      "cost": 0.0,
+      "balance": -4653.41,
+      "accumulated_balance": 38776.54
+    }
+  ],
+  "metadata": {
+    "saldo_formula": "receita - despesa - custo",
+    "saldo_acumulado_formula": "soma progressiva dos saldos mensais",
+    "saldo_acumulado_explanation": "O saldo acumulado de cada mês é a soma do saldo acumulado do mês anterior com o saldo mensal do mês atual. Janeiro não tem mês anterior, então o saldo acumulado é igual ao saldo mensal.",
+    "calculation_precision": "Decimal (precisão absoluta)",
+    "empty_months_behavior": "Meses sem lançamentos têm saldo_mensal = 0, mas o saldo_acumulado se propaga (mantém o valor do mês anterior)"
+  }
+}

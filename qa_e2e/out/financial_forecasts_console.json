@@ -1,0 +1,5 @@
+[
+  "{'level': 'SEVERE', 'message': 'https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()', 'source': 'network', 'timestamp': 1765896653858}",
+  "{'level': 'SEVERE', 'message': 'https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()', 'source': 'network', 'timestamp': 1765896659103}",
+  "{'level': 'SEVERE', 'message': 'https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()', 'source': 'network', 'timestamp': 1765896659103}"
+]
