@@ -296,7 +296,7 @@ export const fetchOperationalAlerts = async (): Promise<OperationalAlerts> => {
 // Buscar comparação previsto vs realizado
 export const fetchForecastVsRealized = async (months: number = 6): Promise<ForecastVsRealized> => {
   try {
-    const data = await fetchWithAuth(`/api/v1/operational/forecast-vs-realized?months=${months}`);
+    const data = await fetchWithAuth(`/api/v1/dashboard/operational/forecast-vs-realized?months=${months}`);
     return data;
   } catch (error) {
     console.error('Erro ao buscar previsto vs realizado:', error);
