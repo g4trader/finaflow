@@ -115,16 +115,49 @@ Corrigir o endpoint `/api/v1/financial/annual-summary` para garantir consistênc
 
 ### Saldo Mensal
 ```
-saldo[mês] = receita[mês] - despesa[mês] - custo[mês]
+saldo_mensal[mês] = receita[mês] - despesa[mês] - custo[mês]
 ```
+
+**Regras:**
+- Sempre calculado, mesmo para meses sem lançamentos (resulta em 0)
+- Usa `Decimal` para precisão absoluta
+- Valores podem ser positivos, negativos ou zero
 
 ### Saldo Acumulado
 ```
-acumulado[jan] = saldo[jan]
-acumulado[fev] = acumulado[jan] + saldo[fev]
-acumulado[mar] = acumulado[fev] + saldo[mar]
+saldo_acumulado[jan] = saldo_mensal[jan]
+saldo_acumulado[fev] = saldo_acumulado[jan] + saldo_mensal[fev]
+saldo_acumulado[mar] = saldo_acumulado[fev] + saldo_mensal[mar]
 ...
 ```
+
+**Regras:**
+- Sempre começa no primeiro mês do ano (janeiro)
+- Meses sem lançamentos: saldo_acumulado se propaga (mantém valor do mês anterior)
+- Soma progressiva: cada mês acumula o saldo do mês anterior
+- Pode mudar de sinal (positivo → negativo ou vice-versa)
+- Usa `Decimal` para precisão absoluta
+
+### Metadata Explicativa (BLOCO 2)
+
+O endpoint `/api/v1/financial/annual-summary` agora retorna metadata explicativa:
+
+```json
+{
+  "metadata": {
+    "saldo_formula": "receita - despesa - custo",
+    "saldo_acumulado_formula": "soma progressiva dos saldos mensais",
+    "saldo_acumulado_explanation": "O saldo acumulado de cada mês é a soma do saldo acumulado do mês anterior com o saldo mensal do mês atual. Janeiro não tem mês anterior, então o saldo acumulado é igual ao saldo mensal.",
+    "calculation_precision": "Decimal (precisão absoluta)",
+    "empty_months_behavior": "Meses sem lançamentos têm saldo_mensal = 0, mas o saldo_acumulado se propaga (mantém o valor do mês anterior)"
+  }
+}
+```
+
+Esta metadata pode ser usada pelo frontend para:
+- Tooltips explicativos
+- Modais de ajuda
+- Documentação inline
 
 ### Totais Anuais
 ```

@@ -24,6 +24,7 @@ from app.models.lancamento_diario import LancamentoDiario, TransactionType
 from app.models.lancamento_previsto import LancamentoPrevisto
 from app.services.dependencies import get_current_active_user
 from app.services.financial_aggregation_service import FinancialAggregationService
+from app.services.monthly_drilldown_service import MonthlyDrilldownService
 
 router = APIRouter(tags=["dashboard"])
 
@@ -163,26 +164,44 @@ def annual_summary(
     - 12 meses completos (mesmo sem lançamentos)
     - Totais anuais de receita, despesa, custo e saldo
     - Saldo mensal e saldo acumulado por mês
+    - Metadata explicativa das fórmulas de cálculo
     
-    Cálculos:
+    FÓRMULAS DE CÁLCULO:
     - receita = soma(lancamentos.tipo == RECEITA)
     - despesa = soma(lancamentos.tipo == DESPESA)
     - custo = soma(lancamentos.tipo == CUSTO)
-    - saldo = receita - despesa - custo
-    - saldo_acumulado[jan] = saldo[jan]
-    - saldo_acumulado[fev] = saldo_acumulado[jan] + saldo[fev]
-    - ...
+    - saldo_mensal = receita - despesa - custo
+    - saldo_acumulado[jan] = saldo_mensal[jan]
+    - saldo_acumulado[fev] = saldo_acumulado[jan] + saldo_mensal[fev]
+    - saldo_acumulado[mar] = saldo_acumulado[fev] + saldo_mensal[mar]
+    - ... (soma progressiva)
+    
+    REGRAS IMPORTANTES:
+    - Saldo acumulado sempre começa no primeiro mês do ano (janeiro)
+    - Meses sem lançamentos: saldo_mensal = 0, saldo_acumulado se propaga
+    - Todos os cálculos usam Decimal para precisão absoluta
     """
     target_year = year or datetime.utcnow().year
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    return FinancialAggregationService.aggregate_monthly_summary(
+    result = FinancialAggregationService.aggregate_monthly_summary(
         db=db,
         tenant_id=tenant_id,
         business_unit_id=business_unit_id,
         year=target_year,
     )
+    
+    # Adicionar metadata explicativa (BLOCO 2)
+    result["metadata"] = {
+        "saldo_formula": "receita - despesa - custo",
+        "saldo_acumulado_formula": "soma progressiva dos saldos mensais",
+        "saldo_acumulado_explanation": "O saldo acumulado de cada mês é a soma do saldo acumulado do mês anterior com o saldo mensal do mês atual. Janeiro não tem mês anterior, então o saldo acumulado é igual ao saldo mensal.",
+        "calculation_precision": "Decimal (precisão absoluta)",
+        "empty_months_behavior": "Meses sem lançamentos têm saldo_mensal = 0, mas o saldo_acumulado se propaga (mantém o valor do mês anterior)"
+    }
+    
+    return result
 
 
 @router.get("/financial/annual-summary/debug")
@@ -210,6 +229,116 @@ def annual_summary_debug(
         business_unit_id=business_unit_id,
         year=target_year,
     )
+
+
+@router.get("/financial/monthly-daily-summary")
+def monthly_daily_summary(
+    year: int = Query(..., ge=1900, description="Ano (ex: 2025)"),
+    month: int = Query(..., ge=1, le=12, description="Mês (1-12)"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna resumo diário de um mês específico.
+    
+    Agrega receitas, despesas e custos por dia do mês informado.
+    Os totais mensais DEVEM bater com o mês correspondente de /annual-summary.
+    
+    Retorna:
+    - Lista de dias do mês (mesmo sem lançamentos)
+    - Totais mensais de receita, despesa, custo e saldo
+    - Metadata explicativa das fórmulas
+    
+    FÓRMULAS:
+    - saldo_diário = receita - despesa - custo
+    - month_total_* = soma dos dias do mês
+    
+    CONSISTÊNCIA:
+    - month_total_* deve bater com monthly[month-1] de /annual-summary
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    
+    try:
+        result = MonthlyDrilldownService.aggregate_daily_summary(
+            db=db,
+            tenant_id=tenant_id,
+            business_unit_id=business_unit_id,
+            year=year,
+            month=month,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao calcular resumo diário: {str(e)}")
+
+
+@router.get("/financial/monthly-transactions")
+def monthly_transactions(
+    year: int = Query(..., ge=1900, description="Ano (ex: 2025)"),
+    month: int = Query(..., ge=1, le=12, description="Mês (1-12)"),
+    type: Optional[str] = Query(None, description="Tipo: RECEITA, DESPESA ou CUSTO"),
+    group_id: Optional[str] = Query(None, description="ID do grupo"),
+    subgroup_id: Optional[str] = Query(None, description="ID do subgrupo"),
+    account_id: Optional[str] = Query(None, description="ID da conta"),
+    page: int = Query(1, ge=1, description="Página (começa em 1)"),
+    page_size: int = Query(50, ge=1, le=200, description="Itens por página (máx 200)"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna lançamentos detalhados de um mês específico com filtros e paginação.
+    
+    Parâmetros:
+    - year, month: obrigatórios
+    - type: opcional (RECEITA, DESPESA, CUSTO)
+    - group_id, subgroup_id, account_id: filtros opcionais
+    - page, page_size: paginação
+    
+    Retorna:
+    - Lista paginada de lançamentos
+    - Summary com totais do mês (considerando filtros)
+    - Metadados de paginação
+    
+    CONSISTÊNCIA:
+    - Se nenhum filtro for aplicado, summary.* deve bater com monthly[month-1] de /annual-summary
+    - A soma dos items retornados (dentro da página) é parcial
+    - O summary.* é o total do mês considerando os filtros aplicados
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    
+    # Converter type string para enum
+    transaction_type = None
+    if type:
+        try:
+            transaction_type = TransactionType(type.upper())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tipo inválido: {type}. Use RECEITA, DESPESA ou CUSTO."
+            )
+    
+    try:
+        result = MonthlyDrilldownService.get_monthly_transactions(
+            db=db,
+            tenant_id=tenant_id,
+            business_unit_id=business_unit_id,
+            year=year,
+            month=month,
+            transaction_type=transaction_type,
+            group_id=group_id,
+            subgroup_id=subgroup_id,
+            account_id=account_id,
+            page=page,
+            page_size=page_size,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar lançamentos: {str(e)}")
 
 
 @router.get("/financial/wallet")

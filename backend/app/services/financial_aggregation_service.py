@@ -96,7 +96,11 @@ class FinancialAggregationService:
             elif tx.transaction_type == TransactionType.CUSTO:
                 monthly_data[month]["cost"] += valor
 
-        # Calcular saldo mensal (receita - despesa - custo)
+        # ============================================================
+        # CÁLCULO DO SALDO MENSAL
+        # ============================================================
+        # Fórmula: saldo_mensal = receita - despesa - custo
+        # Sempre calculado, mesmo para meses sem lançamentos (resulta em 0)
         for month in range(1, 13):
             monthly_data[month]["balance"] = (
                 monthly_data[month]["revenue"]
@@ -104,7 +108,10 @@ class FinancialAggregationService:
                 - monthly_data[month]["cost"]
             )
 
-        # Calcular totais anuais
+        # ============================================================
+        # CÁLCULO DOS TOTAIS ANUAIS
+        # ============================================================
+        # Soma de todos os 12 meses para cada categoria
         annual_totals = {
             "revenue": Decimal("0"),
             "expense": Decimal("0"),
@@ -118,12 +125,22 @@ class FinancialAggregationService:
             annual_totals["cost"] += monthly_data[month]["cost"]
             annual_totals["balance"] += monthly_data[month]["balance"]
 
-        # Calcular saldo acumulado
+        # ============================================================
+        # CÁLCULO DO SALDO ACUMULADO
+        # ============================================================
+        # Fórmula: saldo_acumulado[mês] = saldo_acumulado[mês_anterior] + saldo_mensal[mês]
+        # 
+        # Regras:
+        # - Janeiro: saldo_acumulado = saldo_mensal[jan] (sem mês anterior)
+        # - Meses seguintes: saldo_acumulado = acumulado_anterior + saldo_mensal
+        # - Meses sem lançamentos: saldo_acumulado se propaga (mantém valor anterior)
+        # - Usa Decimal para precisão absoluta em todos os cálculos
         accumulated_balance = Decimal("0")
         monthly_list: List[Dict[str, any]] = []
 
         for month in range(1, 13):
             balance = monthly_data[month]["balance"]
+            # Acumular: saldo_acumulado = saldo_acumulado_anterior + saldo_mensal
             accumulated_balance += balance
 
             monthly_list.append({
@@ -131,8 +148,8 @@ class FinancialAggregationService:
                 "revenue": float(monthly_data[month]["revenue"]),
                 "expense": float(monthly_data[month]["expense"]),
                 "cost": float(monthly_data[month]["cost"]),
-                "balance": float(balance),
-                "accumulated_balance": float(accumulated_balance),
+                "balance": float(balance),  # saldo_mensal
+                "accumulated_balance": float(accumulated_balance),  # saldo_acumulado
             })
 
         return {

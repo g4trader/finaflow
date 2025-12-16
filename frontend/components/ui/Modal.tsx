@@ -23,7 +23,7 @@ const Modal: React.FC<ModalProps> = ({
     sm: 'max-w-md',
     md: 'max-w-lg',
     lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
+    xl: 'max-w-6xl',
   };
 
   useEffect(() => {
@@ -76,7 +76,7 @@ const Modal: React.FC<ModalProps> = ({
           </div>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="p-6 max-h-[80vh] overflow-y-auto">
             {children}
           </div>
         </div>

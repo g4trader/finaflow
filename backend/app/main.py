@@ -11,6 +11,8 @@ from app.api import financial, include_routers as include_api_routers
 from app.routes import permissions
 from app.models.auth import Base
 from app.models.financial import Base as FinancialBase
+# Importar todos os modelos para garantir que sejam registrados no metadata
+from app.models.validation_status import DashboardValidationStatus  # noqa: F401
 
 # Configurações de segurança
 default_allowed_hosts = "localhost,127.0.0.1,testserver,finaflow.vercel.app"

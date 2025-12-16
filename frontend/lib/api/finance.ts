@@ -1,7 +1,9 @@
 import type { 
   AnnualSummaryResponse, 
   WalletResponse, 
-  TransactionsResponse 
+  TransactionsResponse,
+  MonthlyDailySummaryResponse,
+  MonthlyTransactionsResponse
 } from '../../types/dashboard';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
@@ -149,5 +151,63 @@ export const fetchTransactions = async (
       items: yearTransactions,
       nextCursor: undefined
     };
+  }
+};
+
+// Buscar resumo diário de um mês
+export const fetchMonthlyDailySummary = async (
+  year: number,
+  month: number
+): Promise<MonthlyDailySummaryResponse> => {
+  try {
+    const data = await fetchWithAuth(`/api/v1/financial/monthly-daily-summary?year=${year}&month=${month}`);
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar resumo diário:', error);
+    throw error;
+  }
+};
+
+// Buscar lançamentos detalhados de um mês
+export const fetchMonthlyTransactions = async (params: {
+  year: number;
+  month: number;
+  type?: "RECEITA" | "DESPESA" | "CUSTO";
+  group_id?: string;
+  subgroup_id?: string;
+  account_id?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<MonthlyTransactionsResponse> => {
+  try {
+    const queryParams = new URLSearchParams({
+      year: params.year.toString(),
+      month: params.month.toString(),
+    });
+    
+    if (params.type) {
+      queryParams.append('type', params.type);
+    }
+    if (params.group_id) {
+      queryParams.append('group_id', params.group_id);
+    }
+    if (params.subgroup_id) {
+      queryParams.append('subgroup_id', params.subgroup_id);
+    }
+    if (params.account_id) {
+      queryParams.append('account_id', params.account_id);
+    }
+    if (params.page) {
+      queryParams.append('page', params.page.toString());
+    }
+    if (params.page_size) {
+      queryParams.append('page_size', params.page_size.toString());
+    }
+    
+    const data = await fetchWithAuth(`/api/v1/financial/monthly-transactions?${queryParams.toString()}`);
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar lançamentos mensais:', error);
+    throw error;
   }
 };

@@ -3,6 +3,8 @@ export type MonthlyBreakdown = {
   revenue: number;      // receitas
   expense: number;      // despesas
   cost: number;         // custos
+  balance: number;      // saldo_mensal = receita - despesa - custo
+  accumulated_balance: number; // saldo_acumulado = soma progressiva dos saldos mensais
 };
 
 export type AnnualSummaryResponse = {
@@ -11,8 +13,16 @@ export type AnnualSummaryResponse = {
     revenue: number;
     expense: number;
     cost: number;
+    balance: number;    // saldo total anual
   };
   monthly: MonthlyBreakdown[]; // 12 entradas, meses ausentes devem vir como 0
+  metadata?: {
+    saldo_formula: string;
+    saldo_acumulado_formula: string;
+    saldo_acumulado_explanation: string;
+    calculation_precision: string;
+    empty_months_behavior: string;
+  };
   ytdComparison?: { 
     currentYTD: number; 
     lastYearYTD: number 
@@ -45,3 +55,50 @@ export type YearFilterState = {
   setYear: (year: number) => void;
   isLoading: boolean;
 };
+
+export interface MonthlyDailySummaryResponse {
+  year: number;
+  month: number;
+  currency: string;
+  days: {
+    date: string;  // ISO format
+    day: number;
+    revenue: string;
+    expense: string;
+    cost: string;
+    balance: string;
+  }[];
+  metadata: {
+    saldo_formula: string;
+    saldo_acumulado_formula?: string;
+    month_total_revenue: string;
+    month_total_expense: string;
+    month_total_cost: string;
+    month_total_balance: string;
+  };
+}
+
+export interface MonthlyTransactionsResponse {
+  year: number;
+  month: number;
+  page: number;
+  page_size: number;
+  total_items: number;
+  total_pages: number;
+  summary: {
+    revenue: string;
+    expense: string;
+    cost: string;
+    balance: string;
+  };
+  items: {
+    id: string;
+    date: string;
+    description: string;
+    type: "RECEITA" | "DESPESA" | "CUSTO";
+    group?: string | null;
+    subgroup?: string | null;
+    account?: string | null;
+    amount: string;
+  }[];
+}

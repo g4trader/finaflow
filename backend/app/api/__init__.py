@@ -18,6 +18,7 @@ from app.api.bank_accounts import router as bank_accounts_router
 from app.api.caixa import router as caixa_router
 from app.api.investments import router as investments_router
 from app.api.seed_staging import router as seed_staging_router
+from app.api.system import router as system_router
 
 # Routers baseados em BigQuery/legacy
 LEGACY_ROUTERS = [
@@ -39,6 +40,7 @@ LEGACY_ROUTERS = [
     caixa_router,
     investments_router,
     seed_staging_router,
+    system_router,
 ]
 
 

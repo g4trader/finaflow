@@ -60,6 +60,10 @@ from app.models.lancamento_diario import (
 from app.models.lancamento_previsto import (
     LancamentoPrevisto
 )
+from app.models.validation_status import (
+    DashboardValidationStatus,
+    ValidationStatus
+)
 
 # Reutilizar funções do seed_utils
 from scripts.seed_utils import (
@@ -1409,6 +1413,46 @@ def main():
                     if inc['delta_banco_api'] > TOLERANCE_ABS:
                         print(f"    ⚠️  Δ BANCO→API: R$ {float(inc['delta_banco_api']):,.2f} "
                               f"({float(inc['delta_pct_banco_api']):.2f}%)" if inc['delta_pct_banco_api'] else "")
+            
+            # Atualizar status de validação (BLOCO 4)
+            print("\n" + "="*80)
+            print("💾 ATUALIZANDO STATUS DE VALIDAÇÃO")
+            print("="*80)
+            try:
+                import json
+                validation_details = {
+                    "mismatches_count": len(inconsistencies),
+                    "stats": stats,
+                    "all_ok": all_ok
+                }
+                
+                # Buscar ou criar registro de validação
+                validation_record = db.query(DashboardValidationStatus).filter(
+                    DashboardValidationStatus.tenant_id == tenant.id,
+                    DashboardValidationStatus.business_unit_id == business_unit.id,
+                    DashboardValidationStatus.year == str(args.year)
+                ).first()
+                
+                if not validation_record:
+                    validation_record = DashboardValidationStatus(
+                        tenant_id=tenant.id,
+                        business_unit_id=business_unit.id,
+                        year=str(args.year),
+                        status=ValidationStatus.SUCCESS if all_ok else ValidationStatus.FAILED,
+                        last_validation_at=datetime.utcnow(),
+                        validation_details=json.dumps(validation_details)
+                    )
+                    db.add(validation_record)
+                else:
+                    validation_record.status = ValidationStatus.SUCCESS if all_ok else ValidationStatus.FAILED
+                    validation_record.last_validation_at = datetime.utcnow()
+                    validation_record.validation_details = json.dumps(validation_details)
+                
+                db.commit()
+                print(f"✅ Status de validação atualizado: {validation_record.status.value}")
+            except Exception as e:
+                print(f"⚠️  Erro ao atualizar status de validação: {e}")
+                db.rollback()
             
             print("\n" + "="*80)
             

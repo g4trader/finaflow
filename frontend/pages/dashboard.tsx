@@ -11,7 +11,9 @@ import AnnualLineChart from '../components/charts/AnnualLineChart';
 import AnnualMonthlyTable from '../components/tables/AnnualMonthlyTable';
 import WalletCard from '../components/cards/WalletCard';
 import RecentTransactionsCard from '../components/cards/RecentTransactionsCard';
+import MonthlyDrilldownModal from '../components/dashboard/MonthlyDrilldownModal';
 import type { AnnualSummaryResponse, WalletResponse, TransactionsResponse } from '../types/dashboard';
+import ValidationBadge from '../components/ValidationBadge';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -25,6 +27,11 @@ const Dashboard: React.FC = () => {
   // Estados de loading e erro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Estados do drill down
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [isDrilldownOpen, setIsDrilldownOpen] = useState(false);
 
   // Carregar dados quando o ano muda
   useEffect(() => {
@@ -107,11 +114,12 @@ const Dashboard: React.FC = () => {
               onYearChange={setYear}
               disabled={yearLoading || loading}
             />
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <Calendar className="w-4 h-4" />
-            <span>{new Date().toLocaleDateString('pt-BR')}</span>
+            <ValidationBadge year={year} />
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <Calendar className="w-4 h-4" />
+              <span>{new Date().toLocaleDateString('pt-BR')}</span>
+            </div>
           </div>
-        </div>
         </div>
 
         {/* Cards Principais */}
@@ -135,6 +143,25 @@ const Dashboard: React.FC = () => {
           <AnnualMonthlyTable 
             data={annualData} 
             isLoading={loading}
+            onMonthClick={({ year, month }) => {
+              setSelectedYear(year);
+              setSelectedMonth(month);
+              setIsDrilldownOpen(true);
+            }}
+          />
+        )}
+
+        {/* Modal de Drill Down */}
+        {selectedYear && selectedMonth && (
+          <MonthlyDrilldownModal
+            isOpen={isDrilldownOpen}
+            onClose={() => {
+              setIsDrilldownOpen(false);
+              setSelectedMonth(null);
+              setSelectedYear(null);
+            }}
+            year={selectedYear}
+            month={selectedMonth}
           />
         )}
 

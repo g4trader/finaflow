@@ -355,3 +355,171 @@ def test_get_debug_summary_structure(mock_db, sample_transactions):
     assert "monthly_comparison" in result
     assert len(result["monthly_comparison"]) == 12
 
+
+def test_accumulated_balance_with_empty_months(mock_db):
+    """Testa que saldo acumulado se propaga em meses vazios"""
+    transactions = []
+    
+    # Janeiro: +1000
+    tx1 = Mock()
+    tx1.data_movimentacao = datetime(2025, 1, 15)
+    tx1.valor = Decimal("1000.00")
+    tx1.transaction_type = TransactionType.RECEITA
+    tx1.is_active = True
+    transactions.append(tx1)
+    
+    # Fevereiro: vazio (sem lançamentos)
+    # Março: vazio (sem lançamentos)
+    
+    # Abril: -500
+    tx2 = Mock()
+    tx2.data_movimentacao = datetime(2025, 4, 10)
+    tx2.valor = Decimal("500.00")
+    tx2.transaction_type = TransactionType.DESPESA
+    tx2.is_active = True
+    transactions.append(tx2)
+    
+    # Configurar mock
+    query_mock = Mock()
+    query_mock.filter.return_value = query_mock
+    query_mock.all.return_value = transactions
+    mock_db.query.return_value = query_mock
+    
+    # Executar
+    result = FinancialAggregationService.aggregate_monthly_summary(
+        db=mock_db,
+        tenant_id="test-tenant",
+        business_unit_id="test-bu",
+        year=2025,
+    )
+    
+    # Janeiro: saldo = 1000, acumulado = 1000
+    jan = result["monthly"][0]
+    assert jan["balance"] == 1000.0
+    assert jan["accumulated_balance"] == 1000.0
+    
+    # Fevereiro: saldo = 0, acumulado = 1000 (propaga)
+    feb = result["monthly"][1]
+    assert feb["balance"] == 0.0
+    assert feb["accumulated_balance"] == 1000.0
+    
+    # Março: saldo = 0, acumulado = 1000 (propaga)
+    mar = result["monthly"][2]
+    assert mar["balance"] == 0.0
+    assert mar["accumulated_balance"] == 1000.0
+    
+    # Abril: saldo = -500, acumulado = 500 (1000 - 500)
+    apr = result["monthly"][3]
+    assert apr["balance"] == -500.0
+    assert apr["accumulated_balance"] == 500.0
+
+
+def test_accumulated_balance_with_negative_values(mock_db):
+    """Testa saldo acumulado com valores negativos"""
+    transactions = []
+    
+    # Janeiro: -2000 (despesa maior que receita)
+    tx1 = Mock()
+    tx1.data_movimentacao = datetime(2025, 1, 5)
+    tx1.valor = Decimal("1000.00")
+    tx1.transaction_type = TransactionType.RECEITA
+    tx1.is_active = True
+    transactions.append(tx1)
+    
+    tx2 = Mock()
+    tx2.data_movimentacao = datetime(2025, 1, 10)
+    tx2.valor = Decimal("3000.00")
+    tx2.transaction_type = TransactionType.DESPESA
+    tx2.is_active = True
+    transactions.append(tx2)
+    
+    # Fevereiro: +500
+    tx3 = Mock()
+    tx3.data_movimentacao = datetime(2025, 2, 5)
+    tx3.valor = Decimal("500.00")
+    tx3.transaction_type = TransactionType.RECEITA
+    tx3.is_active = True
+    transactions.append(tx3)
+    
+    # Configurar mock
+    query_mock = Mock()
+    query_mock.filter.return_value = query_mock
+    query_mock.all.return_value = transactions
+    mock_db.query.return_value = query_mock
+    
+    # Executar
+    result = FinancialAggregationService.aggregate_monthly_summary(
+        db=mock_db,
+        tenant_id="test-tenant",
+        business_unit_id="test-bu",
+        year=2025,
+    )
+    
+    # Janeiro: 1000 - 3000 = -2000
+    jan = result["monthly"][0]
+    assert jan["balance"] == -2000.0
+    assert jan["accumulated_balance"] == -2000.0
+    
+    # Fevereiro: +500, acumulado = -2000 + 500 = -1500
+    feb = result["monthly"][1]
+    assert feb["balance"] == 500.0
+    assert feb["accumulated_balance"] == -1500.0
+
+
+def test_accumulated_balance_sign_change(mock_db):
+    """Testa virada de saldo (positivo → negativo e vice-versa)"""
+    transactions = []
+    
+    # Janeiro: +1000 (positivo)
+    tx1 = Mock()
+    tx1.data_movimentacao = datetime(2025, 1, 5)
+    tx1.valor = Decimal("1000.00")
+    tx1.transaction_type = TransactionType.RECEITA
+    tx1.is_active = True
+    transactions.append(tx1)
+    
+    # Fevereiro: -1500 (vira negativo)
+    tx2 = Mock()
+    tx2.data_movimentacao = datetime(2025, 2, 5)
+    tx2.valor = Decimal("1500.00")
+    tx2.transaction_type = TransactionType.DESPESA
+    tx2.is_active = True
+    transactions.append(tx2)
+    
+    # Março: +2000 (volta a positivo)
+    tx3 = Mock()
+    tx3.data_movimentacao = datetime(2025, 3, 5)
+    tx3.valor = Decimal("2000.00")
+    tx3.transaction_type = TransactionType.RECEITA
+    tx3.is_active = True
+    transactions.append(tx3)
+    
+    # Configurar mock
+    query_mock = Mock()
+    query_mock.filter.return_value = query_mock
+    query_mock.all.return_value = transactions
+    mock_db.query.return_value = query_mock
+    
+    # Executar
+    result = FinancialAggregationService.aggregate_monthly_summary(
+        db=mock_db,
+        tenant_id="test-tenant",
+        business_unit_id="test-bu",
+        year=2025,
+    )
+    
+    # Janeiro: +1000
+    jan = result["monthly"][0]
+    assert jan["balance"] == 1000.0
+    assert jan["accumulated_balance"] == 1000.0
+    
+    # Fevereiro: -1500, acumulado = 1000 - 1500 = -500 (virada para negativo)
+    feb = result["monthly"][1]
+    assert feb["balance"] == -1500.0
+    assert feb["accumulated_balance"] == -500.0
+    
+    # Março: +2000, acumulado = -500 + 2000 = 1500 (volta a positivo)
+    mar = result["monthly"][2]
+    assert mar["balance"] == 2000.0
+    assert mar["accumulated_balance"] == 1500.0
+
