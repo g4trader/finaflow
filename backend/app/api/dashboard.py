@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -21,7 +21,7 @@ from app.models.chart_of_accounts import (
     ChartAccountSubgroup,
 )
 from app.models.lancamento_diario import LancamentoDiario, TransactionType
-from app.models.lancamento_previsto import LancamentoPrevisto
+from app.models.lancamento_previsto import LancamentoPrevisto, TransactionStatus
 from app.services.dependencies import get_current_active_user
 from app.services.financial_aggregation_service import FinancialAggregationService
 from app.services.monthly_drilldown_service import MonthlyDrilldownService
@@ -940,4 +940,504 @@ def listar_lancamentos_simples(
         }
         for lanc in lancamentos
     ]
+
+
+# ============================================================================
+# DASHBOARD OPERACIONAL - ENDPOINTS
+# ============================================================================
+
+@router.get("/operational/availability")
+def operational_availability(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna a composição das disponibilidades de caixa (Bancos, Caixa, Investimentos).
+    
+    Retorna:
+    - banks: Total de saldos bancários
+    - cash: Total de caixa/dinheiro
+    - investments: Total de aplicações/investimentos
+    - total: Soma dos três acima
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+
+    # Bancos
+    bank_query = (
+        db.query(func.sum(ContaBancaria.saldo_atual))
+        .filter(
+            ContaBancaria.tenant_id == tenant_id,
+            ContaBancaria.is_active.is_(True),
+        )
+    )
+    if business_unit_id:
+        bank_query = bank_query.filter(ContaBancaria.business_unit_id == business_unit_id)
+    banks_total = bank_query.scalar() or Decimal(0)
+
+    # Caixa
+    cash_query = (
+        db.query(func.sum(Caixa.saldo_atual))
+        .filter(
+            Caixa.tenant_id == tenant_id,
+            Caixa.is_active.is_(True),
+        )
+    )
+    if business_unit_id:
+        cash_query = cash_query.filter(Caixa.business_unit_id == business_unit_id)
+    cash_total = cash_query.scalar() or Decimal(0)
+
+    # Investimentos
+    investment_query = (
+        db.query(func.sum(Investimento.valor_atual))
+        .filter(
+            Investimento.tenant_id == tenant_id,
+            Investimento.is_active.is_(True),
+        )
+    )
+    if business_unit_id:
+        investment_query = investment_query.filter(Investimento.business_unit_id == business_unit_id)
+    investments_total = investment_query.scalar() or Decimal(0)
+
+    total = banks_total + cash_total + investments_total
+
+    return {
+        "banks": _decimal_to_float(banks_total),
+        "cash": _decimal_to_float(cash_total),
+        "investments": _decimal_to_float(investments_total),
+        "total": _decimal_to_float(total),
+    }
+
+
+@router.get("/operational/alerts")
+def operational_alerts(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna alertas financeiros rápidos (luz vermelha).
+    
+    Retorna:
+    - overdue_payables: Contas vencidas a pagar (quantidade e valor)
+    - overdue_receivables: Contas vencidas a receber (quantidade e valor)
+    - negative_cash_forecast: Projeção negativa de caixa nos próximos 30 dias
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = datetime.utcnow().date()
+
+    # Contas vencidas a pagar (DESPESA ou CUSTO com data_prevista < hoje e status != CANCELADO)
+    overdue_payables_query = (
+        db.query(
+            func.count(LancamentoPrevisto.id),
+            func.sum(LancamentoPrevisto.valor)
+        )
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista < today,
+            LancamentoPrevisto.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]),
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        overdue_payables_query = overdue_payables_query.filter(
+            LancamentoPrevisto.business_unit_id == business_unit_id
+        )
+    overdue_payables_result = overdue_payables_query.first()
+    overdue_payables_count = overdue_payables_result[0] or 0
+    overdue_payables_value = overdue_payables_result[1] or Decimal(0)
+
+    # Contas vencidas a receber (RECEITA com data_prevista < hoje e status != CANCELADO)
+    overdue_receivables_query = (
+        db.query(
+            func.count(LancamentoPrevisto.id),
+            func.sum(LancamentoPrevisto.valor)
+        )
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista < today,
+            LancamentoPrevisto.transaction_type == TransactionType.RECEITA,
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        overdue_receivables_query = overdue_receivables_query.filter(
+            LancamentoPrevisto.business_unit_id == business_unit_id
+        )
+    overdue_receivables_result = overdue_receivables_query.first()
+    overdue_receivables_count = overdue_receivables_result[0] or 0
+    overdue_receivables_value = overdue_receivables_result[1] or Decimal(0)
+
+    # Projeção negativa de caixa (próximos 30 dias)
+    # Calcular saldo atual + entradas previstas - saídas previstas
+    end_date = today + timedelta(days=30)
+    
+    # Saldo atual (disponibilidades) - calcular diretamente
+    bank_query = (
+        db.query(func.sum(ContaBancaria.saldo_atual))
+        .filter(
+            ContaBancaria.tenant_id == tenant_id,
+            ContaBancaria.is_active.is_(True),
+        )
+    )
+    if business_unit_id:
+        bank_query = bank_query.filter(ContaBancaria.business_unit_id == business_unit_id)
+    banks_total = bank_query.scalar() or Decimal(0)
+
+    cash_query = (
+        db.query(func.sum(Caixa.saldo_atual))
+        .filter(
+            Caixa.tenant_id == tenant_id,
+            Caixa.is_active.is_(True),
+        )
+    )
+    if business_unit_id:
+        cash_query = cash_query.filter(Caixa.business_unit_id == business_unit_id)
+    cash_total = cash_query.scalar() or Decimal(0)
+
+    investment_query = (
+        db.query(func.sum(Investimento.valor_atual))
+        .filter(
+            Investimento.tenant_id == tenant_id,
+            Investimento.is_active.is_(True),
+        )
+    )
+    if business_unit_id:
+        investment_query = investment_query.filter(Investimento.business_unit_id == business_unit_id)
+    investments_total = investment_query.scalar() or Decimal(0)
+
+    current_balance = banks_total + cash_total + investments_total
+
+    # Entradas previstas (RECEITA) nos próximos 30 dias
+    future_receivables_query = (
+        db.query(func.sum(LancamentoPrevisto.valor))
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista >= today,
+            LancamentoPrevisto.data_prevista <= end_date,
+            LancamentoPrevisto.transaction_type == TransactionType.RECEITA,
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        future_receivables_query = future_receivables_query.filter(
+            LancamentoPrevisto.business_unit_id == business_unit_id
+        )
+    future_receivables = future_receivables_query.scalar() or Decimal(0)
+
+    # Saídas previstas (DESPESA + CUSTO) nos próximos 30 dias
+    future_payables_query = (
+        db.query(func.sum(LancamentoPrevisto.valor))
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista >= today,
+            LancamentoPrevisto.data_prevista <= end_date,
+            LancamentoPrevisto.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]),
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        future_payables_query = future_payables_query.filter(
+            LancamentoPrevisto.business_unit_id == business_unit_id
+        )
+    future_payables = future_payables_query.scalar() or Decimal(0)
+
+    projected_balance = current_balance + future_receivables - future_payables
+    has_negative_forecast = projected_balance < 0
+
+    return {
+        "overdue_payables": {
+            "count": overdue_payables_count,
+            "value": _decimal_to_float(overdue_payables_value),
+        },
+        "overdue_receivables": {
+            "count": overdue_receivables_count,
+            "value": _decimal_to_float(overdue_receivables_value),
+        },
+        "negative_cash_forecast": {
+            "has_alert": has_negative_forecast,
+            "projected_balance": _decimal_to_float(projected_balance),
+            "current_balance": _decimal_to_float(current_balance),
+        },
+    }
+
+
+@router.get("/operational/forecast-vs-realized")
+def operational_forecast_vs_realized(
+    months: int = Query(default=6, ge=1, le=12, description="Número de meses para exibir"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna comparação entre previsto e realizado mensal.
+    
+    Retorna:
+    - months: Lista de meses com previsto e realizado
+    - totals: Totais de saldo realizado, previsto e diferença
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = datetime.utcnow()
+    
+    # Calcular range de meses (últimos N meses a partir do mês atual)
+    start_date = today.replace(day=1)
+    for _ in range(months - 1):
+        if start_date.month == 1:
+            start_date = start_date.replace(year=start_date.year - 1, month=12)
+        else:
+            start_date = start_date.replace(month=start_date.month - 1)
+    
+    end_date = today.replace(day=1)
+    if end_date.month == 12:
+        end_date = end_date.replace(year=end_date.year + 1, month=1)
+    else:
+        end_date = end_date.replace(month=end_date.month + 1)
+    
+    # Buscar realizados (LancamentoDiario)
+    realizados_query = (
+        db.query(
+            func.extract('year', LancamentoDiario.data_movimentacao).label('year'),
+            func.extract('month', LancamentoDiario.data_movimentacao).label('month'),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label('receita'),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]), LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label('saida'),
+        )
+        .filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.is_active.is_(True),
+            LancamentoDiario.data_movimentacao >= start_date,
+            LancamentoDiario.data_movimentacao <= end_date,
+        )
+        .group_by('year', 'month')
+    )
+    if business_unit_id:
+        realizados_query = realizados_query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+    
+    realizados_data = {}
+    for row in realizados_query.all():
+        key = f"{int(row.year)}-{int(row.month):02d}"
+        realizados_data[key] = {
+            "receita": row.receita or Decimal(0),
+            "saida": row.saida or Decimal(0),
+        }
+
+    # Buscar previstos (LancamentoPrevisto)
+    previstos_query = (
+        db.query(
+            func.extract('year', LancamentoPrevisto.data_prevista).label('year'),
+            func.extract('month', LancamentoPrevisto.data_prevista).label('month'),
+            func.sum(
+                case(
+                    (LancamentoPrevisto.transaction_type == TransactionType.RECEITA, LancamentoPrevisto.valor),
+                    else_=0
+                )
+            ).label('receita'),
+            func.sum(
+                case(
+                    (LancamentoPrevisto.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]), LancamentoPrevisto.valor),
+                    else_=0
+                )
+            ).label('saida'),
+        )
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista >= start_date,
+            LancamentoPrevisto.data_prevista <= end_date,
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+        .group_by('year', 'month')
+    )
+    if business_unit_id:
+        previstos_query = previstos_query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+    
+    previstos_data = {}
+    for row in previstos_query.all():
+        key = f"{int(row.year)}-{int(row.month):02d}"
+        previstos_data[key] = {
+            "receita": row.receita or Decimal(0),
+            "saida": row.saida or Decimal(0),
+        }
+
+    # Montar resposta com todos os meses
+    months_list = []
+    total_realizado = Decimal(0)
+    total_previsto = Decimal(0)
+    
+    current_month = start_date
+    for i in range(months):
+        year = current_month.year
+        month = current_month.month
+        key = f"{year}-{month:02d}"
+        
+        # Avançar para o próximo mês
+        if current_month.month == 12:
+            current_month = current_month.replace(year=current_month.year + 1, month=1)
+        else:
+            current_month = current_month.replace(month=current_month.month + 1)
+        
+        realizado = realizados_data.get(key, {"receita": Decimal(0), "saida": Decimal(0)})
+        previsto = previstos_data.get(key, {"receita": Decimal(0), "saida": Decimal(0)})
+        
+        saldo_realizado = realizado["receita"] - realizado["saida"]
+        saldo_previsto = previsto["receita"] - previsto["saida"]
+        
+        total_realizado += saldo_realizado
+        total_previsto += saldo_previsto
+        
+        months_list.append({
+            "year": year,
+            "month": month,
+            "label": MONTH_LABELS[month - 1] if month <= 12 else "",
+            "realized": _decimal_to_float(saldo_realizado),
+            "forecast": _decimal_to_float(saldo_previsto),
+        })
+
+    return {
+        "months": months_list,
+        "totals": {
+            "realized": _decimal_to_float(total_realizado),
+            "forecast": _decimal_to_float(total_previsto),
+            "difference": _decimal_to_float(total_realizado - total_previsto),
+        },
+    }
+
+
+@router.get("/operational/payables-summary")
+def operational_payables_summary(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna posição de contas a pagar.
+    
+    Retorna:
+    - overdue: Vencido (valor total)
+    - due_today: Vence hoje (valor total)
+    - next_7_days: Próximos 7 dias (valor total)
+    - next_30_days: Próximos 30 dias (valor total)
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = datetime.utcnow().date()
+    tomorrow = today + timedelta(days=1)
+    next_7_days = today + timedelta(days=7)
+    next_30_days = today + timedelta(days=30)
+
+    base_query = (
+        db.query(func.sum(LancamentoPrevisto.valor))
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]),
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        base_query = base_query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+
+    # Vencido
+    overdue_query = base_query.filter(LancamentoPrevisto.data_prevista < today)
+    overdue = overdue_query.scalar() or Decimal(0)
+
+    # Vence hoje
+    due_today_query = base_query.filter(LancamentoPrevisto.data_prevista == today)
+    due_today = due_today_query.scalar() or Decimal(0)
+
+    # Próximos 7 dias
+    next_7_days_query = base_query.filter(
+        LancamentoPrevisto.data_prevista >= tomorrow,
+        LancamentoPrevisto.data_prevista <= next_7_days,
+    )
+    next_7_days_value = next_7_days_query.scalar() or Decimal(0)
+
+    # Próximos 30 dias
+    next_30_days_query = base_query.filter(
+        LancamentoPrevisto.data_prevista >= tomorrow,
+        LancamentoPrevisto.data_prevista <= next_30_days,
+    )
+    next_30_days_value = next_30_days_query.scalar() or Decimal(0)
+
+    return {
+        "overdue": _decimal_to_float(overdue),
+        "due_today": _decimal_to_float(due_today),
+        "next_7_days": _decimal_to_float(next_7_days_value),
+        "next_30_days": _decimal_to_float(next_30_days_value),
+    }
+
+
+@router.get("/operational/receivables-summary")
+def operational_receivables_summary(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna posição de contas a receber.
+    
+    Retorna:
+    - overdue: Vencido (valor total)
+    - due_today: Vence hoje (valor total)
+    - next_7_days: Próximos 7 dias (valor total)
+    - next_30_days: Próximos 30 dias (valor total)
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = datetime.utcnow().date()
+    tomorrow = today + timedelta(days=1)
+    next_7_days = today + timedelta(days=7)
+    next_30_days = today + timedelta(days=30)
+
+    base_query = (
+        db.query(func.sum(LancamentoPrevisto.valor))
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.transaction_type == TransactionType.RECEITA,
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        base_query = base_query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+
+    # Vencido
+    overdue_query = base_query.filter(LancamentoPrevisto.data_prevista < today)
+    overdue = overdue_query.scalar() or Decimal(0)
+
+    # Vence hoje
+    due_today_query = base_query.filter(LancamentoPrevisto.data_prevista == today)
+    due_today = due_today_query.scalar() or Decimal(0)
+
+    # Próximos 7 dias
+    next_7_days_query = base_query.filter(
+        LancamentoPrevisto.data_prevista >= tomorrow,
+        LancamentoPrevisto.data_prevista <= next_7_days,
+    )
+    next_7_days_value = next_7_days_query.scalar() or Decimal(0)
+
+    # Próximos 30 dias
+    next_30_days_query = base_query.filter(
+        LancamentoPrevisto.data_prevista >= tomorrow,
+        LancamentoPrevisto.data_prevista <= next_30_days,
+    )
+    next_30_days_value = next_30_days_query.scalar() or Decimal(0)
+
+    return {
+        "overdue": _decimal_to_float(overdue),
+        "due_today": _decimal_to_float(due_today),
+        "next_7_days": _decimal_to_float(next_7_days_value),
+        "next_30_days": _decimal_to_float(next_30_days_value),
+    }
 

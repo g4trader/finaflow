@@ -211,3 +211,117 @@ export const fetchMonthlyTransactions = async (params: {
     throw error;
   }
 };
+
+// ============================================================================
+// DASHBOARD OPERACIONAL - ENDPOINTS
+// ============================================================================
+
+// Tipos para o dashboard operacional
+export interface OperationalAvailability {
+  banks: number;
+  cash: number;
+  investments: number;
+  total: number;
+}
+
+export interface OperationalAlerts {
+  overdue_payables: {
+    count: number;
+    value: number;
+  };
+  overdue_receivables: {
+    count: number;
+    value: number;
+  };
+  negative_cash_forecast: {
+    has_alert: boolean;
+    projected_balance: number;
+    current_balance: number;
+  };
+}
+
+export interface ForecastVsRealizedMonth {
+  year: number;
+  month: number;
+  label: string;
+  realized: number;
+  forecast: number;
+}
+
+export interface ForecastVsRealized {
+  months: ForecastVsRealizedMonth[];
+  totals: {
+    realized: number;
+    forecast: number;
+    difference: number;
+  };
+}
+
+export interface PayablesSummary {
+  overdue: number;
+  due_today: number;
+  next_7_days: number;
+  next_30_days: number;
+}
+
+export interface ReceivablesSummary {
+  overdue: number;
+  due_today: number;
+  next_7_days: number;
+  next_30_days: number;
+}
+
+// Buscar disponibilidades de caixa
+export const fetchOperationalAvailability = async (): Promise<OperationalAvailability> => {
+  try {
+    const data = await fetchWithAuth('/api/v1/dashboard/operational/availability');
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar disponibilidades:', error);
+    throw error;
+  }
+};
+
+// Buscar alertas financeiros
+export const fetchOperationalAlerts = async (): Promise<OperationalAlerts> => {
+  try {
+    const data = await fetchWithAuth('/api/v1/dashboard/operational/alerts');
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar alertas:', error);
+    throw error;
+  }
+};
+
+// Buscar comparação previsto vs realizado
+export const fetchForecastVsRealized = async (months: number = 6): Promise<ForecastVsRealized> => {
+  try {
+    const data = await fetchWithAuth(`/api/v1/dashboard/operational/forecast-vs-realized?months=${months}`);
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar previsto vs realizado:', error);
+    throw error;
+  }
+};
+
+// Buscar resumo de contas a pagar
+export const fetchPayablesSummary = async (): Promise<PayablesSummary> => {
+  try {
+    const data = await fetchWithAuth('/api/v1/dashboard/operational/payables-summary');
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar contas a pagar:', error);
+    throw error;
+  }
+};
+
+// Buscar resumo de contas a receber
+export const fetchReceivablesSummary = async (): Promise<ReceivablesSummary> => {
+  try {
+    const data = await fetchWithAuth('/api/v1/dashboard/operational/receivables-summary');
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar contas a receber:', error);
+    throw error;
+  }
+};
