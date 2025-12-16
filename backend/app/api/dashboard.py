@@ -946,7 +946,7 @@ def listar_lancamentos_simples(
 # DASHBOARD OPERACIONAL - ENDPOINTS
 # ============================================================================
 
-@router.get("/operational/availability")
+@router.get("/dashboard/operational/availability")
 def operational_availability(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -1009,7 +1009,7 @@ def operational_availability(
     }
 
 
-@router.get("/operational/alerts")
+@router.get("/dashboard/operational/alerts")
 def operational_alerts(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -1166,7 +1166,7 @@ def operational_alerts(
     }
 
 
-@router.get("/operational/forecast-vs-realized")
+@router.get("/dashboard/operational/forecast-vs-realized")
 def operational_forecast_vs_realized(
     months: int = Query(default=6, ge=1, le=12, description="Número de meses para exibir"),
     current_user: User = Depends(get_current_active_user),
@@ -1316,7 +1316,7 @@ def operational_forecast_vs_realized(
     }
 
 
-@router.get("/operational/payables-summary")
+@router.get("/dashboard/operational/payables-summary")
 def operational_payables_summary(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -1379,7 +1379,7 @@ def operational_payables_summary(
     }
 
 
-@router.get("/operational/receivables-summary")
+@router.get("/dashboard/operational/receivables-summary")
 def operational_receivables_summary(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
