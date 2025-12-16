@@ -274,7 +274,7 @@ export interface ReceivablesSummary {
 // Buscar disponibilidades de caixa
 export const fetchOperationalAvailability = async (): Promise<OperationalAvailability> => {
   try {
-    const data = await fetchWithAuth('/api/v1/operational/availability');
+    const data = await fetchWithAuth('/api/v1/dashboard/operational/availability');
     return data;
   } catch (error) {
     console.error('Erro ao buscar disponibilidades:', error);
@@ -285,7 +285,7 @@ export const fetchOperationalAvailability = async (): Promise<OperationalAvailab
 // Buscar alertas financeiros
 export const fetchOperationalAlerts = async (): Promise<OperationalAlerts> => {
   try {
-    const data = await fetchWithAuth('/api/v1/operational/alerts');
+    const data = await fetchWithAuth('/api/v1/dashboard/operational/alerts');
     return data;
   } catch (error) {
     console.error('Erro ao buscar alertas:', error);
@@ -307,7 +307,7 @@ export const fetchForecastVsRealized = async (months: number = 6): Promise<Forec
 // Buscar resumo de contas a pagar
 export const fetchPayablesSummary = async (): Promise<PayablesSummary> => {
   try {
-    const data = await fetchWithAuth('/api/v1/operational/payables-summary');
+    const data = await fetchWithAuth('/api/v1/dashboard/operational/payables-summary');
     return data;
   } catch (error) {
     console.error('Erro ao buscar contas a pagar:', error);
@@ -318,7 +318,7 @@ export const fetchPayablesSummary = async (): Promise<PayablesSummary> => {
 // Buscar resumo de contas a receber
 export const fetchReceivablesSummary = async (): Promise<ReceivablesSummary> => {
   try {
-    const data = await fetchWithAuth('/api/v1/operational/receivables-summary');
+    const data = await fetchWithAuth('/api/v1/dashboard/operational/receivables-summary');
     return data;
   } catch (error) {
     console.error('Erro ao buscar contas a receber:', error);
