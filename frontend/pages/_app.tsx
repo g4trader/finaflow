@@ -45,6 +45,7 @@ function RouteProtectionInner({ children }: { children: React.ReactNode }) {
   // Rotas que precisam de autenticação
   const protectedRoutes = [
     '/dashboard',
+    '/dashboard-operational',
     '/accounts',
     // '/transactions',  // Temporariamente removido para teste
     '/groups',

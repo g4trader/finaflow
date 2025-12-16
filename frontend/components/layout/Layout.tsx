@@ -114,6 +114,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       description: 'Visão geral do sistema'
     },
     {
+      icon: <Activity className="w-5 h-5" />,
+      label: 'Dashboard Operacional',
+      href: '/dashboard-operational',
+      active: isItemActive('/dashboard-operational', 'Dashboard Operacional'),
+      description: 'Saúde financeira imediata e alertas'
+    },
+    {
       icon: <CreditCard className="w-5 h-5" />,
       label: 'Lançamentos Financeiros',
       href: '/transactions',
