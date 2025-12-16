@@ -19,8 +19,15 @@ import argparse
 import subprocess
 from pathlib import Path
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Dict, Optional, TYPE_CHECKING
 from collections import defaultdict
+
+if TYPE_CHECKING:
+    from typing import Any
+    MonthlySummary = Dict[tuple[int, int], Dict[str, Decimal]]
+else:
+    # Tipo simplificado para quando não conseguir importar
+    MonthlySummary = Dict
 
 # Adicionar backend ao path
 backend_path = Path(__file__).parent.parent
@@ -34,13 +41,11 @@ except ImportError:
     sys.exit(1)
 
 # Importar funções do validate_dashboard_against_client_sheet
-from scripts.validate_dashboard_against_client_sheet import (
-    login_api,
-    consumir_api,
-    carregar_e_normalizar_planilha,
-    agregar_planilha_filtrada,
-    MonthlySummary
-)
+# (import condicional para evitar erro quando --no-seed e não há DB)
+login_api = None
+consumir_api = None
+carregar_e_normalizar_planilha = None
+agregar_planilha_filtrada = None
 
 # ============================================================================
 # CONFIGURAÇÕES
@@ -343,6 +348,12 @@ def main():
     print(f"{'='*80}")
     
     try:
+        # Import condicional das funções que precisam de DB
+        from scripts.validate_dashboard_against_client_sheet import (
+            carregar_e_normalizar_planilha,
+            agregar_planilha_filtrada,
+            MonthlySummary
+        )
         from sqlalchemy.orm import Session
         from app.database import SessionLocal
         
@@ -384,6 +395,10 @@ def main():
     print("🔐 FAZENDO LOGIN NA API")
     print(f"{'='*80}")
     
+    # Import condicional se ainda não foi importado
+    if login_api is None:
+        from scripts.validate_dashboard_against_client_sheet import login_api
+    
     token = login_api(backend_url)
     if not token:
         print("❌ Falha ao fazer login na API")
@@ -395,6 +410,10 @@ def main():
     print(f"\n{'='*80}")
     print("📡 CONSUMINDO API")
     print(f"{'='*80}")
+    
+    # Import condicional se ainda não foi importado
+    if consumir_api is None:
+        from scripts.validate_dashboard_against_client_sheet import consumir_api
     
     api_summary = consumir_api(backend_url, year, token)
     if not api_summary:
