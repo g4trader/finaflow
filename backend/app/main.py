@@ -65,16 +65,21 @@ app.add_middleware(
 
 # Middleware CORS - Aceitar múltiplos origins do Vercel
 # Dividir por vírgula ou ponto-e-vírgula e aceitar qualquer .vercel.app
-cors_origins_raw = os.getenv("CORS_ORIGINS", "https://finaflow.vercel.app,http://localhost:3000")
-cors_origins_list = [origin.strip() for origin in cors_origins_raw.replace(';', ',').split(',')]
+cors_origins_raw = os.getenv("CORS_ORIGINS", "https://finaflow.vercel.app,https://finaflow-lcz5.vercel.app,http://localhost:3000")
+cors_origins_list = [origin.strip() for origin in cors_origins_raw.replace(';', ',').split(',') if origin.strip()]
 
-# Adicionar regex para aceitar qualquer subdomínio do Vercel
+# Adicionar origins explícitos + regex para aceitar qualquer subdomínio do Vercel
+allow_origins = cors_origins_list.copy()
+allow_origins.append(r"https://.*\.vercel\.app")
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=allow_origins,
     allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
+    expose_headers=["*"],
 )
 
 # Middleware de logging de requests
@@ -97,11 +102,33 @@ async def log_requests(request: Request, call_next):
 # Middleware de tratamento de erros
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Handler global de exceções."""
+    """Handler global de exceções com CORS."""
+    import traceback
+    
+    # Log completo do erro para debug
+    error_trace = traceback.format_exc()
     print(f"❌ Erro não tratado: {exc}")
+    print(f"📋 Traceback:\n{error_trace}")
+    
+    # Determinar origem da requisição para CORS
+    origin = request.headers.get("origin")
+    allowed_origins = cors_origins_list + ["https://finaflow-lcz5.vercel.app"]
+    
+    # Verificar se origin é permitida
+    cors_headers = {}
+    if origin:
+        # Verificar se origin está na lista ou é um .vercel.app
+        if origin in allowed_origins or ".vercel.app" in origin:
+            cors_headers["Access-Control-Allow-Origin"] = origin
+            cors_headers["Access-Control-Allow-Credentials"] = "true"
+            cors_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            cors_headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept"
+    
+    # Retornar resposta com CORS mesmo em erro
     return JSONResponse(
         status_code=500,
-        content={"detail": "Erro interno do servidor"}
+        content={"detail": "Erro interno do servidor", "error": str(exc) if os.getenv("ENVIRONMENT") == "development" else None},
+        headers=cors_headers
     )
 
 # Health check

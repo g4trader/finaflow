@@ -78,9 +78,11 @@ def list_lancamentos_previstos(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ) -> Dict[str, object]:
-    tenant_id, business_unit_id = _user_context(current_user)
+    """Listar lançamentos previstos com filtros."""
+    try:
+        tenant_id, business_unit_id = _user_context(current_user)
 
-    query = (
+        query = (
         db.query(LancamentoPrevisto)
         .options(
             joinedload(LancamentoPrevisto.conta),
@@ -91,100 +93,115 @@ def list_lancamentos_previstos(
             LancamentoPrevisto.tenant_id == tenant_id,
             LancamentoPrevisto.is_active.is_(True),
         )
-    )
-    # Filtrar por business_unit_id apenas se fornecido
-    if business_unit_id:
-        query = query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
-    
-    # Aplicar filtros
-    if start_date:
-        start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-        query = query.filter(LancamentoPrevisto.data_prevista >= start_dt)
-    if end_date:
-        end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-        query = query.filter(LancamentoPrevisto.data_prevista <= end_dt)
-    if group_id:
-        query = query.filter(LancamentoPrevisto.grupo_id == group_id)
-    if subgroup_id:
-        query = query.filter(LancamentoPrevisto.subgrupo_id == subgroup_id)
-    if account_id:
-        query = query.filter(LancamentoPrevisto.conta_id == account_id)
-    if transaction_type:
-        from app.models.lancamento_previsto import TransactionType as PrevistoType
-        try:
-            tipo_enum = PrevistoType(transaction_type)
-            query = query.filter(LancamentoPrevisto.transaction_type == tipo_enum)
-        except ValueError:
-            query = query.filter(LancamentoPrevisto.transaction_type == transaction_type)
-    if status:
-        from app.models.lancamento_previsto import TransactionStatus
-        try:
-            status_enum = TransactionStatus(status)
-            query = query.filter(LancamentoPrevisto.status == status_enum)
-        except ValueError:
-            query = query.filter(LancamentoPrevisto.status == status)
-    # cost_center_id - preparar campo mesmo se não implementado ainda
-    # if cost_center_id:
-    #     query = query.filter(LancamentoPrevisto.cost_center_id == cost_center_id)
-    
-    # Filtro de busca por texto (text_search)
-    if text_search:
-        from sqlalchemy import or_
-        from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
-        search_term = f"%{text_search.lower()}%"
-        # Fazer joins para buscar nos nomes de conta/subgrupo/grupo
-        query = query.outerjoin(ChartAccount, LancamentoPrevisto.conta_id == ChartAccount.id)\
-                    .outerjoin(ChartAccountSubgroup, LancamentoPrevisto.subgrupo_id == ChartAccountSubgroup.id)\
-                    .outerjoin(ChartAccountGroup, LancamentoPrevisto.grupo_id == ChartAccountGroup.id)\
-                    .filter(
-                        or_(
-                            LancamentoPrevisto.observacoes.ilike(search_term),
-                            ChartAccount.name.ilike(search_term),
-                            ChartAccountSubgroup.name.ilike(search_term),
-                            ChartAccountGroup.name.ilike(search_term)
+        )
+        # Filtrar por business_unit_id apenas se fornecido
+        if business_unit_id:
+            query = query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+        
+        # Aplicar filtros
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            query = query.filter(LancamentoPrevisto.data_prevista >= start_dt)
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            query = query.filter(LancamentoPrevisto.data_prevista <= end_dt)
+        if group_id:
+            query = query.filter(LancamentoPrevisto.grupo_id == group_id)
+        if subgroup_id:
+            query = query.filter(LancamentoPrevisto.subgrupo_id == subgroup_id)
+        if account_id:
+            query = query.filter(LancamentoPrevisto.conta_id == account_id)
+        if transaction_type:
+            try:
+                tipo_enum = TransactionType(transaction_type.upper())
+                query = query.filter(LancamentoPrevisto.transaction_type == tipo_enum)
+            except (ValueError, AttributeError):
+                # Se não conseguir converter, tentar filtrar como string
+                query = query.filter(LancamentoPrevisto.transaction_type == transaction_type)
+        if status:
+            from app.models.lancamento_previsto import TransactionStatus
+            try:
+                status_enum = TransactionStatus(status)
+                query = query.filter(LancamentoPrevisto.status == status_enum)
+            except ValueError:
+                query = query.filter(LancamentoPrevisto.status == status)
+        # cost_center_id - preparar campo mesmo se não implementado ainda
+        # if cost_center_id:
+        #     query = query.filter(LancamentoPrevisto.cost_center_id == cost_center_id)
+        
+        # Filtro de busca por texto (text_search)
+        if text_search:
+            from sqlalchemy import or_
+            from app.models.chart_of_accounts import ChartAccount, ChartAccountSubgroup, ChartAccountGroup
+            search_term = f"%{text_search.lower()}%"
+            # Fazer joins para buscar nos nomes de conta/subgrupo/grupo
+            query = query.outerjoin(ChartAccount, LancamentoPrevisto.conta_id == ChartAccount.id)\
+                        .outerjoin(ChartAccountSubgroup, LancamentoPrevisto.subgrupo_id == ChartAccountSubgroup.id)\
+                        .outerjoin(ChartAccountGroup, LancamentoPrevisto.grupo_id == ChartAccountGroup.id)\
+                        .filter(
+                            or_(
+                                LancamentoPrevisto.observacoes.ilike(search_term),
+                                ChartAccount.name.ilike(search_term),
+                                ChartAccountSubgroup.name.ilike(search_term),
+                                ChartAccountGroup.name.ilike(search_term)
+                            )
                         )
-                    )
-    
-    query = query.order_by(LancamentoPrevisto.data_prevista.desc())
+        
+        query = query.order_by(LancamentoPrevisto.data_prevista.desc())
 
-    if limit > 0:
-        query = query.offset(skip).limit(limit)
+        if limit > 0:
+            query = query.offset(skip).limit(limit)
 
-    previsoes = query.all()
+        previsoes = query.all()
 
-    def _safe_name(obj, default: str = "N/A") -> str:
-        return getattr(obj, "name", default) if obj else default
+        def _safe_name(obj, default: str = "N/A") -> str:
+            return getattr(obj, "name", default) if obj else default
 
-    def _safe_code(obj, default: str = "N/A") -> str:
-        return getattr(obj, "code", default) if obj else default
+        def _safe_code(obj, default: str = "N/A") -> str:
+            return getattr(obj, "code", default) if obj else default
 
-    payload = [
-        {
-            "id": str(prev.id),
-            "data_prevista": prev.data_prevista.isoformat(),
-            "valor": float(prev.valor),
-            "observacoes": prev.observacoes,
-            "conta_id": str(prev.conta_id),
-            "conta_nome": _safe_name(prev.conta),
-            "conta_codigo": _safe_code(prev.conta),
-            "subgrupo_id": str(prev.subgrupo_id),
-            "subgrupo_nome": _safe_name(prev.subgrupo),
-            "subgrupo_codigo": _safe_code(prev.subgrupo),
-            "grupo_id": str(prev.grupo_id),
-            "grupo_nome": _safe_name(prev.grupo),
-            "grupo_codigo": _safe_code(prev.grupo),
-            "transaction_type": (prev.transaction_type.value if prev.transaction_type else None),
-            "status": prev.status.value if isinstance(prev.status, TransactionStatus) else str(prev.status),
-            "created_at": prev.created_at.isoformat() if prev.created_at else None,
+        payload = [
+            {
+                "id": str(prev.id),
+                "data_prevista": prev.data_prevista.isoformat() if prev.data_prevista else None,
+                "valor": float(prev.valor) if prev.valor else 0.0,
+                "observacoes": prev.observacoes or "",
+                "conta_id": str(prev.conta_id) if prev.conta_id else None,
+                "conta_nome": _safe_name(prev.conta),
+                "conta_codigo": _safe_code(prev.conta),
+                "subgrupo_id": str(prev.subgrupo_id) if prev.subgrupo_id else None,
+                "subgrupo_nome": _safe_name(prev.subgrupo),
+                "subgrupo_codigo": _safe_code(prev.subgrupo),
+                "grupo_id": str(prev.grupo_id) if prev.grupo_id else None,
+                "grupo_nome": _safe_name(prev.grupo),
+                "grupo_codigo": _safe_code(prev.grupo),
+                "transaction_type": (prev.transaction_type.value if prev.transaction_type else None),
+                "status": prev.status.value if isinstance(prev.status, TransactionStatus) else str(prev.status) if prev.status else None,
+                "created_at": prev.created_at.isoformat() if prev.created_at else None,
+            }
+            for prev in previsoes
+        ]
+
+        return {
+            "success": True,
+            "previsoes": payload,
+            "total": len(payload),
         }
-        for prev in previsoes
-    ]
-
-    return {
-        "success": True,
-        "previsoes": payload,
-        "total": len(payload),
-    }
+    except HTTPException:
+        # Re-raise HTTP exceptions (já têm status code apropriado)
+        raise
+    except Exception as e:
+        # Log erro completo para debug
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"❌ Erro ao listar lançamentos previstos: {e}")
+        print(f"📋 Traceback:\n{error_trace}")
+        
+        # Retornar erro 500 com mensagem clara
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao buscar lançamentos previstos: {str(e)}"
+        )
 
 
 @router.post("/api/v1/lancamentos-previstos")
