@@ -23,6 +23,9 @@ const ValueDisplay: React.FC<{ value: number; isHighlighted: boolean; colorClass
   // Ajustar tamanho da fonte para valores muito grandes
   const getFontSize = () => {
     const absValue = Math.abs(value);
+    if (absValue >= 10000000) {
+      return 'text-base sm:text-lg';
+    }
     if (absValue >= 1000000) {
       return 'text-lg sm:text-xl';
     }
@@ -31,8 +34,8 @@ const ValueDisplay: React.FC<{ value: number; isHighlighted: boolean; colorClass
 
   return (
     <p
-      className={`${getFontSize()} font-bold ${colorClass} whitespace-nowrap tabular-nums`}
-      style={{ fontVariantNumeric: 'tabular-nums' }}
+      className={`${getFontSize()} font-bold ${colorClass} whitespace-nowrap tabular-nums overflow-visible`}
+      style={{ fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all' }}
     >
       {formatCurrency(value)}
     </p>
@@ -74,17 +77,16 @@ const SummaryCardItem: React.FC<SummaryCardItemProps> = ({
 
   return (
     <div
-      className={`p-4 rounded-lg border-l-4 ${config.bg} ${config.border} h-full flex flex-col`}
-      style={{ minHeight: '120px' }}
+      className={`p-4 rounded-lg border-l-4 ${config.bg} ${config.border} flex flex-row items-center justify-between`}
     >
       {/* Ícone + Título (linha única, discreta) */}
-      <div className="flex items-center space-x-2 mb-3">
+      <div className="flex items-center space-x-2 flex-shrink-0">
         <div className={config.icon}>{icon}</div>
-        <span className={`text-xs font-medium ${config.title} truncate`}>{title}</span>
+        <span className={`text-sm font-medium ${config.title} whitespace-nowrap`}>{title}</span>
       </div>
 
       {/* Valor principal (destaque máximo) */}
-      <div className="flex-1 flex items-start">
+      <div className="flex-1 flex items-center justify-end ml-4">
         <ValueDisplay value={value} isHighlighted={isActive} colorClass={config.value} />
       </div>
     </div>
@@ -98,8 +100,8 @@ const ReceivablesSummaryCard: React.FC<ReceivablesSummaryCardProps> = ({ data, o
       <h2 className="text-xl font-bold mb-4 text-gray-800">Posição de Contas a Receber</h2>
 
       {/* Container dos cards */}
-      <div className="bg-white rounded-lg shadow-md p-6 flex-1">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="bg-white rounded-lg shadow-md p-6 flex-1 overflow-visible">
+        <div className="grid grid-cols-1 gap-4">
           {/* Vencido */}
           <SummaryCardItem
             icon={<AlertCircle className="w-4 h-4" />}
