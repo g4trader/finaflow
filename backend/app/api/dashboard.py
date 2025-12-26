@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import calendar
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -946,6 +946,33 @@ def listar_lancamentos_simples(
 # DASHBOARD OPERACIONAL - ENDPOINTS
 # ============================================================================
 
+def _classify_account_type(account_name: str, account_code: str = "") -> str:
+    """
+    Classifica o tipo de conta baseado no nome e código.
+    Retorna: 'BANK', 'CASH', 'INVESTMENT' ou None
+    """
+    name_lower = account_name.lower().strip()
+    code_lower = (account_code or "").lower().strip()
+    combined = f"{name_lower} {code_lower}"
+    
+    # Bancos
+    bank_keywords = ["banco", "banc", "conta bancária", "conta corrente", "conta poupança", "cc", "cp"]
+    if any(keyword in combined for keyword in bank_keywords):
+        return "BANK"
+    
+    # Caixa/Dinheiro
+    cash_keywords = ["caixa", "dinheiro", "cash", "cx", "caixa físico", "caixa fisico"]
+    if any(keyword in combined for keyword in cash_keywords):
+        return "CASH"
+    
+    # Investimentos
+    investment_keywords = ["investimento", "aplicação", "aplicacao", "invest", "cdb", "lci", "lca", "tesouro", "fundo"]
+    if any(keyword in combined for keyword in investment_keywords):
+        return "INVESTMENT"
+    
+    return None
+
+
 @router.get("/dashboard/operational/availability")
 def operational_availability(
     current_user: User = Depends(get_current_active_user),
@@ -953,6 +980,9 @@ def operational_availability(
 ) -> Dict[str, Any]:
     """
     Retorna a composição das disponibilidades de caixa (Bancos, Caixa, Investimentos).
+    
+    Calcula os saldos a partir dos lançamentos realizados (LancamentoDiario) seedados do Excel,
+    agrupados por tipo de conta (BANK, CASH, INVESTMENT).
     
     Retorna:
     - banks: Total de saldos bancários
@@ -962,43 +992,57 @@ def operational_availability(
     """
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
+    today = date.today()
 
-    # Bancos
-    bank_query = (
-        db.query(func.sum(ContaBancaria.saldo_atual))
-        .filter(
-            ContaBancaria.tenant_id == tenant_id,
-            ContaBancaria.is_active.is_(True),
+    # Buscar todos os lançamentos realizados até hoje
+    # Saldo = soma de RECEITA (entrada) - DESPESA/CUSTO (saída) por conta
+    lancamentos_query = (
+        db.query(
+            LancamentoDiario.conta_id,
+            ChartAccount.name.label("conta_nome"),
+            ChartAccount.code.label("conta_codigo"),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
+                    else_=-LancamentoDiario.valor
+                )
+            ).label("saldo")
         )
-    )
-    if business_unit_id:
-        bank_query = bank_query.filter(ContaBancaria.business_unit_id == business_unit_id)
-    banks_total = bank_query.scalar() or Decimal(0)
-
-    # Caixa
-    cash_query = (
-        db.query(func.sum(Caixa.saldo_atual))
+        .join(ChartAccount, LancamentoDiario.conta_id == ChartAccount.id)
         .filter(
-            Caixa.tenant_id == tenant_id,
-            Caixa.is_active.is_(True),
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.is_active.is_(True),
+            LancamentoDiario.status != TransactionStatus.CANCELADO,
+            func.date(LancamentoDiario.data_movimentacao) <= today,
         )
+        .group_by(LancamentoDiario.conta_id, ChartAccount.name, ChartAccount.code)
     )
+    
     if business_unit_id:
-        cash_query = cash_query.filter(Caixa.business_unit_id == business_unit_id)
-    cash_total = cash_query.scalar() or Decimal(0)
-
-    # Investimentos
-    investment_query = (
-        db.query(func.sum(Investimento.valor_atual))
-        .filter(
-            Investimento.tenant_id == tenant_id,
-            Investimento.is_active.is_(True),
+        lancamentos_query = lancamentos_query.filter(
+            LancamentoDiario.business_unit_id == business_unit_id
         )
-    )
-    if business_unit_id:
-        investment_query = investment_query.filter(Investimento.business_unit_id == business_unit_id)
-    investments_total = investment_query.scalar() or Decimal(0)
-
+    
+    lancamentos = lancamentos_query.all()
+    
+    # Inicializar totais
+    banks_total = Decimal(0)
+    cash_total = Decimal(0)
+    investments_total = Decimal(0)
+    
+    # Agrupar por tipo de conta e somar saldos
+    for lanc in lancamentos:
+        account_type = _classify_account_type(lanc.conta_nome, lanc.conta_codigo)
+        saldo = lanc.saldo or Decimal(0)
+        
+        # Só considerar contas classificadas (BANK, CASH, INVESTMENT)
+        if account_type == "BANK":
+            banks_total += saldo
+        elif account_type == "CASH":
+            cash_total += saldo
+        elif account_type == "INVESTMENT":
+            investments_total += saldo
+    
     total = banks_total + cash_total + investments_total
 
     return {
