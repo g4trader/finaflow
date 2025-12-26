@@ -3,14 +3,14 @@ Endpoint temporário para executar seed no STAGING
 ATENÇÃO: Remover após execução do seed
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from fastapi.responses import JSONResponse
 import subprocess
 import sys
 from pathlib import Path
 from datetime import datetime
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import traceback
 
 from app.services.dependencies import get_current_active_user
@@ -20,6 +20,8 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 @router.post("/seed-staging")
 async def execute_seed_staging(
+    reset_data: Optional[bool] = Body(False, description="Resetar dados antes do seed"),
+    cost_debug: Optional[bool] = Body(False, description="Ativar debug de classificação de CUSTO"),
     current_user: User = Depends(get_current_active_user)
 ):
     """
@@ -90,8 +92,16 @@ async def execute_seed_staging(
             "--file", str(excel_file.relative_to(backend_dir))
         ]
         
+        if reset_data:
+            cmd.append("--reset-data")
+        
         env = os.environ.copy()
         env["PYTHONPATH"] = str(backend_dir)
+        # Permitir COST_DEBUG via parâmetro ou env var
+        if cost_debug:
+            env["COST_DEBUG"] = "1"
+        elif os.getenv("COST_DEBUG"):
+            env["COST_DEBUG"] = os.getenv("COST_DEBUG")
         
         try:
             process = subprocess.run(
