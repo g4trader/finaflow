@@ -1045,7 +1045,12 @@ def operational_availability(
     Retorna a composição das disponibilidades de caixa (Bancos, Caixa, Investimentos).
     
     Calcula os saldos a partir dos lançamentos realizados (LancamentoDiario) seedados do Excel,
-    agrupados por tipo de conta (BANK, CASH, INVESTMENT).
+    agrupados por conta de liquidação (LiquidationAccount).
+    
+    A lógica é:
+    - RECEITA aumenta o saldo (entrada de dinheiro)
+    - DESPESA/CUSTO diminui o saldo (saída de dinheiro)
+    - Agrupa por tipo de conta de liquidação (BANK_ACCOUNT, CASH, INVESTMENT)
     
     Retorna:
     - banks: Total de saldos bancários
@@ -1053,21 +1058,20 @@ def operational_availability(
     - investments: Total de aplicações/investimentos
     - total: Soma dos três acima
     """
+    from app.models.liquidation_accounts import LiquidationAccount, LiquidationAccountType
+    
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
     today = date.today()
 
-    # Buscar todos os lançamentos realizados até hoje
-    # Saldo = soma de RECEITA (entrada) - DESPESA/CUSTO (saída) por conta
-    # IMPORTANTE: Para contas de disponibilidade, RECEITA aumenta saldo, DESPESA/CUSTO diminui
+    # Buscar todos os lançamentos realizados até hoje que têm conta de liquidação
+    # Saldo = soma de RECEITA (entrada) - DESPESA/CUSTO (saída) por conta de liquidação
     lancamentos_query = (
         db.query(
-            LancamentoDiario.conta_id,
-            ChartAccount.name.label("conta_nome"),
-            ChartAccount.code.label("conta_codigo"),
-            ChartAccount.account_type.label("conta_tipo"),
-            ChartAccountSubgroup.name.label("subgrupo_nome"),
-            ChartAccountGroup.name.label("grupo_nome"),
+            LancamentoDiario.liquidation_account_id,
+            LiquidationAccount.account_type.label("liquidation_type"),
+            LiquidationAccount.code.label("liquidation_code"),
+            LiquidationAccount.name.label("liquidation_name"),
             func.sum(
                 case(
                     (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
@@ -1075,22 +1079,19 @@ def operational_availability(
                 )
             ).label("saldo")
         )
-        .join(ChartAccount, LancamentoDiario.conta_id == ChartAccount.id)
-        .join(ChartAccountSubgroup, ChartAccount.subgroup_id == ChartAccountSubgroup.id)
-        .join(ChartAccountGroup, ChartAccountSubgroup.group_id == ChartAccountGroup.id)
+        .join(LiquidationAccount, LancamentoDiario.liquidation_account_id == LiquidationAccount.id)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
             LancamentoDiario.is_active.is_(True),
             LancamentoDiario.status != TransactionStatus.CANCELADO,
             func.date(LancamentoDiario.data_movimentacao) <= today,
+            LancamentoDiario.liquidation_account_id.isnot(None)  # Só lançamentos com conta de liquidação
         )
         .group_by(
-            LancamentoDiario.conta_id, 
-            ChartAccount.name, 
-            ChartAccount.code, 
-            ChartAccount.account_type,
-            ChartAccountSubgroup.name,
-            ChartAccountGroup.name
+            LancamentoDiario.liquidation_account_id,
+            LiquidationAccount.account_type,
+            LiquidationAccount.code,
+            LiquidationAccount.name
         )
     )
     
@@ -1106,25 +1107,17 @@ def operational_availability(
     cash_total = Decimal(0)
     investments_total = Decimal(0)
     
-    # Agrupar por tipo de conta e somar saldos
+    # Agrupar por tipo de conta de liquidação e somar saldos
     for lanc in lancamentos:
-        # Classificar conta considerando tipo, grupo e subgrupo
-        account_type = _classify_account_type(
-            lanc.conta_nome, 
-            lanc.conta_codigo, 
-            lanc.conta_tipo or "",
-            lanc.grupo_nome or "",
-            lanc.subgrupo_nome or ""
-        )
         saldo = lanc.saldo or Decimal(0)
+        liquidation_type = lanc.liquidation_type
         
-        # Só considerar contas classificadas (BANK, CASH, INVESTMENT)
-        # E que sejam realmente de disponibilidade (não despesas/custos)
-        if account_type == "BANK":
+        # Classificar por tipo de conta de liquidação
+        if liquidation_type == LiquidationAccountType.BANK_ACCOUNT:
             banks_total += saldo
-        elif account_type == "CASH":
+        elif liquidation_type == LiquidationAccountType.CASH:
             cash_total += saldo
-        elif account_type == "INVESTMENT":
+        elif liquidation_type == LiquidationAccountType.INVESTMENT:
             investments_total += saldo
     
     total = banks_total + cash_total + investments_total

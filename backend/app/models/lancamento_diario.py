@@ -33,7 +33,8 @@ class LancamentoDiario(Base):
     # Campos obrigatórios da planilha
     data_movimentacao = Column(DateTime, nullable=False)  # Data Movimentação
     valor = Column(Numeric(15, 2), nullable=False)  # Valor
-    liquidacao = Column(DateTime, nullable=True)  # Liquidação
+    liquidacao = Column(DateTime, nullable=True)  # Liquidação (data)
+    liquidation_account_id = Column(String(36), ForeignKey("liquidation_accounts.id"), nullable=True)  # Conta de liquidação (scb, cef, cx, etc.)
     observacoes = Column(Text, nullable=True)  # Observações
     
     # Campos obrigatórios vinculados ao plano de contas
@@ -61,6 +62,7 @@ class LancamentoDiario(Base):
     conta = relationship("ChartAccount", foreign_keys=[conta_id])
     subgrupo = relationship("ChartAccountSubgroup", foreign_keys=[subgrupo_id])
     grupo = relationship("ChartAccountGroup", foreign_keys=[grupo_id])
+    liquidation_account = relationship("LiquidationAccount", foreign_keys=[liquidation_account_id])
     tenant = relationship("Tenant")
     business_unit = relationship("BusinessUnit")
     creator = relationship("User", foreign_keys=[created_by])

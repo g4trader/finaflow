@@ -84,6 +84,12 @@ from app.models.lancamento_previsto import (
     LancamentoPrevisto
 )
 
+# Modelos de contas de liquidação
+from app.models.liquidation_accounts import (
+    LiquidationAccount,
+    LiquidationAccountType
+)
+
 # ============================================================================
 # CONFIGURAÇÕES
 # ============================================================================
@@ -768,6 +774,67 @@ def seed_lancamentos_previstos(
         import traceback
         traceback.print_exc()
 
+def get_or_create_liquidation_account(
+    db: Session,
+    tenant: Tenant,
+    business_unit: BusinessUnit,
+    codigo: str
+) -> Optional[LiquidationAccount]:
+    """
+    Cria ou obtém uma conta de liquidação baseada no código (scb, cef, cx, etc.)
+    """
+    if not codigo:
+        return None
+    
+    codigo_upper = codigo.upper().strip()
+    
+    # Buscar existente
+    liquidation_account = db.query(LiquidationAccount).filter(
+        LiquidationAccount.code == codigo_upper,
+        LiquidationAccount.tenant_id == tenant.id
+    ).first()
+    
+    if liquidation_account:
+        return liquidation_account
+    
+    # Determinar tipo baseado no código
+    account_type = LiquidationAccountType.OTHER
+    name = codigo_upper
+    
+    if codigo_upper in ["SCB", "CEF", "BANCO", "BANC"]:
+        account_type = LiquidationAccountType.BANK_ACCOUNT
+        if codigo_upper == "SCB":
+            name = "SCB - Conta Bancária"
+        elif codigo_upper == "CEF":
+            name = "CEF - Caixa Econômica Federal"
+        else:
+            name = f"{codigo_upper} - Conta Bancária"
+    elif codigo_upper in ["CX", "CAIXA", "CASH"]:
+        account_type = LiquidationAccountType.CASH
+        name = "Caixa Físico"
+    elif codigo_upper in ["INV", "INVESTIMENTO", "APLICAÇÃO", "APLICACAO"]:
+        account_type = LiquidationAccountType.INVESTMENT
+        name = "Investimentos"
+    
+    # Criar nova conta de liquidação
+    liquidation_account = LiquidationAccount(
+        id=str(uuid4()),
+        tenant_id=tenant.id,
+        business_unit_id=business_unit.id,
+        code=codigo_upper,
+        name=name,
+        description=f"Conta de liquidação: {codigo_upper}",
+        account_type=account_type,
+        is_active=True,
+        is_default=False
+    )
+    
+    db.add(liquidation_account)
+    db.commit()
+    db.refresh(liquidation_account)
+    
+    return liquidation_account
+
 def _get_classification_reason(grupo_nome: str, subgrupo_nome: str, transaction_type) -> str:
     """Retorna motivo da classificação para logging"""
     grupo_lower = (grupo_nome or "").lower().strip()
@@ -851,6 +918,8 @@ def seed_lancamentos_diarios(
                 column_map['valor'] = col
             if ('observação' in col_lower or 'observacao' in col_lower) and 'observacoes' not in column_map:
                 column_map['observacoes'] = col
+            if 'liquidação' in col_lower or 'liquidacao' in col_lower:
+                column_map['liquidacao'] = col
         
         # Verificar colunas mínimas
         if 'data_movimentacao' not in column_map or 'valor' not in column_map:
@@ -884,6 +953,15 @@ def seed_lancamentos_diarios(
                 observacoes = ""
                 if 'observacoes' in column_map:
                     observacoes = str(row[column_map['observacoes']]).strip() if pd.notna(row[column_map['observacoes']]) else ""
+                
+                # Ler coluna de liquidação (código da conta: scb, cef, cx, etc.)
+                liquidacao_codigo = None
+                if 'liquidacao' in column_map:
+                    liquidacao_val = row[column_map['liquidacao']] if pd.notna(row[column_map['liquidacao']]) else None
+                    if liquidacao_val is not None:
+                        liquidacao_codigo = str(liquidacao_val).strip().lower()
+                        if not liquidacao_codigo or liquidacao_codigo == 'nan':
+                            liquidacao_codigo = None
                 
                 # Pular linhas vazias
                 if not data_mov_str or not valor_str:
@@ -1062,6 +1140,15 @@ def seed_lancamentos_diarios(
                 # Determinar tipo de transação
                 transaction_type = determine_transaction_type(grupo_nome, subgrupo_nome)
                 
+                # Criar ou obter conta de liquidação se houver código
+                liquidation_account_id = None
+                if liquidacao_codigo:
+                    liquidation_account = get_or_create_liquidation_account(
+                        db, tenant, business_unit, liquidacao_codigo
+                    )
+                    if liquidation_account:
+                        liquidation_account_id = liquidation_account.id
+                
                 # Logging de classificação (se COST_DEBUG=1)
                 if os.getenv("COST_DEBUG") == "1" and data_movimentacao.year == 2025:
                     log_entry = {
@@ -1087,7 +1174,8 @@ def seed_lancamentos_diarios(
                     id=str(uuid4()),
                     data_movimentacao=data_movimentacao,
                     valor=valor,
-                    liquidacao=None,
+                    liquidacao=None,  # Campo DateTime - manter None por enquanto
+                    liquidation_account_id=liquidation_account_id,  # Conta de liquidação (scb, cef, cx, etc.)
                     observacoes=observacoes or f"Lançamento de {subgrupo_nome}",
                     conta_id=conta.id,
                     subgrupo_id=subgrupo.id,
