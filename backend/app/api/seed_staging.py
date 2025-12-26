@@ -34,44 +34,49 @@ async def run_migration_liquidation(
     # Executar migration diretamente via engine (sem usar modelos)
     try:
         # SQL da migration (inline para evitar problemas de arquivo)
-        migration_sql = """
-        -- Adicionar coluna se não existir
-        ALTER TABLE lancamentos_diarios 
-        ADD COLUMN IF NOT EXISTS liquidation_account_id VARCHAR(36);
-
-        -- Adicionar foreign key se não existir
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_constraint 
-                WHERE conname = 'fk_lancamentos_diarios_liquidation_account'
-            ) THEN
-                ALTER TABLE lancamentos_diarios
-                ADD CONSTRAINT fk_lancamentos_diarios_liquidation_account
-                FOREIGN KEY (liquidation_account_id) 
-                REFERENCES liquidation_accounts(id);
-            END IF;
-        END $$;
-
-        -- Criar índice para performance
-        CREATE INDEX IF NOT EXISTS idx_lancamentos_diarios_liquidation_account 
-        ON lancamentos_diarios(liquidation_account_id);
-        """
-        
-        # Executar cada statement separadamente
         with engine.connect() as conn:
-            # Executar statements separadamente
-            statements = [s.strip() for s in migration_sql.split(';') if s.strip() and not s.strip().startswith('--')]
+            # 1. Adicionar coluna se não existir
+            try:
+                conn.execute(text("""
+                    ALTER TABLE lancamentos_diarios 
+                    ADD COLUMN IF NOT EXISTS liquidation_account_id VARCHAR(36)
+                """))
+                conn.commit()
+            except Exception as e:
+                if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+                    raise
             
-            for statement in statements:
-                if statement:
-                    try:
-                        conn.execute(text(statement))
-                        conn.commit()
-                    except Exception as e:
-                        # Ignorar erros de "já existe"
-                        if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
-                            raise
+            # 2. Adicionar foreign key se não existir (bloco DO completo)
+            try:
+                conn.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint 
+                            WHERE conname = 'fk_lancamentos_diarios_liquidation_account'
+                        ) THEN
+                            ALTER TABLE lancamentos_diarios
+                            ADD CONSTRAINT fk_lancamentos_diarios_liquidation_account
+                            FOREIGN KEY (liquidation_account_id) 
+                            REFERENCES liquidation_accounts(id);
+                        END IF;
+                    END $$;
+                """))
+                conn.commit()
+            except Exception as e:
+                if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+                    raise
+            
+            # 3. Criar índice para performance
+            try:
+                conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS idx_lancamentos_diarios_liquidation_account 
+                    ON lancamentos_diarios(liquidation_account_id)
+                """))
+                conn.commit()
+            except Exception as e:
+                if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+                    raise
             
             # Verificar se a coluna foi criada
             result = conn.execute(text("""
