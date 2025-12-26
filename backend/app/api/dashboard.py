@@ -982,17 +982,31 @@ def _classify_account_type(
     code_lower = (account_code or "").lower().strip()
     combined = f"{name_lower} {code_lower}"
     
-    # Excluir contas que são claramente despesas/custos mesmo tendo palavras-chave
-    exclude_keywords = ["despesa", "custo", "tarifa", "taxa", "juros", "multa", "encargo", "tarifas"]
+    # Excluir contas que são claramente despesas/custos/saídas mesmo tendo palavras-chave
+    exclude_keywords = [
+        "despesa", "custo", "tarifa", "taxa", "juros", "multa", "encargo", "tarifas",
+        "pagamento", "compra", "saída", "saida", "pagar", "pagamento de", "compra de"
+    ]
     if any(keyword in combined for keyword in exclude_keywords):
         return None
     
-    # Bancos (apenas se não for despesa/custo)
-    bank_keywords = ["banco", "banc", "conta bancária", "conta corrente", "conta poupança", "cc", "cp"]
+    # Excluir grupos/subgrupos que são claramente saídas/investimentos em bens
+    if "movimentação" in grupo_lower and "saída" in grupo_lower:
+        return None
+    if "investimento" in grupo_lower and "bens" in grupo_lower:
+        return None
+    
+    # Bancos (apenas se não for despesa/custo/saída)
+    # Verificar se é realmente uma conta bancária (não um pagamento ou compra)
+    bank_keywords = ["banco", "banc", "conta bancária", "conta corrente", "conta poupança"]
+    # Excluir códigos que não são de banco
     if any(keyword in combined for keyword in bank_keywords):
-        # Verificar se não é uma despesa bancária
-        if "despesa" not in combined and "custo" not in combined and "tarifa" not in combined:
+        # Verificar se não é uma despesa/saída/pagamento
+        if not any(exclude in combined for exclude in ["pagamento", "compra", "saída", "saida", "pagar"]):
             return "BANK"
+    
+    # Códigos específicos de banco (se houver no futuro)
+    # Por enquanto, não usar códigos genéricos como "CPAG" ou "CCOM"
     
     # Caixa/Dinheiro (apenas se não for despesa/custo)
     cash_keywords = ["caixa", "dinheiro", "cash", "cx"]
