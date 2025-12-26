@@ -31,6 +31,7 @@ CARACTERÍSTICAS:
 import sys
 import os
 import argparse
+import json
 from pathlib import Path
 from uuid import uuid4
 from datetime import datetime
@@ -781,6 +782,33 @@ def seed_lancamentos_previstos(
         import traceback
         traceback.print_exc()
 
+def _get_classification_reason(grupo_nome: str, subgrupo_nome: str, transaction_type) -> str:
+    """Retorna motivo da classificação para logging"""
+    grupo_lower = (grupo_nome or "").lower().strip()
+    subgrupo_lower = (subgrupo_nome or "").lower().strip()
+    tipo_value = transaction_type.value if hasattr(transaction_type, 'value') else str(transaction_type)
+    
+    if tipo_value == "RECEITA":
+        if any(kw in grupo_lower for kw in ["receita", "venda", "renda", "faturamento", "vendas"]):
+            return "mapeamento_por_grupo_receita"
+        return "mapeamento_por_subgrupo_receita"
+    
+    if tipo_value == "CUSTO":
+        if any(kw in grupo_lower for kw in ["custo", "custos"]):
+            return "mapeamento_por_grupo_custo"
+        if subgrupo_lower and any(kw in subgrupo_lower for kw in ["custo", "custos", "mercadoria", "produto", "mão de obra", "mao de obra", "serviços prestados", "servicos prestados"]):
+            return "mapeamento_por_subgrupo_custo"
+        return "mapeamento_por_subgrupo_custo_palavras_chave"
+    
+    if tipo_value == "DESPESA":
+        if any(kw in grupo_lower for kw in ["despesa", "gasto", "operacional", "administrativa"]):
+            return "mapeamento_por_grupo_despesa"
+        if subgrupo_lower and any(kw in subgrupo_lower for kw in ["despesa", "gasto", "marketing", "administrativa"]):
+            return "mapeamento_por_subgrupo_despesa"
+        return "default_despesa"
+    
+    return "desconhecido"
+
 def seed_lancamentos_diarios(
     db: Session,
     tenant: Tenant,
@@ -873,17 +901,71 @@ def seed_lancamentos_diarios(
                 
                 # Pular linhas vazias
                 if not data_mov_str or not valor_str:
+                    if os.getenv("COST_DEBUG") == "1":
+                        log_entry = {
+                            "excel_row": row_num + 2,
+                            "group": grupo_nome,
+                            "subgroup": subgrupo_nome,
+                            "description": "",
+                            "month": None,
+                            "year": None,
+                            "value": 0,
+                            "tipo_resultante": None,
+                            "motivo": "dados_vazios",
+                            "action": "SKIPPED",
+                            "skip_reason": "data_mov ou valor vazio"
+                        }
+                        log_file = backend_path / "artifacts" / "seed_classification_2025.jsonl"
+                        log_file.parent.mkdir(exist_ok=True)
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
                     logger.stats['linhas_ignoradas'] += 1
                     continue
                 
                 # Parse de data e valor
                 data_movimentacao = parse_date(data_mov_str)
                 if not data_movimentacao:
+                    if os.getenv("COST_DEBUG") == "1":
+                        log_entry = {
+                            "excel_row": row_num + 2,
+                            "group": grupo_nome,
+                            "subgroup": subgrupo_nome,
+                            "description": "",
+                            "month": None,
+                            "year": None,
+                            "value": float(parse_currency(valor_str)),
+                            "tipo_resultante": None,
+                            "motivo": "data_invalida",
+                            "action": "SKIPPED",
+                            "skip_reason": "data não parseada"
+                        }
+                        log_file = backend_path / "artifacts" / "seed_classification_2025.jsonl"
+                        log_file.parent.mkdir(exist_ok=True)
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
                     logger.stats['linhas_ignoradas'] += 1
                     continue
                 
                 valor = parse_currency(valor_str)
                 if valor <= 0:
+                    if os.getenv("COST_DEBUG") == "1":
+                        log_entry = {
+                            "excel_row": row_num + 2,
+                            "group": grupo_nome,
+                            "subgroup": subgrupo_nome,
+                            "description": "",
+                            "month": data_movimentacao.month,
+                            "year": data_movimentacao.year,
+                            "value": 0,
+                            "tipo_resultante": None,
+                            "motivo": "valor_zero",
+                            "action": "SKIPPED",
+                            "skip_reason": "valor <= 0"
+                        }
+                        log_file = backend_path / "artifacts" / "seed_classification_2025.jsonl"
+                        log_file.parent.mkdir(exist_ok=True)
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
                     logger.stats['linhas_ignoradas'] += 1
                     continue
                 
@@ -911,6 +993,24 @@ def seed_lancamentos_diarios(
                         ).first()
                 
                 if not grupo or not subgrupo:
+                    if os.getenv("COST_DEBUG") == "1" and data_movimentacao.year == 2025:
+                        log_entry = {
+                            "excel_row": row_num + 2,
+                            "group": grupo_nome,
+                            "subgroup": subgrupo_nome,
+                            "description": "",
+                            "month": data_movimentacao.month,
+                            "year": data_movimentacao.year,
+                            "value": float(valor),
+                            "tipo_resultante": None,
+                            "motivo": "grupo_subgrupo_nao_encontrado",
+                            "action": "SKIPPED",
+                            "skip_reason": f"grupo={grupo is not None}, subgrupo={subgrupo is not None}"
+                        }
+                        log_file = backend_path / "artifacts" / "seed_classification_2025.jsonl"
+                        log_file.parent.mkdir(exist_ok=True)
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
                     logger.stats['linhas_ignoradas'] += 1
                     continue
                 
@@ -921,6 +1021,24 @@ def seed_lancamentos_diarios(
                 ).first()
                 
                 if not conta:
+                    if os.getenv("COST_DEBUG") == "1" and data_movimentacao.year == 2025:
+                        log_entry = {
+                            "excel_row": row_num + 2,
+                            "group": grupo_nome,
+                            "subgroup": subgrupo_nome,
+                            "description": "",
+                            "month": data_movimentacao.month,
+                            "year": data_movimentacao.year,
+                            "value": float(valor),
+                            "tipo_resultante": None,
+                            "motivo": "conta_nao_encontrada",
+                            "action": "SKIPPED",
+                            "skip_reason": "conta não encontrada no subgrupo"
+                        }
+                        log_file = backend_path / "artifacts" / "seed_classification_2025.jsonl"
+                        log_file.parent.mkdir(exist_ok=True)
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
                     logger.stats['linhas_ignoradas'] += 1
                     continue
                 
@@ -934,8 +1052,49 @@ def seed_lancamentos_diarios(
                 ).first()
                 
                 if existing:
+                    if os.getenv("COST_DEBUG") == "1" and data_movimentacao.year == 2025:
+                        log_entry = {
+                            "excel_row": row_num + 2,
+                            "group": grupo_nome,
+                            "subgroup": subgrupo_nome,
+                            "description": observacoes or f"Lançamento de {subgrupo_nome}",
+                            "month": data_movimentacao.month,
+                            "year": data_movimentacao.year,
+                            "value": float(valor),
+                            "tipo_resultante": existing.transaction_type.value if existing.transaction_type else None,
+                            "motivo": "ja_existe",
+                            "action": "SKIPPED",
+                            "skip_reason": "lançamento já existe (idempotência)"
+                        }
+                        log_file = backend_path / "artifacts" / "seed_classification_2025.jsonl"
+                        log_file.parent.mkdir(exist_ok=True)
+                        with open(log_file, "a", encoding="utf-8") as f:
+                            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
                     logger.stats['lancamentos_diarios_existentes'] += 1
                     continue
+                
+                # Determinar tipo de transação
+                transaction_type = determine_transaction_type(grupo_nome, subgrupo_nome)
+                
+                # Logging de classificação (se COST_DEBUG=1)
+                if os.getenv("COST_DEBUG") == "1" and data_movimentacao.year == 2025:
+                    log_entry = {
+                        "excel_row": row_num + 2,
+                        "group": grupo_nome,
+                        "subgroup": subgrupo_nome,
+                        "description": observacoes or f"Lançamento de {subgrupo_nome}",
+                        "month": data_movimentacao.month,
+                        "year": data_movimentacao.year,
+                        "value": float(valor),
+                        "tipo_resultante": transaction_type.value,
+                        "motivo": _get_classification_reason(grupo_nome, subgrupo_nome, transaction_type),
+                        "action": "INSERTED"
+                    }
+                    
+                    log_file = backend_path / "artifacts" / "seed_classification_2025.jsonl"
+                    log_file.parent.mkdir(exist_ok=True)
+                    with open(log_file, "a", encoding="utf-8") as f:
+                        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
                 
                 # Criar lançamento (adicionar ao lote)
                 lancamento = LancamentoDiario(
@@ -947,7 +1106,7 @@ def seed_lancamentos_diarios(
                     conta_id=conta.id,
                     subgrupo_id=subgrupo.id,
                     grupo_id=grupo.id,
-                    transaction_type=determine_transaction_type(grupo_nome, subgrupo_nome),
+                    transaction_type=transaction_type,
                     status=TransactionStatus.LIQUIDADO,
                     tenant_id=tenant.id,
                     business_unit_id=business_unit.id,

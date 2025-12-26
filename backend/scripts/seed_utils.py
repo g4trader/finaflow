@@ -97,20 +97,48 @@ def parse_date(date_value) -> Optional[datetime]:
 
 
 def determine_transaction_type(grupo_nome: str, subgrupo_nome: Optional[str] = None) -> TransactionType:
-    """Determina o tipo de transação baseado no grupo e subgrupo"""
-    grupo_lower = grupo_nome.lower()
-    subgrupo_lower = (subgrupo_nome or "").lower()
+    """
+    Determina o tipo de transação baseado no grupo e subgrupo.
     
-    if any(keyword in grupo_lower for keyword in ["receita", "venda", "renda", "faturamento", "vendas"]):
-        return TransactionType.RECEITA
-    if any(keyword in grupo_lower for keyword in ["custo", "custos"]) or any(
-        keyword in subgrupo_lower for keyword in ["custo", "custos", "mercadoria", "produto"]
-    ):
-        return TransactionType.CUSTO
-    if any(keyword in grupo_lower for keyword in ["despesa", "gasto", "operacional", "administrativa"]) or any(
-        keyword in subgrupo_lower for keyword in ["despesa", "gasto", "marketing", "administrativa"]
-    ):
+    REGRA CRÍTICA: Grupos com "Custos" (singular ou plural) devem ser CUSTO.
+    Ordem de verificação:
+    1. RECEITA (palavras-chave: receita, venda, renda, faturamento, vendas)
+    2. CUSTO (palavras-chave: custo, custos - no grupo OU subgrupo)
+    3. DESPESA (padrão)
+    """
+    if not grupo_nome:
         return TransactionType.DESPESA
+    
+    grupo_lower = grupo_nome.lower().strip()
+    subgrupo_lower = (subgrupo_nome or "").lower().strip()
+    
+    # 1. Verificar RECEITA
+    receita_keywords = ["receita", "venda", "renda", "faturamento", "vendas"]
+    if any(keyword in grupo_lower for keyword in receita_keywords):
+        return TransactionType.RECEITA
+    
+    # 2. Verificar CUSTO (PRIORIDADE: grupo contém "custo" ou "custos")
+    # CORREÇÃO CRÍTICA: "Custos" no nome do grupo deve ser CUSTO
+    custo_keywords_grupo = ["custo", "custos"]
+    custo_keywords_subgrupo = ["custo", "custos", "mercadoria", "produto", "mão de obra", "mao de obra", "serviços prestados", "servicos prestados"]
+    
+    # Se o grupo contém "custo" ou "custos", é CUSTO (sem exceções)
+    if any(keyword in grupo_lower for keyword in custo_keywords_grupo):
+        return TransactionType.CUSTO
+    
+    # Se o subgrupo contém palavras-chave de custo, também é CUSTO
+    if subgrupo_lower and any(keyword in subgrupo_lower for keyword in custo_keywords_subgrupo):
+        return TransactionType.CUSTO
+    
+    # 3. Verificar DESPESA
+    despesa_keywords_grupo = ["despesa", "gasto", "operacional", "administrativa"]
+    despesa_keywords_subgrupo = ["despesa", "gasto", "marketing", "administrativa"]
+    
+    if any(keyword in grupo_lower for keyword in despesa_keywords_grupo) or \
+       (subgrupo_lower and any(keyword in subgrupo_lower for keyword in despesa_keywords_subgrupo)):
+        return TransactionType.DESPESA
+    
+    # 4. Padrão: DESPESA
     return TransactionType.DESPESA
 
 
