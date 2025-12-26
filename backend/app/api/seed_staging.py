@@ -18,6 +18,75 @@ from app.models.auth import User
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
+@router.post("/run-migration-liquidation")
+async def run_migration_liquidation(
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Executa a migration para adicionar liquidation_account_id à tabela lancamentos_diarios
+    """
+    # Verificar se é super_admin
+    user_role = current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role)
+    if user_role != "super_admin":
+        raise HTTPException(status_code=403, detail="Apenas super_admin pode executar migration")
+    
+    from sqlalchemy import text
+    from app.database import SessionLocal
+    
+    migration_file = Path(__file__).parent.parent.parent / "migrations" / "add_liquidation_account_id_to_lancamentos_diarios.sql"
+    
+    if not migration_file.exists():
+        raise HTTPException(status_code=404, detail=f"Arquivo de migration não encontrado: {migration_file}")
+    
+    try:
+        with open(migration_file, 'r', encoding='utf-8') as f:
+            migration_sql = f.read()
+        
+        db = SessionLocal()
+        try:
+            db.execute(text(migration_sql))
+            db.commit()
+            
+            # Verificar se a coluna foi criada
+            result = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = 'public' 
+                AND table_name = 'lancamentos_diarios'
+                AND column_name = 'liquidation_account_id'
+            """))
+            
+            if result.fetchone():
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "success": True,
+                        "message": "Migration executada com sucesso",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                )
+            else:
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "success": False,
+                        "error": "Coluna não encontrada após migration",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                )
+        finally:
+            db.close()
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": f"Erro ao executar migration: {str(e)}",
+                "traceback": traceback.format_exc(),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+
 @router.post("/seed-staging")
 async def execute_seed_staging(
     reset_data: Optional[bool] = Body(False, description="Resetar dados antes do seed"),
