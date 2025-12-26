@@ -961,7 +961,7 @@ def _classify_account_type(
     
     Retorna: 'BANK', 'CASH', 'INVESTMENT' ou None
     """
-    # CRÍTICO: Excluir contas que estão em grupos de Despesa/Custo/Receita
+    # CRÍTICO: Excluir contas que estão em grupos de Despesa/Custo/Receita/Saída/Investimento em bens
     grupo_lower = (grupo_nome or "").lower().strip()
     subgrupo_lower = (subgrupo_nome or "").lower().strip()
     
@@ -971,6 +971,16 @@ def _classify_account_type(
         return None
     if any(keyword in subgrupo_lower for keyword in exclude_groups):
         return None
+    
+    # Excluir grupos de Movimentações Não Operacionais (especialmente Saídas)
+    if "movimentação" in grupo_lower or "movimentacao" in grupo_lower:
+        if "saída" in subgrupo_lower or "saida" in subgrupo_lower:
+            return None
+    
+    # Excluir Investimentos em Bens Materiais (não são disponibilidade)
+    if "investimento" in grupo_lower:
+        if "bens" in subgrupo_lower or "material" in subgrupo_lower:
+            return None
     
     # Excluir explicitamente contas de DESPESA, CUSTO ou RECEITA
     account_type_lower = (account_type or "").lower().strip()
@@ -985,24 +995,24 @@ def _classify_account_type(
     # Excluir contas que são claramente despesas/custos/saídas mesmo tendo palavras-chave
     exclude_keywords = [
         "despesa", "custo", "tarifa", "taxa", "juros", "multa", "encargo", "tarifas",
-        "pagamento", "compra", "saída", "saida", "pagar", "pagamento de", "compra de"
+        "pagamento", "compra", "saída", "saida", "pagar", "pagamento de", "compra de",
+        "empréstimo", "emprestimo", "máquina", "maquina", "equipamento"
     ]
     if any(keyword in combined for keyword in exclude_keywords):
         return None
     
-    # Excluir grupos/subgrupos que são claramente saídas/investimentos em bens
-    if "movimentação" in grupo_lower and "saída" in grupo_lower:
-        return None
-    if "investimento" in grupo_lower and "bens" in grupo_lower:
+    # Excluir códigos específicos que não são de banco
+    # CPAG = Pagamento, CCOM = Compra, etc.
+    exclude_codes = ["cpag", "ccom", "csaida", "csaída"]
+    if code_lower in exclude_codes:
         return None
     
     # Bancos (apenas se não for despesa/custo/saída)
     # Verificar se é realmente uma conta bancária (não um pagamento ou compra)
     bank_keywords = ["banco", "banc", "conta bancária", "conta corrente", "conta poupança"]
-    # Excluir códigos que não são de banco
     if any(keyword in combined for keyword in bank_keywords):
-        # Verificar se não é uma despesa/saída/pagamento
-        if not any(exclude in combined for exclude in ["pagamento", "compra", "saída", "saida", "pagar"]):
+        # Verificar se não é uma despesa/saída/pagamento/compra
+        if not any(exclude in combined for exclude in ["pagamento", "compra", "saída", "saida", "pagar", "empréstimo", "emprestimo"]):
             return "BANK"
     
     # Códigos específicos de banco (se houver no futuro)
