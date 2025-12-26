@@ -1130,6 +1130,133 @@ def operational_availability(
     }
 
 
+@router.get("/dashboard/operational/availability/liquidation-status")
+def liquidation_status_debug(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Endpoint de debug para verificar status das contas de liquidação e lançamentos associados.
+    """
+    from app.models.liquidation_accounts import LiquidationAccount, LiquidationAccountType
+    
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = date.today()
+    
+    # 1. Contas de liquidação criadas
+    liquidation_accounts = db.query(LiquidationAccount).filter(
+        LiquidationAccount.tenant_id == tenant_id
+    ).all()
+    
+    # 2. Lançamentos com/sem liquidation_account_id
+    total_lancamentos = db.query(LancamentoDiario).filter(
+        LancamentoDiario.tenant_id == tenant_id,
+        LancamentoDiario.is_active.is_(True)
+    ).count()
+    
+    lancamentos_com_liquidation = db.query(LancamentoDiario).filter(
+        LancamentoDiario.tenant_id == tenant_id,
+        LancamentoDiario.is_active.is_(True),
+        LancamentoDiario.liquidation_account_id.isnot(None)
+    ).count()
+    
+    # 3. Distribuição por código
+    distribution = []
+    if lancamentos_com_liquidation > 0:
+        query = (
+            db.query(
+                LiquidationAccount.code,
+                LiquidationAccount.name,
+                LiquidationAccount.account_type,
+                func.count(LancamentoDiario.id).label("count")
+            )
+            .join(LancamentoDiario, LiquidationAccount.id == LancamentoDiario.liquidation_account_id)
+            .filter(
+                LancamentoDiario.tenant_id == tenant_id,
+                LancamentoDiario.is_active.is_(True)
+            )
+            .group_by(LiquidationAccount.code, LiquidationAccount.name, LiquidationAccount.account_type)
+        )
+        
+        for row in query.all():
+            distribution.append({
+                "code": row.code,
+                "name": row.name,
+                "account_type": row.account_type.value,
+                "lancamentos_count": row.count
+            })
+    
+    # 4. Saldos calculados
+    saldos = {
+        "banks": 0.0,
+        "cash": 0.0,
+        "investments": 0.0,
+        "total": 0.0
+    }
+    
+    if lancamentos_com_liquidation > 0:
+        query = (
+            db.query(
+                LiquidationAccount.account_type,
+                func.sum(
+                    case(
+                        (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
+                        else_=-LancamentoDiario.valor
+                    )
+                ).label("saldo")
+            )
+            .join(LiquidationAccount, LancamentoDiario.liquidation_account_id == LiquidationAccount.id)
+            .filter(
+                LancamentoDiario.tenant_id == tenant_id,
+                LancamentoDiario.is_active.is_(True),
+                LancamentoDiario.status != TransactionStatus.CANCELADO,
+                func.date(LancamentoDiario.data_movimentacao) <= today
+            )
+            .group_by(LiquidationAccount.account_type)
+        )
+        
+        if business_unit_id:
+            query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+        
+        for row in query.all():
+            saldo = float(row.saldo or 0)
+            if row.account_type == LiquidationAccountType.BANK_ACCOUNT:
+                saldos["banks"] = saldo
+            elif row.account_type == LiquidationAccountType.CASH:
+                saldos["cash"] = saldo
+            elif row.account_type == LiquidationAccountType.INVESTMENT:
+                saldos["investments"] = saldo
+        
+        saldos["total"] = saldos["banks"] + saldos["cash"] + saldos["investments"]
+    
+    return {
+        "liquidation_accounts": [
+            {
+                "id": acc.id,
+                "code": acc.code,
+                "name": acc.name,
+                "account_type": acc.account_type.value,
+                "tenant_id": str(acc.tenant_id)
+            }
+            for acc in liquidation_accounts
+        ],
+        "lancamentos": {
+            "total": total_lancamentos,
+            "com_liquidation_account_id": lancamentos_com_liquidation,
+            "sem_liquidation_account_id": total_lancamentos - lancamentos_com_liquidation,
+            "percentual_com_liquidation": round((lancamentos_com_liquidation / total_lancamentos * 100) if total_lancamentos > 0 else 0, 2)
+        },
+        "distribution": distribution,
+        "saldos_calculados": saldos,
+        "diagnostico": {
+            "contas_criadas": len(liquidation_accounts) > 0,
+            "lancamentos_associados": lancamentos_com_liquidation > 0,
+            "cobertura_associacao": round((lancamentos_com_liquidation / total_lancamentos * 100) if total_lancamentos > 0 else 0, 2),
+            "status": "ok" if len(liquidation_accounts) > 0 and lancamentos_com_liquidation > total_lancamentos * 0.9 else "precisa_re_seed"
+        }
+    }
+
 @router.get("/dashboard/operational/availability/debug")
 def operational_availability_debug(
     current_user: User = Depends(get_current_active_user),
