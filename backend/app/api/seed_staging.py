@@ -31,24 +31,52 @@ async def run_migration_liquidation(
         raise HTTPException(status_code=403, detail="Apenas super_admin pode executar migration")
     
     from sqlalchemy import text
-    from app.database import SessionLocal
+    from app.database import engine
     
-    migration_file = Path(__file__).parent.parent.parent / "migrations" / "add_liquidation_account_id_to_lancamentos_diarios.sql"
-    
-    if not migration_file.exists():
-        raise HTTPException(status_code=404, detail=f"Arquivo de migration não encontrado: {migration_file}")
-    
+    # Executar migration diretamente via engine (sem usar modelos)
     try:
-        with open(migration_file, 'r', encoding='utf-8') as f:
-            migration_sql = f.read()
+        # SQL da migration (inline para evitar problemas de arquivo)
+        migration_sql = """
+        -- Adicionar coluna se não existir
+        ALTER TABLE lancamentos_diarios 
+        ADD COLUMN IF NOT EXISTS liquidation_account_id VARCHAR(36);
+
+        -- Adicionar foreign key se não existir
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint 
+                WHERE conname = 'fk_lancamentos_diarios_liquidation_account'
+            ) THEN
+                ALTER TABLE lancamentos_diarios
+                ADD CONSTRAINT fk_lancamentos_diarios_liquidation_account
+                FOREIGN KEY (liquidation_account_id) 
+                REFERENCES liquidation_accounts(id);
+            END IF;
+        END $$;
+
+        -- Criar índice para performance
+        CREATE INDEX IF NOT EXISTS idx_lancamentos_diarios_liquidation_account 
+        ON lancamentos_diarios(liquidation_account_id);
+        """
         
-        db = SessionLocal()
-        try:
-            db.execute(text(migration_sql))
-            db.commit()
+        # Executar cada statement separadamente
+        with engine.connect() as conn:
+            # Executar statements separadamente
+            statements = [s.strip() for s in migration_sql.split(';') if s.strip() and not s.strip().startswith('--')]
+            
+            for statement in statements:
+                if statement:
+                    try:
+                        conn.execute(text(statement))
+                        conn.commit()
+                    except Exception as e:
+                        # Ignorar erros de "já existe"
+                        if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+                            raise
             
             # Verificar se a coluna foi criada
-            result = db.execute(text("""
+            result = conn.execute(text("""
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_schema = 'public' 
@@ -74,8 +102,6 @@ async def run_migration_liquidation(
                         "timestamp": datetime.now().isoformat()
                     }
                 )
-        finally:
-            db.close()
     except Exception as e:
         return JSONResponse(
             status_code=500,
