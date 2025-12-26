@@ -1101,11 +1101,15 @@ def operational_availability(
         # Fallback: usar o saldo consolidado total
         saldo_acumulado = saldo_consolidado
     
-    # Saldo inicial do exercício anterior (por enquanto 0, pode ser configurado depois)
-    saldo_inicial = Decimal(0)
+    # Saldo inicial do exercício anterior
+    # IMPORTANTE: A planilha "Lucro líquido acumulado (Reservas)" já inclui o saldo do ano anterior
+    # Valor do saldo do ano anterior conforme planilha: R$ 31.496,88
+    # TODO: Tornar configurável via tabela de configuração ou parâmetro
+    saldo_inicial = Decimal("31496.88")
     
     # Total disponível = saldo inicial + saldo acumulado até o mês atual
     # Isso corresponde ao "Lucro líquido acumulado (Reservas)" da planilha
+    # A planilha já inclui o saldo do ano anterior na soma, então precisamos adicionar aqui
     total_disponivel = saldo_inicial + saldo_acumulado
 
     return {
