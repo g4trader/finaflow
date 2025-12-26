@@ -122,7 +122,7 @@ const DashboardOperational: React.FC = () => {
         )}
 
         {/* Bloco 4 e 5: Contas a Receber e a Pagar */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {receivables && (
             <ReceivablesSummaryCard
               data={receivables}
@@ -142,4 +142,9 @@ const DashboardOperational: React.FC = () => {
 };
 
 export default DashboardOperational;
+
+
+
+
+
 
