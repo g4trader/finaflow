@@ -1042,56 +1042,58 @@ def operational_availability(
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
-    Retorna a composição das disponibilidades de caixa (Bancos, Caixa, Investimentos).
+    Retorna a disponibilidade financeira consolidada.
     
-    Calcula os saldos a partir dos lançamentos realizados (LancamentoDiario) seedados do Excel,
-    agrupados por conta de liquidação (LiquidationAccount).
+    Calcula baseado na apuração de resultado (lucro/prejuízo líquido) até hoje:
+    - Receitas realizadas (entrada)
+    - Despesas realizadas (saída)
+    - Custos realizados (saída)
+    - Saldo = Receitas - Despesas - Custos
     
-    A lógica é:
-    - RECEITA aumenta o saldo (entrada de dinheiro)
-    - DESPESA/CUSTO diminui o saldo (saída de dinheiro)
-    - Agrupa por tipo de conta de liquidação (BANK_ACCOUNT, CASH, INVESTMENT)
+    IMPORTANTE: Retorna um valor consolidado único, sem separação por contas bancárias,
+    caixa ou investimentos, conforme a visão da planilha do cliente.
     
     Retorna:
-    - banks: Total de saldos bancários
-    - cash: Total de caixa/dinheiro
-    - investments: Total de aplicações/investimentos
-    - total: Soma dos três acima
+    - total: Saldo consolidado total (resultado líquido até hoje)
+    - receitas: Total de receitas realizadas até hoje
+    - despesas: Total de despesas realizadas até hoje
+    - custos: Total de custos realizados até hoje
+    - saldo_inicial: Saldo inicial do exercício (se houver, será 0 por enquanto)
     """
-    from app.models.liquidation_accounts import LiquidationAccount, LiquidationAccountType
-    
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
     today = date.today()
+    current_year = today.year
 
-    # Buscar todos os lançamentos realizados até hoje que têm conta de liquidação
-    # Saldo = soma de RECEITA (entrada) - DESPESA/CUSTO (saída) por conta de liquidação
+    # Calcular totais realizados até hoje (sem separação por conta de liquidação)
+    # Considerar apenas lançamentos realizados (status != CANCELADO) até hoje
     lancamentos_query = (
         db.query(
-            LancamentoDiario.liquidation_account_id,
-            LiquidationAccount.account_type.label("liquidation_type"),
-            LiquidationAccount.code.label("liquidation_code"),
-            LiquidationAccount.name.label("liquidation_name"),
             func.sum(
                 case(
                     (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
-                    else_=-LancamentoDiario.valor
+                    else_=0
                 )
-            ).label("saldo")
+            ).label("total_receitas"),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type == TransactionType.DESPESA, LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label("total_despesas"),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type == TransactionType.CUSTO, LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label("total_custos")
         )
-        .join(LiquidationAccount, LancamentoDiario.liquidation_account_id == LiquidationAccount.id)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
             LancamentoDiario.is_active.is_(True),
             LancamentoDiario.status != TransactionStatus.CANCELADO,
             func.date(LancamentoDiario.data_movimentacao) <= today,
-            LancamentoDiario.liquidation_account_id.isnot(None)  # Só lançamentos com conta de liquidação
-        )
-        .group_by(
-            LancamentoDiario.liquidation_account_id,
-            LiquidationAccount.account_type,
-            LiquidationAccount.code,
-            LiquidationAccount.name
+            func.extract('year', LancamentoDiario.data_movimentacao) == current_year
         )
     )
     
@@ -1100,33 +1102,34 @@ def operational_availability(
             LancamentoDiario.business_unit_id == business_unit_id
         )
     
-    lancamentos = lancamentos_query.all()
+    result = lancamentos_query.first()
     
-    # Inicializar totais
-    banks_total = Decimal(0)
-    cash_total = Decimal(0)
-    investments_total = Decimal(0)
+    # Extrair valores (pode ser None se não houver lançamentos)
+    receitas = Decimal(result.total_receitas or 0)
+    despesas = Decimal(result.total_despesas or 0)
+    custos = Decimal(result.total_custos or 0)
     
-    # Agrupar por tipo de conta de liquidação e somar saldos
-    for lanc in lancamentos:
-        saldo = lanc.saldo or Decimal(0)
-        liquidation_type = lanc.liquidation_type
-        
-        # Classificar por tipo de conta de liquidação
-        if liquidation_type == LiquidationAccountType.BANK_ACCOUNT:
-            banks_total += saldo
-        elif liquidation_type == LiquidationAccountType.CASH:
-            cash_total += saldo
-        elif liquidation_type == LiquidationAccountType.INVESTMENT:
-            investments_total += saldo
+    # Calcular saldo consolidado (resultado líquido)
+    # Saldo = Receitas - Despesas - Custos
+    saldo_consolidado = receitas - despesas - custos
     
-    total = banks_total + cash_total + investments_total
+    # Saldo inicial do exercício anterior (por enquanto 0, pode ser configurado depois)
+    saldo_inicial = Decimal(0)
+    
+    # Total disponível = saldo inicial + saldo consolidado do exercício atual
+    total_disponivel = saldo_inicial + saldo_consolidado
 
     return {
-        "banks": _decimal_to_float(banks_total),
-        "cash": _decimal_to_float(cash_total),
-        "investments": _decimal_to_float(investments_total),
-        "total": _decimal_to_float(total),
+        "total": _decimal_to_float(total_disponivel),
+        "receitas": _decimal_to_float(receitas),
+        "despesas": _decimal_to_float(despesas),
+        "custos": _decimal_to_float(custos),
+        "saldo_consolidado": _decimal_to_float(saldo_consolidado),
+        "saldo_inicial": _decimal_to_float(saldo_inicial),
+        # Manter campos antigos para compatibilidade (retornando total consolidado)
+        "banks": _decimal_to_float(total_disponivel),
+        "cash": 0.0,
+        "investments": 0.0,
     }
 
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Banknote, Wallet, TrendingUp, DollarSign } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 import type { OperationalAvailability } from '../../lib/api/finance';
 
 interface CashAvailabilityCardsProps {
@@ -15,10 +15,11 @@ const CashAvailabilityCards: React.FC<CashAvailabilityCardsProps> = ({ data }) =
   };
 
   const isNegative = data.total <= 0;
+  const saldoConsolidado = data.saldo_consolidado ?? (data.total - (data.saldo_inicial ?? 0));
 
   return (
     <div className="mb-6">
-      <h2 className="text-xl font-bold mb-4 text-gray-800">Composição das Disponibilidades de Caixa</h2>
+      <h2 className="text-xl font-bold mb-4 text-gray-800">Disponibilidade Financeira</h2>
       
       {/* Total Disponível - DESTAQUE PRINCIPAL */}
       <div className={`mb-4 rounded-xl shadow-lg p-8 border-2 ${isNegative ? 'bg-red-50 border-red-500' : 'bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-500'}`}>
@@ -38,39 +39,61 @@ const CashAvailabilityCards: React.FC<CashAvailabilityCardsProps> = ({ data }) =
         )}
       </div>
 
-      {/* Composição Secundária */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Bancos */}
-        <div className="bg-white rounded-lg shadow-md p-5 border-l-4 border-blue-500">
-          <div className="flex items-center justify-between mb-2">
+      {/* Detalhamento do Resultado Líquido */}
+      <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">Apuração de Resultado (até hoje)</h3>
+        
+        <div className="space-y-3">
+          {/* Receitas */}
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
             <div className="flex items-center space-x-2">
-              <Banknote className="w-5 h-5 text-blue-500" />
-              <span className="text-sm font-medium text-gray-600">Bancos</span>
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              <span className="text-sm text-gray-600">Receitas Realizadas</span>
             </div>
+            <span className="text-sm font-semibold text-green-700">
+              {formatCurrency(data.receitas ?? 0)}
+            </span>
           </div>
-          <p className="text-xl font-bold text-gray-800">{formatCurrency(data.banks)}</p>
-        </div>
 
-        {/* Caixa */}
-        <div className="bg-white rounded-lg shadow-md p-5 border-l-4 border-green-500">
-          <div className="flex items-center justify-between mb-2">
+          {/* Despesas */}
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
             <div className="flex items-center space-x-2">
-              <Wallet className="w-5 h-5 text-green-500" />
-              <span className="text-sm font-medium text-gray-600">Caixa / Dinheiro</span>
+              <TrendingDown className="w-4 h-4 text-red-600" />
+              <span className="text-sm text-gray-600">Despesas Realizadas</span>
             </div>
+            <span className="text-sm font-semibold text-red-700">
+              {formatCurrency(data.despesas ?? 0)}
+            </span>
           </div>
-          <p className="text-xl font-bold text-gray-800">{formatCurrency(data.cash)}</p>
-        </div>
 
-        {/* Investimentos */}
-        <div className="bg-white rounded-lg shadow-md p-5 border-l-4 border-purple-500">
-          <div className="flex items-center justify-between mb-2">
+          {/* Custos */}
+          <div className="flex items-center justify-between py-2 border-b border-gray-100">
             <div className="flex items-center space-x-2">
-              <TrendingUp className="w-5 h-5 text-purple-500" />
-              <span className="text-sm font-medium text-gray-600">Aplicações / Investimentos</span>
+              <TrendingDown className="w-4 h-4 text-orange-600" />
+              <span className="text-sm text-gray-600">Custos Realizados</span>
             </div>
+            <span className="text-sm font-semibold text-orange-700">
+              {formatCurrency(data.custos ?? 0)}
+            </span>
           </div>
-          <p className="text-xl font-bold text-gray-800">{formatCurrency(data.investments)}</p>
+
+          {/* Resultado Líquido */}
+          <div className={`flex items-center justify-between py-3 mt-3 rounded-lg px-3 ${isNegative ? 'bg-red-50' : 'bg-green-50'}`}>
+            <span className={`text-sm font-semibold ${isNegative ? 'text-red-800' : 'text-green-800'}`}>
+              Resultado Líquido
+            </span>
+            <span className={`text-lg font-bold ${isNegative ? 'text-red-700' : 'text-green-700'}`}>
+              {formatCurrency(saldoConsolidado)}
+            </span>
+          </div>
+
+          {/* Saldo Inicial (se houver) */}
+          {(data.saldo_inicial ?? 0) !== 0 && (
+            <div className="flex items-center justify-between py-2 mt-2 text-xs text-gray-500">
+              <span>Saldo Inicial do Exercício</span>
+              <span>{formatCurrency(data.saldo_inicial ?? 0)}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

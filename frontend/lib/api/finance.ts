@@ -218,10 +218,18 @@ export const fetchMonthlyTransactions = async (params: {
 
 // Tipos para o dashboard operacional
 export interface OperationalAvailability {
+  // Total consolidado (saldo inicial + resultado líquido)
+  total: number;
+  // Detalhamento do resultado líquido
+  receitas: number;
+  despesas: number;
+  custos: number;
+  saldo_consolidado: number;
+  saldo_inicial: number;
+  // Campos legados para compatibilidade (mantidos por enquanto)
   banks: number;
   cash: number;
   investments: number;
-  total: number;
 }
 
 export interface OperationalAlerts {
