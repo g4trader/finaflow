@@ -236,22 +236,8 @@ def generate_code(name: str, prefix: str = "") -> str:
         return f"{prefix}{name_clean[:3].upper()}"
     return name_clean[:3].upper()
 
-def determine_transaction_type(grupo_nome: str, subgrupo_nome: Optional[str] = None) -> TransactionType:
-    """Determina o tipo de transação baseado no grupo e subgrupo"""
-    grupo_lower = grupo_nome.lower()
-    subgrupo_lower = (subgrupo_nome or "").lower()
-    
-    if any(keyword in grupo_lower for keyword in ["receita", "venda", "renda", "faturamento", "vendas"]):
-        return TransactionType.RECEITA
-    if any(keyword in grupo_lower for keyword in ["custo", "custos"]) or any(
-        keyword in subgrupo_lower for keyword in ["custo", "custos", "mercadoria", "produto"]
-    ):
-        return TransactionType.CUSTO
-    if any(keyword in grupo_lower for keyword in ["despesa", "gasto", "operacional", "administrativa"]) or any(
-        keyword in subgrupo_lower for keyword in ["despesa", "gasto", "marketing", "administrativa"]
-    ):
-        return TransactionType.DESPESA
-    return TransactionType.DESPESA
+# Importar determine_transaction_type de seed_utils (versão corrigida)
+from scripts.seed_utils import determine_transaction_type
 
 def determine_account_type(grupo_nome: str) -> str:
     """Determina o tipo da conta baseado no grupo"""
