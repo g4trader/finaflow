@@ -225,3 +225,8 @@ curl -H "Authorization: Bearer $TOKEN" \
 **Última atualização**: 2025-12-12  
 **Status**: ✅ Pronto para validação
 
+
+
+
+
+

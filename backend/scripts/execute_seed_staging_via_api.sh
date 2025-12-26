@@ -5,22 +5,22 @@
 set -e
 
 BACKEND_URL="${BACKEND_URL:-https://finaflow-backend-staging-642830139828.us-central1.run.app}"
-QA_EMAIL="${QA_EMAIL:-qa@finaflow.test}"
-QA_PASSWORD="${QA_PASSWORD:-Finaflow123!}"
+QA_USERNAME="${QA_USERNAME:-qa}"
+QA_PASSWORD="${QA_PASSWORD:-QaFinaflow123!}"
 
 echo "============================================================"
 echo "🔄 RE-SEED 2025 - Correção de CUSTO (STAGING via API)"
 echo "============================================================"
 echo ""
 echo "📡 Backend URL: $BACKEND_URL"
-echo "👤 Email: $QA_EMAIL"
+echo "👤 Username: $QA_USERNAME"
 echo ""
 
 # 1. Fazer login e obter token
 echo "🔐 Fazendo login..."
 LOGIN_RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/v1/auth/login" \
     -H "Content-Type: application/json" \
-    -d "{\"email\": \"$QA_EMAIL\", \"password\": \"$QA_PASSWORD\"}")
+    -d "{\"username\": \"$QA_USERNAME\", \"password\": \"$QA_PASSWORD\"}")
 
 TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.access_token // .token // empty')
 

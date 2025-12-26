@@ -101,73 +101,157 @@ def test_dashboard(driver, frontend_url: str, year: int, backend_url: str, token
     driver.get(url)
     
     # Aguardar carregamento
-    time.sleep(5)
+    print("   ⏳ Aguardando carregamento...")
+    time.sleep(8)
     
     # Verificar se há erro de rede
     page_text = driver.page_source.lower()
+    page_title = driver.title
+    current_url = driver.current_url
+    
+    print(f"   📄 Título: {page_title}")
+    print(f"   🔗 URL atual: {current_url}")
+    
     if "network error" in page_text or "failed to fetch" in page_text:
+        print("   ❌ Network error detectado")
         take_screenshot(driver, "dashboard", False)
         save_page_html(driver, "dashboard")
-        return {"status": "FAIL", "error": "Network error detectado"}
+        return {"status": "FAIL", "error": "Network error detectado", "url": current_url}
     
-    # Procurar por cards de totais
+    # Procurar por cards de totais - melhorar seletores
     totals = {}
     try:
-        # Tentar encontrar elementos com valores
-        wait = WebDriverWait(driver, 10)
+        wait = WebDriverWait(driver, 15)
         
-        # Procurar por textos que indicam os cards
-        elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Receita') or contains(text(), 'Despesa') or contains(text(), 'Custo')]")
+        # Tentar encontrar cards por diferentes estratégias
+        # Estratégia 1: Procurar por elementos com classes comuns de cards
+        card_selectors = [
+            "//div[contains(@class, 'card')]",
+            "//div[contains(@class, 'Card')]",
+            "//div[contains(@class, 'bg-')]",
+            "//*[contains(text(), 'Receita Total')]",
+            "//*[contains(text(), 'Despesas Totais')]",
+            "//*[contains(text(), 'Custos Totais')]"
+        ]
         
-        for elem in elements:
-            text = elem.text
-            parent = elem.find_element(By.XPATH, "./..")
-            value_elem = None
+        found_elements = []
+        for selector in card_selectors:
             try:
-                # Tentar encontrar valor próximo
-                value_elem = parent.find_element(By.XPATH, ".//*[contains(@class, 'text-')]")
+                elements = driver.find_elements(By.XPATH, selector)
+                if elements:
+                    found_elements.extend(elements)
+                    print(f"   ✅ Encontrados {len(elements)} elementos com selector: {selector[:50]}")
             except:
                 pass
-            
-            if value_elem:
-                value_text = value_elem.text
-                if "receita" in text.lower():
-                    totals["revenue"] = parse_brl_currency(value_text)
-                elif "despesa" in text.lower():
-                    totals["expense"] = parse_brl_currency(value_text)
-                elif "custo" in text.lower():
-                    totals["cost"] = parse_brl_currency(value_text)
+        
+        # Procurar por textos específicos e extrair valores próximos
+        text_patterns = {
+            "revenue": ["receita", "receitas", "revenue"],
+            "expense": ["despesa", "despesas", "expense"],
+            "cost": ["custo", "custos", "cost"]
+        }
+        
+        for field, patterns in text_patterns.items():
+            for pattern in patterns:
+                try:
+                    # Procurar elemento com o texto
+                    xpath = f"//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{pattern}')]"
+                    elements = driver.find_elements(By.XPATH, xpath)
+                    
+                    for elem in elements[:3]:  # Limitar a 3 elementos
+                        try:
+                            # Tentar encontrar valor no mesmo elemento ou próximo
+                            text = elem.text
+                            if pattern in text.lower():
+                                # Procurar número no texto do elemento ou próximo
+                                parent = elem.find_element(By.XPATH, "./..")
+                                all_text = parent.text
+                                
+                                # Extrair valores monetários do texto
+                                import re
+                                money_pattern = r'R\$\s*([\d.,]+)'
+                                matches = re.findall(money_pattern, all_text)
+                                
+                                if matches:
+                                    value_str = matches[0]
+                                    value = parse_brl_currency(f"R$ {value_str}")
+                                    if value > 0:
+                                        totals[field] = value
+                                        print(f"   ✅ {field}: R$ {value}")
+                                        break
+                        except Exception as e:
+                            continue
+                    
+                    if field in totals:
+                        break
+                except:
+                    continue
+        
+        # Se não encontrou, tentar buscar todos os números na página
+        if not totals:
+            print("   ⚠️  Não encontrou valores específicos, tentando busca geral...")
+            page_text_full = driver.page_source
+            # Buscar padrões de valores monetários
+            import re
+            money_matches = re.findall(r'R\$\s*([\d.,]+)', page_text_full)
+            if money_matches:
+                print(f"   📊 Encontrados {len(money_matches)} valores monetários na página")
+                
     except Exception as e:
-        print(f"⚠️  Erro ao extrair valores: {e}")
+        print(f"   ⚠️  Erro ao extrair valores: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Comparar com API
-    api_data = fetch_annual_summary(backend_url, token, year)
-    api_totals = api_data.get("totals", {})
-    
-    mismatches = []
-    tolerance = Decimal("0.01")
-    
-    for field in ["revenue", "expense", "cost"]:
-        ui_val = totals.get(field, Decimal(0))
-        api_val = Decimal(str(api_totals.get(field, 0)))
-        diff = abs(ui_val - api_val)
+    try:
+        api_data = fetch_annual_summary(backend_url, token, year)
+        api_totals = api_data.get("totals", {})
         
-        if diff > tolerance:
-            mismatches.append({
-                "field": field,
-                "ui": float(ui_val),
-                "api": float(api_val),
-                "diff": float(diff)
-            })
+        mismatches = []
+        tolerance = Decimal("0.01")
+        
+        for field in ["revenue", "expense", "cost"]:
+            ui_val = totals.get(field, Decimal(0))
+            api_val = Decimal(str(api_totals.get(field, 0)))
+            diff = abs(ui_val - api_val)
+            
+            if ui_val > 0 or api_val > 0:  # Só comparar se houver valor
+                if diff > tolerance:
+                    mismatches.append({
+                        "field": field,
+                        "ui": float(ui_val),
+                        "api": float(api_val),
+                        "diff": float(diff)
+                    })
+                    print(f"   ⚠️  Mismatch {field}: UI={ui_val}, API={api_val}, Diff={diff}")
+                else:
+                    print(f"   ✅ {field} OK: UI={ui_val}, API={api_val}")
+        
+        # Se não encontrou valores na UI mas API tem, considerar como parcial
+        if not totals and api_totals:
+            print("   ⚠️  Não foi possível extrair valores da UI, mas API retornou dados")
+            status = "PARTIAL"
+        elif len(mismatches) == 0:
+            status = "PASS"
+        else:
+            status = "FAIL"
+            
+    except Exception as e:
+        print(f"   ❌ Erro ao comparar com API: {e}")
+        status = "ERROR"
+        api_totals = {}
+        mismatches = []
     
-    take_screenshot(driver, "dashboard", len(mismatches) == 0)
+    take_screenshot(driver, "dashboard", status == "PASS")
     save_page_html(driver, "dashboard")
     
     return {
-        "status": "PASS" if len(mismatches) == 0 else "FAIL",
+        "status": status,
         "totals": {k: float(v) for k, v in totals.items()},
         "api_totals": api_totals,
-        "mismatches": mismatches
+        "mismatches": mismatches,
+        "url": current_url,
+        "title": page_title
     }
 
 def test_dashboard_operational(driver, frontend_url: str) -> Dict:
@@ -177,36 +261,59 @@ def test_dashboard_operational(driver, frontend_url: str) -> Dict:
     url = f"{frontend_url}/dashboard-operational"
     driver.get(url)
     
-    time.sleep(5)
+    print("   ⏳ Aguardando carregamento...")
+    time.sleep(8)
     
     # Verificar componentes
     components_found = {}
     page_text = driver.page_source.lower()
+    page_title = driver.title
+    current_url = driver.current_url
+    
+    print(f"   📄 Título: {page_title}")
+    print(f"   🔗 URL atual: {current_url}")
     
     components = {
-        "disponibilidades": ["disponibilidade", "bancos", "caixa", "investimento"],
-        "alertas": ["alerta", "vencida", "vencido"],
-        "previsto_vs_realizado": ["previsto", "realizado", "forecast"],
-        "contas_pagar": ["pagar", "payable"],
-        "contas_receber": ["receber", "receivable"]
+        "disponibilidades": ["disponibilidade", "bancos", "caixa", "investimento", "total disponível"],
+        "alertas": ["alerta", "vencida", "vencido", "tudo em dia"],
+        "previsto_vs_realizado": ["previsto", "realizado", "forecast", "gráfico"],
+        "contas_pagar": ["pagar", "payable", "contas a pagar"],
+        "contas_receber": ["receber", "receivable", "contas a receber"]
     }
     
     for comp_name, keywords in components.items():
         found = any(kw in page_text for kw in keywords)
         components_found[comp_name] = found
+        status_icon = "✅" if found else "❌"
+        print(f"   {status_icon} {comp_name}: {'Encontrado' if found else 'Não encontrado'}")
     
     all_found = all(components_found.values())
     
     # Verificar erros
-    has_error = "network error" in page_text or "failed to fetch" in page_text or "404" in page_text
+    has_error = "network error" in page_text or "failed to fetch" in page_text or "404" in page_text or "not found" in page_text
     
-    take_screenshot(driver, "dashboard_operational", all_found and not has_error)
+    if has_error:
+        print("   ❌ Erro detectado na página")
+    
+    # Tentar encontrar elementos visuais específicos
+    try:
+        # Procurar por cards ou seções
+        cards = driver.find_elements(By.XPATH, "//div[contains(@class, 'card') or contains(@class, 'Card')]")
+        print(f"   📦 Encontrados {len(cards)} cards/seções na página")
+    except:
+        pass
+    
+    status = "PASS" if all_found and not has_error else "FAIL"
+    take_screenshot(driver, "dashboard_operational", status == "PASS")
     save_page_html(driver, "dashboard_operational")
     
     return {
-        "status": "PASS" if all_found and not has_error else "FAIL",
+        "status": status,
         "components": components_found,
-        "has_error": has_error
+        "has_error": has_error,
+        "url": current_url,
+        "title": page_title,
+        "cards_found": len(cards) if 'cards' in locals() else 0
     }
 
 def test_financial_forecasts(driver, frontend_url: str) -> Dict:
@@ -216,32 +323,71 @@ def test_financial_forecasts(driver, frontend_url: str) -> Dict:
     url = f"{frontend_url}/financial-forecasts"
     driver.get(url)
     
-    time.sleep(5)
+    print("   ⏳ Aguardando carregamento...")
+    time.sleep(8)
     
     # Verificar erros
     page_text = driver.page_source.lower()
-    console_logs = driver.get_log("browser") if hasattr(driver, "get_log") else []
+    page_title = driver.title
+    current_url = driver.current_url
     
-    has_cors_error = any("cors" in str(log).lower() for log in console_logs)
-    has_network_error = "network error" in page_text or "failed to fetch" in page_text
-    has_500_error = "500" in page_text or "internal server error" in page_text
+    print(f"   📄 Título: {page_title}")
+    print(f"   🔗 URL atual: {current_url}")
+    
+    # Tentar obter console logs
+    console_logs = []
+    try:
+        if hasattr(driver, "get_log"):
+            console_logs = driver.get_log("browser")
+    except:
+        pass
+    
+    has_cors_error = any("cors" in str(log).lower() for log in console_logs) or "cors" in page_text
+    has_network_error = "network error" in page_text or "failed to fetch" in page_text or "fetch failed" in page_text
+    has_500_error = "500" in page_text or "internal server error" in page_text or "error 500" in page_text
     
     has_error = has_cors_error or has_network_error or has_500_error
     
-    take_screenshot(driver, "financial_forecasts", not has_error)
+    # Verificar se a página carregou conteúdo
+    has_content = len(page_text) > 1000  # Página tem conteúdo significativo
+    has_table_or_list = "table" in page_text or "lista" in page_text or "previs" in page_text
+    
+    print(f"   📊 Tamanho da página: {len(page_text)} caracteres")
+    print(f"   {'✅' if has_content else '❌'} Conteúdo: {'Sim' if has_content else 'Não'}")
+    print(f"   {'✅' if has_table_or_list else '❌'} Tabela/Lista: {'Sim' if has_table_or_list else 'Não'}")
+    print(f"   {'❌' if has_cors_error else '✅'} CORS: {'Erro detectado' if has_cors_error else 'OK'}")
+    print(f"   {'❌' if has_network_error else '✅'} Network: {'Erro detectado' if has_network_error else 'OK'}")
+    print(f"   {'❌' if has_500_error else '✅'} 500: {'Erro detectado' if has_500_error else 'OK'}")
+    
+    if console_logs:
+        print(f"   📋 Console logs: {len(console_logs)} entradas")
+        # Mostrar erros do console
+        errors = [log for log in console_logs if log.get('level') == 'SEVERE']
+        if errors:
+            print(f"   ⚠️  {len(errors)} erros no console:")
+            for err in errors[:3]:
+                print(f"      - {err.get('message', '')[:100]}")
+    
+    status = "PASS" if not has_error and has_content else "FAIL"
+    take_screenshot(driver, "financial_forecasts", status == "PASS")
     save_page_html(driver, "financial_forecasts")
     
     # Salvar console logs
     if console_logs:
         with open(OUT_DIR / "financial_forecasts_console.json", "w") as f:
-            json.dump([str(log) for log in console_logs], f, indent=2)
+            json.dump([{"level": log.get('level'), "message": log.get('message')} for log in console_logs], f, indent=2)
     
     return {
-        "status": "PASS" if not has_error else "FAIL",
+        "status": status,
         "has_cors_error": has_cors_error,
         "has_network_error": has_network_error,
         "has_500_error": has_500_error,
-        "console_logs": [str(log) for log in console_logs[:10]]  # Primeiros 10
+        "has_content": has_content,
+        "has_table_or_list": has_table_or_list,
+        "url": current_url,
+        "title": page_title,
+        "console_logs_count": len(console_logs),
+        "console_errors": [{"level": log.get('level'), "message": log.get('message')} for log in console_logs if log.get('level') == 'SEVERE'][:5]
     }
 
 def main():

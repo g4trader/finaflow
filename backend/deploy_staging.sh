@@ -75,3 +75,8 @@ echo "🔍 Para ver os logs:"
 echo "   gcloud logging tail \"resource.type=cloud_run_revision AND resource.labels.service_name=${SERVICE_NAME}\" --project=${PROJECT_ID}"
 echo ""
 
+
+
+
+
+
