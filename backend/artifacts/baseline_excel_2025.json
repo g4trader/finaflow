@@ -1,0 +1,691 @@
+{
+  "metadata": {
+    "excel_file": "/Users/lucianoterres/Documents/GitHub/finaflow/backend/data/fluxo_caixa_2025.xlsx",
+    "excel_hash": "f5dcd9156da4dc8edba7f3e538f33f47",
+    "year": 2025,
+    "generated_at": "2025-12-26T11:14:27.880416",
+    "generator": "generate_baseline_excel.py"
+  },
+  "annual_totals": {
+    "receita": 1104592.62915,
+    "despesa": 714945.0,
+    "custo": 396229.67,
+    "saldo": -6582.04085
+  },
+  "monthly_totals": [
+    {
+      "year": 2025,
+      "month": 1,
+      "receita": 86980.86,
+      "despesa": 56231.57,
+      "custo": 34054.53,
+      "saldo": -3305.24
+    },
+    {
+      "year": 2025,
+      "month": 2,
+      "receita": 70722.25,
+      "despesa": 46979.07,
+      "custo": 28154.08,
+      "saldo": -4410.9
+    },
+    {
+      "year": 2025,
+      "month": 3,
+      "receita": 62536.86,
+      "despesa": 44479.61,
+      "custo": 30747.8,
+      "saldo": -12690.55
+    },
+    {
+      "year": 2025,
+      "month": 4,
+      "receita": 88419.87,
+      "despesa": 59292.13,
+      "custo": 28164.7,
+      "saldo": 963.04
+    },
+    {
+      "year": 2025,
+      "month": 5,
+      "receita": 105820.05,
+      "despesa": 137917.7,
+      "custo": 31131.11,
+      "saldo": -63228.76
+    },
+    {
+      "year": 2025,
+      "month": 6,
+      "receita": 125118.89,
+      "despesa": 57315.59,
+      "custo": 43716.87,
+      "saldo": 24086.43
+    },
+    {
+      "year": 2025,
+      "month": 7,
+      "receita": 117839.67915,
+      "despesa": 43338.88,
+      "custo": 44674.1,
+      "saldo": 29826.69915
+    },
+    {
+      "year": 2025,
+      "month": 8,
+      "receita": 118382.58,
+      "despesa": 53998.73,
+      "custo": 34641.88,
+      "saldo": 29741.97
+    },
+    {
+      "year": 2025,
+      "month": 9,
+      "receita": 115831.87,
+      "despesa": 61300.06,
+      "custo": 38608.34,
+      "saldo": 15923.47
+    },
+    {
+      "year": 2025,
+      "month": 10,
+      "receita": 105320.99,
+      "despesa": 70642.21,
+      "custo": 39423.03,
+      "saldo": -4744.25
+    },
+    {
+      "year": 2025,
+      "month": 11,
+      "receita": 93922.9,
+      "despesa": 65100.21,
+      "custo": 42913.23,
+      "saldo": -14090.54
+    },
+    {
+      "year": 2025,
+      "month": 12,
+      "receita": 13695.83,
+      "despesa": 18349.24,
+      "custo": 0.0,
+      "saldo": -4653.41
+    }
+  ],
+  "order": [
+    {
+      "ordem": 2,
+      "grupo": "Receita",
+      "subgrupo": "Receita",
+      "conta": "Noiva"
+    },
+    {
+      "ordem": 3,
+      "grupo": "Receita",
+      "subgrupo": "Receita",
+      "conta": "Serviços Buritis"
+    },
+    {
+      "ordem": 4,
+      "grupo": "Receita",
+      "subgrupo": "Receita",
+      "conta": "Serviço Ivone"
+    },
+    {
+      "ordem": 5,
+      "grupo": "Receita",
+      "subgrupo": "Receita",
+      "conta": "Diversos"
+    },
+    {
+      "ordem": 6,
+      "grupo": "Receita Financeira",
+      "subgrupo": "Receita Financeira",
+      "conta": "Rendimentos de Aplicações Financeiras"
+    },
+    {
+      "ordem": 7,
+      "grupo": "Receita Financeira",
+      "subgrupo": "Receita Financeira",
+      "conta": "Outras Receitas Financeiras"
+    },
+    {
+      "ordem": 8,
+      "grupo": "Deduções",
+      "subgrupo": "Deduções da receita",
+      "conta": "Simples Nacional"
+    },
+    {
+      "ordem": 9,
+      "grupo": "Deduções",
+      "subgrupo": "Deduções da receita",
+      "conta": "Tributos parcelados"
+    },
+    {
+      "ordem": 10,
+      "grupo": "Deduções",
+      "subgrupo": "Deduções da receita",
+      "conta": "Devoluções"
+    },
+    {
+      "ordem": 11,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Serviços Prestados",
+      "conta": "Comissão sobre serviços-CSP"
+    },
+    {
+      "ordem": 12,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Serviços Prestados",
+      "conta": "Serviços de terceiros-CSP"
+    },
+    {
+      "ordem": 13,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Serviços Prestados",
+      "conta": "Compra de material para consumo-CSP"
+    },
+    {
+      "ordem": 14,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Serviços Prestados",
+      "conta": "Manutenção Equipamentos"
+    },
+    {
+      "ordem": 15,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Serviços Prestados",
+      "conta": "Outros custos com Serviços"
+    },
+    {
+      "ordem": 16,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Serviços Prestados",
+      "conta": "Energia Elétrica"
+    },
+    {
+      "ordem": 17,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Serviços Prestados",
+      "conta": "Água"
+    },
+    {
+      "ordem": 18,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Salário"
+    },
+    {
+      "ordem": 19,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Pró-Labore"
+    },
+    {
+      "ordem": 20,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Décimo terceiro"
+    },
+    {
+      "ordem": 21,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Férias"
+    },
+    {
+      "ordem": 22,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Rescisão"
+    },
+    {
+      "ordem": 23,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "INSS"
+    },
+    {
+      "ordem": 24,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "FGTS"
+    },
+    {
+      "ordem": 25,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Alimentação"
+    },
+    {
+      "ordem": 26,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Vale transporte"
+    },
+    {
+      "ordem": 27,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Treinamento e Desenvolvimento"
+    },
+    {
+      "ordem": 28,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Outras Custos com Mão de Obra Direta"
+    },
+    {
+      "ordem": 29,
+      "grupo": "Custos",
+      "subgrupo": "Custos com Mão de Obra",
+      "conta": "Exames ocupacionais"
+    },
+    {
+      "ordem": 30,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Financeiras",
+      "conta": "Tarifas Bancárias"
+    },
+    {
+      "ordem": 31,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Financeiras",
+      "conta": "Tarifas de Cartão"
+    },
+    {
+      "ordem": 32,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Financeiras",
+      "conta": "Aluguel de Máquinas de Cartão"
+    },
+    {
+      "ordem": 33,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Financeiras",
+      "conta": "IOF"
+    },
+    {
+      "ordem": 34,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Financeiras",
+      "conta": "Juros e Multas Financeiras"
+    },
+    {
+      "ordem": 35,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Financeiras",
+      "conta": "Outros despesas financeiras"
+    },
+    {
+      "ordem": 36,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Telefone e Internet-ADM"
+    },
+    {
+      "ordem": 37,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Energia Elétrica-ADM"
+    },
+    {
+      "ordem": 38,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Aluguel e Condomínio"
+    },
+    {
+      "ordem": 39,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Água-ADM"
+    },
+    {
+      "ordem": 40,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "IPTU e Taxas Públicas"
+    },
+    {
+      "ordem": 41,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Despesas de Viagens-ADM"
+    },
+    {
+      "ordem": 42,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "DARF"
+    },
+    {
+      "ordem": 43,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Contabilidade"
+    },
+    {
+      "ordem": 44,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Consultoria Financeira"
+    },
+    {
+      "ordem": 45,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Serviços de terceiros-ADM"
+    },
+    {
+      "ordem": 46,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Alarme Monitorado / Segurança"
+    },
+    {
+      "ordem": 47,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Manutenção Máquinas e Equipamentos-ADM"
+    },
+    {
+      "ordem": 48,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Materiais de Expediente/Escritório"
+    },
+    {
+      "ordem": 49,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Materiais de Limpeza e Manutenção Predial"
+    },
+    {
+      "ordem": 50,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Seguros"
+    },
+    {
+      "ordem": 51,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Manutenção de Veículos"
+    },
+    {
+      "ordem": 52,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "IPVA / Licenciamento / Despachante"
+    },
+    {
+      "ordem": 53,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Estacionamento / Pedágios-ADM"
+    },
+    {
+      "ordem": 54,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Administrativas",
+      "conta": "Outras despesas administrativas"
+    },
+    {
+      "ordem": 55,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Salário-ADM"
+    },
+    {
+      "ordem": 56,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Pró-Labore-ADM"
+    },
+    {
+      "ordem": 57,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Décimo terceiro-ADM"
+    },
+    {
+      "ordem": 58,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Férias-ADM"
+    },
+    {
+      "ordem": 59,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Rescisão-ADM"
+    },
+    {
+      "ordem": 60,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "INSS-ADM"
+    },
+    {
+      "ordem": 61,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "FGTS-ADM"
+    },
+    {
+      "ordem": 62,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Vale transporte-ADM"
+    },
+    {
+      "ordem": 63,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Vale Alimentação-ADM"
+    },
+    {
+      "ordem": 64,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Exames ocupacionais-ADM"
+    },
+    {
+      "ordem": 65,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Treinamento e Desenvolvimento-ADM"
+    },
+    {
+      "ordem": 66,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Confraternização-ADM"
+    },
+    {
+      "ordem": 67,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Outras Despesas com Pessoal"
+    },
+    {
+      "ordem": 68,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Comerciais",
+      "conta": "Telefone e Internet-COM"
+    },
+    {
+      "ordem": 69,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Comerciais",
+      "conta": "Celular-COM"
+    },
+    {
+      "ordem": 70,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Comerciais",
+      "conta": "Despesas de Viagens-COM"
+    },
+    {
+      "ordem": 71,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Comerciais",
+      "conta": "Consultoria com Vendas"
+    },
+    {
+      "ordem": 72,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Comerciais",
+      "conta": "Gasolina / Combustível-COM"
+    },
+    {
+      "ordem": 73,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Comerciais",
+      "conta": "Estacionamento / Pedágios-COM"
+    },
+    {
+      "ordem": 74,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Comerciais",
+      "conta": "Eventos com Clientes"
+    },
+    {
+      "ordem": 75,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Comerciais",
+      "conta": "Brindes"
+    },
+    {
+      "ordem": 76,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Comerciais",
+      "conta": "Outras despesas Comerciais"
+    },
+    {
+      "ordem": 77,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Marketing",
+      "conta": "Anúncio/Mídias/Propaganda"
+    },
+    {
+      "ordem": 78,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Marketing",
+      "conta": "Agências de markentig e Gestão de trafégo"
+    },
+    {
+      "ordem": 79,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Marketing",
+      "conta": "Realização Eventos"
+    },
+    {
+      "ordem": 80,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Marketing",
+      "conta": "Serviços de terceiros-MKT"
+    },
+    {
+      "ordem": 81,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Marketing",
+      "conta": "Ferramentas e aplicativos - Marketing"
+    },
+    {
+      "ordem": 82,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas Marketing",
+      "conta": "Outras despesas marketing"
+    },
+    {
+      "ordem": 83,
+      "grupo": "Investimentos",
+      "subgrupo": "Investimentos em Bens Materiais",
+      "conta": "Compra de Máquinas e Equipamentos"
+    },
+    {
+      "ordem": 84,
+      "grupo": "Investimentos",
+      "subgrupo": "Investimentos em Bens Materiais",
+      "conta": "Reformas / Estrutura"
+    },
+    {
+      "ordem": 85,
+      "grupo": "Investimentos",
+      "subgrupo": "Investimentos em Bens Materiais",
+      "conta": "Mobiliário"
+    },
+    {
+      "ordem": 86,
+      "grupo": "Investimentos",
+      "subgrupo": "Investimentos em Bens Materiais",
+      "conta": "Compra de Veículos"
+    },
+    {
+      "ordem": 87,
+      "grupo": "Investimentos",
+      "subgrupo": "Investimentos em Bens Materiais",
+      "conta": "Outros investimentos em bens materiais"
+    },
+    {
+      "ordem": 88,
+      "grupo": "Movimentações Não Operacionais",
+      "subgrupo": "Entradas não Operacionais",
+      "conta": "Empréstimos/Financiamentos obtidos"
+    },
+    {
+      "ordem": 89,
+      "grupo": "Movimentações Não Operacionais",
+      "subgrupo": "Entradas não Operacionais",
+      "conta": "Aporte dos sócios"
+    },
+    {
+      "ordem": 90,
+      "grupo": "Movimentações Não Operacionais",
+      "subgrupo": "Entradas não Operacionais",
+      "conta": "Venda de equipamentos usados"
+    },
+    {
+      "ordem": 91,
+      "grupo": "Movimentações Não Operacionais",
+      "subgrupo": "Entradas não Operacionais",
+      "conta": "Outros entradas não operacionais"
+    },
+    {
+      "ordem": 92,
+      "grupo": "Movimentações Não Operacionais",
+      "subgrupo": "Saídas não Operacionais",
+      "conta": "Pagamento de Empréstimos"
+    },
+    {
+      "ordem": 93,
+      "grupo": "Movimentações Não Operacionais",
+      "subgrupo": "Saídas não Operacionais",
+      "conta": "Juros Bancários e por Atraso"
+    },
+    {
+      "ordem": 94,
+      "grupo": "Movimentações Não Operacionais",
+      "subgrupo": "Saídas não Operacionais",
+      "conta": "Pagamento de dívidas passadas"
+    },
+    {
+      "ordem": 95,
+      "grupo": "Movimentações Não Operacionais",
+      "subgrupo": "Saídas não Operacionais",
+      "conta": "Distribuição de Lucros"
+    },
+    {
+      "ordem": 96,
+      "grupo": "Movimentações Não Operacionais",
+      "subgrupo": "Saídas não Operacionais",
+      "conta": "Outras saídas não operacionais"
+    },
+    {
+      "ordem": 97,
+      "grupo": "Despesas Operacionais",
+      "subgrupo": "Despesas com Pessoal",
+      "conta": "Pró-Labore-ADM ALEXANDRE"
+    }
+  ]
+}

@@ -1,0 +1,537 @@
+{
+  "metadata": {
+    "year": 2025,
+    "backend_url": "https://finaflow-backend-staging-642830139828.us-central1.run.app",
+    "baseline_file": "/Users/lucianoterres/Documents/GitHub/finaflow/backend/artifacts/baseline_excel_2025.json",
+    "baseline_hash": "f5dcd9156da4dc8edba7f3e538f33f47",
+    "audited_at": "2025-12-26T11:15:26.180831",
+    "tolerance": 0.01
+  },
+  "annual_totals": {
+    "baseline": {
+      "receita": 1104592.62915,
+      "despesa": 714945.0,
+      "custo": 396229.67,
+      "saldo": -6582.04085
+    },
+    "api": {
+      "revenue": 1104592.62915,
+      "expense": 714945.0,
+      "cost": 396229.67,
+      "balance": -6582.04085
+    },
+    "api_actual": {
+      "revenue": 1098490.83,
+      "expense": 712606.65,
+      "cost": 347107.64,
+      "balance": 38776.54
+    }
+  },
+  "mismatches": {
+    "annual": [
+      {
+        "type": "annual",
+        "field": "receita",
+        "excel": 1104592.62915,
+        "api": 1098490.83,
+        "diff": 6101.79915
+      },
+      {
+        "type": "annual",
+        "field": "despesa",
+        "excel": 714945.0,
+        "api": 712606.65,
+        "diff": 2338.35
+      },
+      {
+        "type": "annual",
+        "field": "custo",
+        "excel": 396229.67,
+        "api": 347107.64,
+        "diff": 49122.03
+      },
+      {
+        "type": "annual",
+        "field": "saldo",
+        "excel": -6582.04085,
+        "api": 38776.54,
+        "diff": 45358.58085
+      }
+    ],
+    "monthly": [
+      {
+        "type": "monthly",
+        "month": 1,
+        "field": "receita",
+        "excel": 86980.86,
+        "api": 86153.06,
+        "diff": 827.8
+      },
+      {
+        "type": "monthly",
+        "month": 1,
+        "field": "custo",
+        "excel": 34054.53,
+        "api": 28443.42,
+        "diff": 5611.11
+      },
+      {
+        "type": "monthly",
+        "month": 1,
+        "field": "saldo",
+        "excel": -3305.24,
+        "api": 1478.07,
+        "diff": 4783.31
+      },
+      {
+        "type": "monthly",
+        "month": 2,
+        "field": "custo",
+        "excel": 28154.08,
+        "api": 23325.37,
+        "diff": 4828.71
+      },
+      {
+        "type": "monthly",
+        "month": 2,
+        "field": "saldo",
+        "excel": -4410.9,
+        "api": 417.81,
+        "diff": 4828.71
+      },
+      {
+        "type": "monthly",
+        "month": 3,
+        "field": "receita",
+        "excel": 62536.86,
+        "api": 61536.86,
+        "diff": 1000.0
+      },
+      {
+        "type": "monthly",
+        "month": 3,
+        "field": "custo",
+        "excel": 30747.8,
+        "api": 27626.11,
+        "diff": 3121.69
+      },
+      {
+        "type": "monthly",
+        "month": 3,
+        "field": "saldo",
+        "excel": -12690.55,
+        "api": -10568.86,
+        "diff": 2121.69
+      },
+      {
+        "type": "monthly",
+        "month": 4,
+        "field": "receita",
+        "excel": 88419.87,
+        "api": 87419.87,
+        "diff": 1000.0
+      },
+      {
+        "type": "monthly",
+        "month": 4,
+        "field": "despesa",
+        "excel": 59292.13,
+        "api": 59242.13,
+        "diff": 50.0
+      },
+      {
+        "type": "monthly",
+        "month": 4,
+        "field": "custo",
+        "excel": 28164.7,
+        "api": 25822.33,
+        "diff": 2342.37
+      },
+      {
+        "type": "monthly",
+        "month": 4,
+        "field": "saldo",
+        "excel": 963.04,
+        "api": 2355.41,
+        "diff": 1392.37
+      },
+      {
+        "type": "monthly",
+        "month": 5,
+        "field": "receita",
+        "excel": 105820.05,
+        "api": 103520.05,
+        "diff": 2300.0
+      },
+      {
+        "type": "monthly",
+        "month": 5,
+        "field": "custo",
+        "excel": 31131.11,
+        "api": 29614.17,
+        "diff": 1516.94
+      },
+      {
+        "type": "monthly",
+        "month": 5,
+        "field": "saldo",
+        "excel": -63228.76,
+        "api": -64011.82,
+        "diff": 783.06
+      },
+      {
+        "type": "monthly",
+        "month": 6,
+        "field": "receita",
+        "excel": 125118.89,
+        "api": 124829.19,
+        "diff": 289.7
+      },
+      {
+        "type": "monthly",
+        "month": 6,
+        "field": "despesa",
+        "excel": 57315.59,
+        "api": 56886.18,
+        "diff": 429.41
+      },
+      {
+        "type": "monthly",
+        "month": 6,
+        "field": "custo",
+        "excel": 43716.87,
+        "api": 40330.01,
+        "diff": 3386.86
+      },
+      {
+        "type": "monthly",
+        "month": 6,
+        "field": "saldo",
+        "excel": 24086.43,
+        "api": 27613.0,
+        "diff": 3526.57
+      },
+      {
+        "type": "monthly",
+        "month": 7,
+        "field": "receita",
+        "excel": 117839.67915,
+        "api": 117579.98,
+        "diff": 259.69915
+      },
+      {
+        "type": "monthly",
+        "month": 7,
+        "field": "custo",
+        "excel": 44674.1,
+        "api": 41377.85,
+        "diff": 3296.25
+      },
+      {
+        "type": "monthly",
+        "month": 7,
+        "field": "saldo",
+        "excel": 29826.69915,
+        "api": 32863.25,
+        "diff": 3036.55085
+      },
+      {
+        "type": "monthly",
+        "month": 8,
+        "field": "receita",
+        "excel": 118382.58,
+        "api": 118177.78,
+        "diff": 204.8
+      },
+      {
+        "type": "monthly",
+        "month": 8,
+        "field": "despesa",
+        "excel": 53998.73,
+        "api": 53686.36,
+        "diff": 312.37
+      },
+      {
+        "type": "monthly",
+        "month": 8,
+        "field": "custo",
+        "excel": 34641.88,
+        "api": 28976.61,
+        "diff": 5665.27
+      },
+      {
+        "type": "monthly",
+        "month": 8,
+        "field": "saldo",
+        "excel": 29741.97,
+        "api": 35514.81,
+        "diff": 5772.84
+      },
+      {
+        "type": "monthly",
+        "month": 9,
+        "field": "despesa",
+        "excel": 61300.06,
+        "api": 61068.6,
+        "diff": 231.46
+      },
+      {
+        "type": "monthly",
+        "month": 9,
+        "field": "custo",
+        "excel": 38608.34,
+        "api": 36138.16,
+        "diff": 2470.18
+      },
+      {
+        "type": "monthly",
+        "month": 9,
+        "field": "saldo",
+        "excel": 15923.47,
+        "api": 18625.11,
+        "diff": 2701.64
+      },
+      {
+        "type": "monthly",
+        "month": 10,
+        "field": "receita",
+        "excel": 105320.99,
+        "api": 105101.19,
+        "diff": 219.8
+      },
+      {
+        "type": "monthly",
+        "month": 10,
+        "field": "despesa",
+        "excel": 70642.21,
+        "api": 69341.95,
+        "diff": 1300.26
+      },
+      {
+        "type": "monthly",
+        "month": 10,
+        "field": "custo",
+        "excel": 39423.03,
+        "api": 33774.16,
+        "diff": 5648.87
+      },
+      {
+        "type": "monthly",
+        "month": 10,
+        "field": "saldo",
+        "excel": -4744.25,
+        "api": 1985.08,
+        "diff": 6729.33
+      },
+      {
+        "type": "monthly",
+        "month": 11,
+        "field": "despesa",
+        "excel": 65100.21,
+        "api": 65085.36,
+        "diff": 14.85
+      },
+      {
+        "type": "monthly",
+        "month": 11,
+        "field": "custo",
+        "excel": 42913.23,
+        "api": 31679.45,
+        "diff": 11233.78
+      },
+      {
+        "type": "monthly",
+        "month": 11,
+        "field": "saldo",
+        "excel": -14090.54,
+        "api": -2841.91,
+        "diff": 11248.63
+      }
+    ],
+    "daily_summary": [
+      {
+        "type": "daily_summary",
+        "month": 1,
+        "field": "receita",
+        "excel": 86980.86,
+        "api": 0.0,
+        "diff": 86980.86
+      },
+      {
+        "type": "daily_summary",
+        "month": 1,
+        "field": "despesa",
+        "excel": 56231.57,
+        "api": 0.0,
+        "diff": 56231.57
+      },
+      {
+        "type": "daily_summary",
+        "month": 1,
+        "field": "custo",
+        "excel": 34054.53,
+        "api": 0.0,
+        "diff": 34054.53
+      },
+      {
+        "type": "daily_summary",
+        "month": 1,
+        "field": "saldo",
+        "excel": -3305.24,
+        "api": 0.0,
+        "diff": 3305.24
+      },
+      {
+        "type": "daily_summary",
+        "month": 2,
+        "field": "receita",
+        "excel": 70722.25,
+        "api": 0.0,
+        "diff": 70722.25
+      },
+      {
+        "type": "daily_summary",
+        "month": 2,
+        "field": "despesa",
+        "excel": 46979.07,
+        "api": 0.0,
+        "diff": 46979.07
+      },
+      {
+        "type": "daily_summary",
+        "month": 2,
+        "field": "custo",
+        "excel": 28154.08,
+        "api": 0.0,
+        "diff": 28154.08
+      },
+      {
+        "type": "daily_summary",
+        "month": 2,
+        "field": "saldo",
+        "excel": -4410.9,
+        "api": 0.0,
+        "diff": 4410.9
+      },
+      {
+        "type": "daily_summary",
+        "month": 3,
+        "field": "receita",
+        "excel": 62536.86,
+        "api": 0.0,
+        "diff": 62536.86
+      },
+      {
+        "type": "daily_summary",
+        "month": 3,
+        "field": "despesa",
+        "excel": 44479.61,
+        "api": 0.0,
+        "diff": 44479.61
+      },
+      {
+        "type": "daily_summary",
+        "month": 3,
+        "field": "custo",
+        "excel": 30747.8,
+        "api": 0.0,
+        "diff": 30747.8
+      },
+      {
+        "type": "daily_summary",
+        "month": 3,
+        "field": "saldo",
+        "excel": -12690.55,
+        "api": 0.0,
+        "diff": 12690.55
+      }
+    ]
+  },
+  "operational_endpoints": {
+    "availability": {
+      "banks": 0.0,
+      "cash": 0.0,
+      "investments": 0.0,
+      "total": 0.0
+    },
+    "alerts": {
+      "overdue_payables": {
+        "count": 606,
+        "value": 887961.06
+      },
+      "overdue_receivables": {
+        "count": 473,
+        "value": 1064459.51
+      },
+      "negative_cash_forecast": {
+        "has_alert": false,
+        "projected_balance": 0.0,
+        "current_balance": 0.0
+      }
+    },
+    "forecast_vs_realized": {
+      "months": [
+        {
+          "year": 2025,
+          "month": 7,
+          "label": "JULHO",
+          "realized": 30006.61,
+          "forecast": 0.0
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "label": "AGOSTO",
+          "realized": 35514.81,
+          "forecast": 22953.08
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "label": "SETEMBRO",
+          "realized": 18625.11,
+          "forecast": 19453.11
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "label": "OUTUBRO",
+          "realized": 1985.08,
+          "forecast": 27500.88
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "label": "NOVEMBRO",
+          "realized": -2841.91,
+          "forecast": 21200.88
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "label": "DEZEMBRO",
+          "realized": -4653.41,
+          "forecast": 20138.38
+        }
+      ],
+      "totals": {
+        "realized": 78636.29,
+        "forecast": 111246.33,
+        "difference": -32610.04
+      }
+    },
+    "payables_summary": {
+      "overdue": 887961.06,
+      "due_today": 0.0,
+      "next_7_days": 0.0,
+      "next_30_days": 0.0
+    },
+    "receivables_summary": {
+      "overdue": 1064459.51,
+      "due_today": 0.0,
+      "next_7_days": 0.0,
+      "next_30_days": 0.0
+    }
+  },
+  "status": "FAIL"
+}

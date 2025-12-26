@@ -1,0 +1,97 @@
+ordem,grupo,subgrupo,conta
+2,Receita,Receita,Noiva
+3,Receita,Receita,Serviços Buritis
+4,Receita,Receita,Serviço Ivone
+5,Receita,Receita,Diversos
+6,Receita Financeira,Receita Financeira,Rendimentos de Aplicações Financeiras
+7,Receita Financeira,Receita Financeira,Outras Receitas Financeiras
+8,Deduções,Deduções da receita,Simples Nacional
+9,Deduções,Deduções da receita,Tributos parcelados
+10,Deduções,Deduções da receita,Devoluções
+11,Custos,Custos com Serviços Prestados,Comissão sobre serviços-CSP
+12,Custos,Custos com Serviços Prestados,Serviços de terceiros-CSP
+13,Custos,Custos com Serviços Prestados,Compra de material para consumo-CSP
+14,Custos,Custos com Serviços Prestados,Manutenção Equipamentos
+15,Custos,Custos com Serviços Prestados,Outros custos com Serviços
+16,Custos,Custos com Serviços Prestados,Energia Elétrica
+17,Custos,Custos com Serviços Prestados,Água
+18,Custos,Custos com Mão de Obra,Salário
+19,Custos,Custos com Mão de Obra,Pró-Labore
+20,Custos,Custos com Mão de Obra,Décimo terceiro
+21,Custos,Custos com Mão de Obra,Férias
+22,Custos,Custos com Mão de Obra,Rescisão
+23,Custos,Custos com Mão de Obra,INSS
+24,Custos,Custos com Mão de Obra,FGTS
+25,Custos,Custos com Mão de Obra,Alimentação
+26,Custos,Custos com Mão de Obra,Vale transporte
+27,Custos,Custos com Mão de Obra,Treinamento e Desenvolvimento
+28,Custos,Custos com Mão de Obra,Outras Custos com Mão de Obra Direta
+29,Custos,Custos com Mão de Obra,Exames ocupacionais
+30,Despesas Operacionais,Despesas Financeiras,Tarifas Bancárias
+31,Despesas Operacionais,Despesas Financeiras,Tarifas de Cartão
+32,Despesas Operacionais,Despesas Financeiras,Aluguel de Máquinas de Cartão
+33,Despesas Operacionais,Despesas Financeiras,IOF
+34,Despesas Operacionais,Despesas Financeiras,Juros e Multas Financeiras
+35,Despesas Operacionais,Despesas Financeiras,Outros despesas financeiras
+36,Despesas Operacionais,Despesas Administrativas,Telefone e Internet-ADM
+37,Despesas Operacionais,Despesas Administrativas,Energia Elétrica-ADM
+38,Despesas Operacionais,Despesas Administrativas,Aluguel e Condomínio
+39,Despesas Operacionais,Despesas Administrativas,Água-ADM
+40,Despesas Operacionais,Despesas Administrativas,IPTU e Taxas Públicas
+41,Despesas Operacionais,Despesas Administrativas,Despesas de Viagens-ADM
+42,Despesas Operacionais,Despesas Administrativas,DARF
+43,Despesas Operacionais,Despesas Administrativas,Contabilidade
+44,Despesas Operacionais,Despesas Administrativas,Consultoria Financeira
+45,Despesas Operacionais,Despesas Administrativas,Serviços de terceiros-ADM
+46,Despesas Operacionais,Despesas Administrativas,Alarme Monitorado / Segurança
+47,Despesas Operacionais,Despesas Administrativas,Manutenção Máquinas e Equipamentos-ADM
+48,Despesas Operacionais,Despesas Administrativas,Materiais de Expediente/Escritório
+49,Despesas Operacionais,Despesas Administrativas,Materiais de Limpeza e Manutenção Predial
+50,Despesas Operacionais,Despesas Administrativas,Seguros
+51,Despesas Operacionais,Despesas Administrativas,Manutenção de Veículos
+52,Despesas Operacionais,Despesas Administrativas,IPVA / Licenciamento / Despachante
+53,Despesas Operacionais,Despesas Administrativas,Estacionamento / Pedágios-ADM
+54,Despesas Operacionais,Despesas Administrativas,Outras despesas administrativas
+55,Despesas Operacionais,Despesas com Pessoal,Salário-ADM
+56,Despesas Operacionais,Despesas com Pessoal,Pró-Labore-ADM
+57,Despesas Operacionais,Despesas com Pessoal,Décimo terceiro-ADM
+58,Despesas Operacionais,Despesas com Pessoal,Férias-ADM
+59,Despesas Operacionais,Despesas com Pessoal,Rescisão-ADM
+60,Despesas Operacionais,Despesas com Pessoal,INSS-ADM
+61,Despesas Operacionais,Despesas com Pessoal,FGTS-ADM
+62,Despesas Operacionais,Despesas com Pessoal,Vale transporte-ADM
+63,Despesas Operacionais,Despesas com Pessoal,Vale Alimentação-ADM
+64,Despesas Operacionais,Despesas com Pessoal,Exames ocupacionais-ADM
+65,Despesas Operacionais,Despesas com Pessoal,Treinamento e Desenvolvimento-ADM
+66,Despesas Operacionais,Despesas com Pessoal,Confraternização-ADM
+67,Despesas Operacionais,Despesas com Pessoal,Outras Despesas com Pessoal
+68,Despesas Operacionais,Despesas Comerciais,Telefone e Internet-COM
+69,Despesas Operacionais,Despesas Comerciais,Celular-COM
+70,Despesas Operacionais,Despesas Comerciais,Despesas de Viagens-COM
+71,Despesas Operacionais,Despesas Comerciais,Consultoria com Vendas
+72,Despesas Operacionais,Despesas Comerciais,Gasolina / Combustível-COM
+73,Despesas Operacionais,Despesas Comerciais,Estacionamento / Pedágios-COM
+74,Despesas Operacionais,Despesas Comerciais,Eventos com Clientes
+75,Despesas Operacionais,Despesas Comerciais,Brindes
+76,Despesas Operacionais,Despesas Comerciais,Outras despesas Comerciais
+77,Despesas Operacionais,Despesas Marketing,Anúncio/Mídias/Propaganda
+78,Despesas Operacionais,Despesas Marketing,Agências de markentig e Gestão de trafégo
+79,Despesas Operacionais,Despesas Marketing,Realização Eventos
+80,Despesas Operacionais,Despesas Marketing,Serviços de terceiros-MKT
+81,Despesas Operacionais,Despesas Marketing,Ferramentas e aplicativos - Marketing
+82,Despesas Operacionais,Despesas Marketing,Outras despesas marketing
+83,Investimentos,Investimentos em Bens Materiais,Compra de Máquinas e Equipamentos
+84,Investimentos,Investimentos em Bens Materiais,Reformas / Estrutura
+85,Investimentos,Investimentos em Bens Materiais,Mobiliário
+86,Investimentos,Investimentos em Bens Materiais,Compra de Veículos
+87,Investimentos,Investimentos em Bens Materiais,Outros investimentos em bens materiais
+88,Movimentações Não Operacionais,Entradas não Operacionais,Empréstimos/Financiamentos obtidos
+89,Movimentações Não Operacionais,Entradas não Operacionais,Aporte dos sócios
+90,Movimentações Não Operacionais,Entradas não Operacionais,Venda de equipamentos usados
+91,Movimentações Não Operacionais,Entradas não Operacionais,Outros entradas não operacionais
+92,Movimentações Não Operacionais,Saídas não Operacionais,Pagamento de Empréstimos
+93,Movimentações Não Operacionais,Saídas não Operacionais,Juros Bancários e por Atraso
+94,Movimentações Não Operacionais,Saídas não Operacionais,Pagamento de dívidas passadas
+95,Movimentações Não Operacionais,Saídas não Operacionais,Distribuição de Lucros
+96,Movimentações Não Operacionais,Saídas não Operacionais,Outras saídas não operacionais
+97,Despesas Operacionais,Despesas com Pessoal,Pró-Labore-ADM ALEXANDRE
