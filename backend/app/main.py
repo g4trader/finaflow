@@ -13,6 +13,8 @@ from app.models.auth import Base
 from app.models.financial import Base as FinancialBase
 # Importar todos os modelos para garantir que sejam registrados no metadata
 from app.models.validation_status import DashboardValidationStatus  # noqa: F401
+from app.models.liquidation_accounts import LiquidationAccount, LiquidationAccountBalance  # noqa: F401
+from app.models.lancamento_diario import LancamentoDiario  # noqa: F401
 
 # Configurações de segurança
 default_allowed_hosts = "localhost,127.0.0.1,testserver,finaflow.vercel.app"
