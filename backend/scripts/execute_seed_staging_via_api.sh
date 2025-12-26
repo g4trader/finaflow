@@ -5,7 +5,7 @@
 set -e
 
 BACKEND_URL="${BACKEND_URL:-https://finaflow-backend-staging-642830139828.us-central1.run.app}"
-QA_USERNAME="${QA_USERNAME:-qa}"
+QA_USERNAME="${QA_USERNAME:-qa@finaflow.test}"
 QA_PASSWORD="${QA_PASSWORD:-QaFinaflow123!}"
 
 echo "============================================================"
