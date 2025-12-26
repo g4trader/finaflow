@@ -41,45 +41,64 @@ const ForecastVsRealizedChart: React.FC<ForecastVsRealizedChartProps> = ({ data 
   const realizedData = data.months.map(m => m.realized);
   const forecastData = data.months.map(m => m.forecast);
 
-  // Calcular áreas sombreadas (onde previsto < realizado ou previsto < 0)
-  const backgroundColors = data.months.map((month, index) => {
-    if (month.forecast < month.realized || month.forecast < 0) {
-      return 'rgba(239, 68, 68, 0.1)'; // Vermelho claro
-    }
-    return 'transparent';
-  });
+  // Cores dinâmicas baseadas em positivo/negativo
+  const getColorForValue = (value: number) => {
+    return value >= 0 ? '#3b82f6' : '#ef4444'; // Azul se positivo, vermelho se negativo
+  };
+
+  // Criar arrays de cores para cada ponto
+  const realizedPointColors = realizedData.map(v => getColorForValue(v));
+  const forecastPointColors = forecastData.map(v => getColorForValue(v));
+
+  // Determinar cor média para a linha (usar cor do último ponto como referência)
+  const lastRealizedValue = realizedData[realizedData.length - 1];
+  const lastForecastValue = forecastData[forecastData.length - 1];
 
   const chartData = {
     labels,
     datasets: [
       {
-        label: 'Realizado',
+        label: 'Saldo Realizado',
         data: realizedData,
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderColor: getColorForValue(lastRealizedValue), // Cor baseada no último valor
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
         borderWidth: 3,
         fill: false,
         tension: 0.4,
-        pointBackgroundColor: '#10b981',
+        pointBackgroundColor: realizedPointColors,
         pointBorderColor: '#ffffff',
         pointBorderWidth: 2,
         pointRadius: 5,
         pointHoverRadius: 7,
+        segment: {
+          borderColor: (ctx: any) => {
+            // Usar cor do ponto inicial do segmento
+            const current = realizedData[ctx.p1DataIndex];
+            return getColorForValue(current);
+          }
+        }
       },
       {
-        label: 'Previsto',
+        label: 'Saldo Previsto',
         data: forecastData,
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderColor: getColorForValue(lastForecastValue), // Cor baseada no último valor
+        backgroundColor: 'rgba(99, 102, 241, 0.05)',
         borderWidth: 2,
-        borderDash: [5, 5],
+        borderDash: [8, 4], // Linha tracejada
         fill: false,
         tension: 0.4,
-        pointBackgroundColor: '#6366f1',
+        pointBackgroundColor: forecastPointColors,
         pointBorderColor: '#ffffff',
         pointBorderWidth: 2,
-        pointRadius: 5,
-        pointHoverRadius: 7,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        segment: {
+          borderColor: (ctx: any) => {
+            // Usar cor do ponto inicial do segmento
+            const current = forecastData[ctx.p1DataIndex];
+            return getColorForValue(current);
+          }
+        }
       }
     ]
   };
@@ -109,12 +128,30 @@ const ForecastVsRealizedChart: React.FC<ForecastVsRealizedChartProps> = ({ data 
     },
     scales: {
       y: {
-        beginAtZero: false,
+        beginAtZero: true, // Sempre começar do zero
         ticks: {
           callback: function(value: any) {
             return formatCurrency(value);
           }
-        }
+        },
+        grid: {
+          color: (context: any) => {
+            // Linha do zero mais destacada
+            if (context.tick.value === 0) {
+              return 'rgba(0, 0, 0, 0.3)'; // Linha do zero mais visível
+            }
+            return 'rgba(0, 0, 0, 0.1)'; // Outras linhas mais suaves
+          },
+          lineWidth: (context: any) => {
+            // Linha do zero mais grossa
+            if (context.tick.value === 0) {
+              return 2;
+            }
+            return 1;
+          }
+        },
+        zeroLineColor: 'rgba(0, 0, 0, 0.4)',
+        zeroLineWidth: 2
       }
     }
   };
@@ -126,21 +163,33 @@ const ForecastVsRealizedChart: React.FC<ForecastVsRealizedChartProps> = ({ data 
           <Line data={chartData} options={options} />
         </div>
         
-        {/* Totais abaixo do gráfico */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Saldo Realizado</p>
-            <p className="text-xl font-bold text-gray-800">{formatCurrency(data.totals.realized)}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Saldo Previsto</p>
-            <p className="text-xl font-bold text-gray-800">{formatCurrency(data.totals.forecast)}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Diferença</p>
-            <p className={`text-xl font-bold ${data.totals.difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {formatCurrency(data.totals.difference)}
-            </p>
+        {/* Indicadores agrupados abaixo do gráfico */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="bg-gray-50 rounded-lg p-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">Resumo dos Saldos</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Saldo Realizado</p>
+                <p className="text-sm text-gray-600 mb-2">até {new Date().toLocaleDateString('pt-BR')}</p>
+                <p className={`text-2xl font-bold ${data.totals.realized >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                  {formatCurrency(data.totals.realized)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Saldo Previsto</p>
+                <p className="text-sm text-gray-600 mb-2">próximos 30 dias</p>
+                <p className={`text-2xl font-bold ${data.totals.forecast >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                  {formatCurrency(data.totals.forecast)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Diferença</p>
+                <p className="text-sm text-gray-600 mb-2">previsto - realizado</p>
+                <p className={`text-2xl font-bold ${data.totals.difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(data.totals.difference)}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -149,4 +198,10 @@ const ForecastVsRealizedChart: React.FC<ForecastVsRealizedChartProps> = ({ data 
 };
 
 export default ForecastVsRealizedChart;
+
+
+
+
+
+
 

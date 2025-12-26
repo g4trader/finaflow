@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, AlertCircle, Clock, CalendarDays } from 'lucide-react';
+import { AlertCircle, CalendarDays } from 'lucide-react';
 import type { PayablesSummary } from '../../lib/api/finance';
 
 interface PayablesSummaryCardProps {
@@ -7,12 +7,7 @@ interface PayablesSummaryCardProps {
   onViewDetails?: () => void;
 }
 
-// Componente helper para exibir valores monetários sem quebrar linha
-const ValueDisplay: React.FC<{ value: number; isHighlighted: boolean; colorClass: string }> = ({
-  value,
-  isHighlighted,
-  colorClass,
-}) => {
+const PayablesSummaryCard: React.FC<PayablesSummaryCardProps> = ({ data, onViewDetails }) => {
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -20,193 +15,53 @@ const ValueDisplay: React.FC<{ value: number; isHighlighted: boolean; colorClass
     }).format(val);
   };
 
-  // Ajustar tamanho da fonte para valores muito grandes
-  const getFontSize = () => {
-    const absValue = Math.abs(value);
-    if (absValue >= 10000000) {
-      return 'text-base sm:text-lg';
-    }
-    if (absValue >= 1000000) {
-      return 'text-lg sm:text-xl';
-    }
-    return 'text-xl';
-  };
-
-  return (
-    <p
-      className={`${getFontSize()} font-bold ${colorClass} whitespace-nowrap tabular-nums overflow-visible`}
-      style={{ fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all' }}
-    >
-      {formatCurrency(value)}
-    </p>
-  );
-};
-
-// Componente de card individual padronizado
-interface SummaryCardItemProps {
-  icon: React.ReactNode;
-  title: string;
-  value: number;
-  isActive: boolean;
-  colorConfig: {
-    active: {
-      bg: string;
-      border: string;
-      icon: string;
-      title: string;
-      value: string;
-    };
-    inactive: {
-      bg: string;
-      border: string;
-      icon: string;
-      title: string;
-      value: string;
-    };
-  };
-}
-
-const SummaryCardItem: React.FC<SummaryCardItemProps> = ({
-  icon,
-  title,
-  value,
-  isActive,
-  colorConfig,
-}) => {
-  const config = isActive ? colorConfig.active : colorConfig.inactive;
-
-  return (
-    <div
-      className={`p-4 rounded-lg border-l-4 ${config.bg} ${config.border} flex flex-row items-center justify-between`}
-    >
-      {/* Ícone + Título (linha única, discreta) */}
-      <div className="flex items-center space-x-2 flex-shrink-0">
-        <div className={config.icon}>{icon}</div>
-        <span className={`text-sm font-medium ${config.title} whitespace-nowrap`}>{title}</span>
-      </div>
-
-      {/* Valor principal (destaque máximo) */}
-      <div className="flex-1 flex items-center justify-end ml-4">
-        <ValueDisplay value={value} isHighlighted={isActive} colorClass={config.value} />
-      </div>
-    </div>
-  );
-};
-
-const PayablesSummaryCard: React.FC<PayablesSummaryCardProps> = ({ data, onViewDetails }) => {
   return (
     <div className="mb-6 h-full flex flex-col">
       {/* Título do bloco */}
-      <h2 className="text-xl font-bold mb-4 text-gray-800">Posição de Contas a Pagar</h2>
+      <h2 className="text-xl font-bold mb-4 text-gray-800">Contas a Pagar</h2>
 
-      {/* Container dos cards */}
-      <div className="bg-white rounded-lg shadow-md p-6 flex-1 overflow-visible">
-        <div className="grid grid-cols-1 gap-4">
-          {/* Vencido */}
-          <SummaryCardItem
-            icon={<AlertCircle className="w-4 h-4" />}
-            title="Vencido"
-            value={data.overdue}
-            isActive={data.overdue > 0}
-            colorConfig={{
-              active: {
-                bg: 'bg-red-50/80',
-                border: 'border-red-500',
-                icon: 'text-red-500',
-                title: 'text-red-800',
-                value: 'text-red-600',
-              },
-              inactive: {
-                bg: 'bg-gray-50',
-                border: 'border-gray-300',
-                icon: 'text-gray-400',
-                title: 'text-gray-600',
-                value: 'text-gray-500',
-              },
-            }}
-          />
+      {/* Container simplificado - apenas totais */}
+      <div className="bg-white rounded-lg shadow-md p-6 flex-1">
+        <div className="space-y-4">
+          {/* Total Vencido */}
+          <div className={`p-4 rounded-lg border-l-4 ${data.overdue > 0 ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className={`w-5 h-5 ${data.overdue > 0 ? 'text-red-500' : 'text-gray-400'}`} />
+                <span className={`text-sm font-medium ${data.overdue > 0 ? 'text-red-800' : 'text-gray-600'}`}>
+                  Total Vencido
+                </span>
+              </div>
+              <p className={`text-xl font-bold ${data.overdue > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                {formatCurrency(data.overdue)}
+              </p>
+            </div>
+          </div>
 
-          {/* Vence hoje */}
-          <SummaryCardItem
-            icon={<Clock className="w-4 h-4" />}
-            title="Vence Hoje"
-            value={data.due_today}
-            isActive={data.due_today > 0}
-            colorConfig={{
-              active: {
-                bg: 'bg-orange-50/80',
-                border: 'border-orange-500',
-                icon: 'text-orange-500',
-                title: 'text-orange-800',
-                value: 'text-orange-600',
-              },
-              inactive: {
-                bg: 'bg-gray-50',
-                border: 'border-gray-300',
-                icon: 'text-gray-400',
-                title: 'text-gray-600',
-                value: 'text-gray-500',
-              },
-            }}
-          />
-
-          {/* Próximos 7 dias */}
-          <SummaryCardItem
-            icon={<Calendar className="w-4 h-4" />}
-            title="Próximos 7 dias"
-            value={data.next_7_days}
-            isActive={true}
-            colorConfig={{
-              active: {
-                bg: 'bg-blue-50',
-                border: 'border-blue-300',
-                icon: 'text-blue-500',
-                title: 'text-blue-800',
-                value: 'text-blue-600',
-              },
-              inactive: {
-                bg: 'bg-gray-50',
-                border: 'border-gray-300',
-                icon: 'text-gray-400',
-                title: 'text-gray-600',
-                value: 'text-gray-500',
-              },
-            }}
-          />
-
-          {/* Próximos 30 dias */}
-          <SummaryCardItem
-            icon={<CalendarDays className="w-4 h-4" />}
-            title="Próximos 30 dias"
-            value={data.next_30_days}
-            isActive={true}
-            colorConfig={{
-              active: {
-                bg: 'bg-indigo-50',
-                border: 'border-indigo-300',
-                icon: 'text-indigo-500',
-                title: 'text-indigo-800',
-                value: 'text-indigo-600',
-              },
-              inactive: {
-                bg: 'bg-gray-50',
-                border: 'border-gray-300',
-                icon: 'text-gray-400',
-                title: 'text-gray-600',
-                value: 'text-gray-500',
-              },
-            }}
-          />
+          {/* Total a Vencer (próximos 30 dias) */}
+          <div className="p-4 rounded-lg border-l-4 bg-blue-50 border-blue-300">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CalendarDays className="w-5 h-5 text-blue-500" />
+                <span className="text-sm font-medium text-blue-800">
+                  Total a Vencer (próximos 30 dias)
+                </span>
+              </div>
+              <p className="text-xl font-bold text-blue-600">
+                {formatCurrency(data.next_30_days)}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Botão de detalhes (se houver vencidos ou vence hoje) */}
-        {(data.overdue > 0 || data.due_today > 0) && onViewDetails && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
+        {/* Botão de detalhes */}
+        {onViewDetails && (
+          <div className="mt-6 pt-4 border-t border-gray-200">
             <button
               onClick={onViewDetails}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+              className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors py-2 hover:bg-blue-50 rounded"
             >
-              Ver detalhes →
+              Ver detalhes (vence hoje, próximos 7 dias, lista completa) →
             </button>
           </div>
         )}

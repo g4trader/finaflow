@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
 import CashAvailabilityCards from '../components/cards/CashAvailabilityCards';
+import CashCoverageIndicator from '../components/cards/CashCoverageIndicator';
 import FinancialAlerts from '../components/cards/FinancialAlerts';
 import ForecastVsRealizedChart from '../components/charts/ForecastVsRealizedChart';
 import PayablesSummaryCard from '../components/cards/PayablesSummaryCard';
@@ -108,20 +109,25 @@ const DashboardOperational: React.FC = () => {
       <div className="container mx-auto px-4 py-6">
         <h1 className="text-3xl font-bold mb-6 text-gray-800">Dashboard Financeiro Operacional</h1>
 
-        {/* Bloco 1: Composição das Disponibilidades */}
+        {/* Bloco 1: Composição das Disponibilidades (Total em destaque) */}
         {availability && <CashAvailabilityCards data={availability} />}
 
-        {/* Bloco 2: Alertas Financeiros */}
+        {/* Bloco 2: Cobertura de Caixa (Novo indicador) */}
+        {availability && payables && (
+          <CashCoverageIndicator availability={availability} payables={payables} />
+        )}
+
+        {/* Bloco 3: Alertas Financeiros (Visual crítico) */}
         {alerts && (
           <FinancialAlerts data={alerts} onAlertClick={handleAlertClick} />
         )}
 
-        {/* Bloco 3: Previsto × Realizado */}
+        {/* Bloco 4: Previsto × Realizado (Gráfico com zero como referência) */}
         {forecastVsRealized && (
           <ForecastVsRealizedChart data={forecastVsRealized} />
         )}
 
-        {/* Bloco 4 e 5: Contas a Receber e a Pagar */}
+        {/* Bloco 5 e 6: Contas a Receber e a Pagar (Simplificados) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {receivables && (
             <ReceivablesSummaryCard
