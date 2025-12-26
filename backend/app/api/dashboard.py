@@ -946,29 +946,68 @@ def listar_lancamentos_simples(
 # DASHBOARD OPERACIONAL - ENDPOINTS
 # ============================================================================
 
-def _classify_account_type(account_name: str, account_code: str = "") -> str:
+def _classify_account_type(
+    account_name: str, 
+    account_code: str = "", 
+    account_type: str = "",
+    grupo_nome: str = "",
+    subgrupo_nome: str = ""
+) -> str:
     """
-    Classifica o tipo de conta baseado no nome e código.
+    Classifica o tipo de conta baseado no nome, código, tipo e grupo/subgrupo.
+    
+    IMPORTANTE: Só classifica contas de ATIVO (disponibilidade).
+    Exclui contas de DESPESA, CUSTO ou RECEITA mesmo que tenham palavras-chave.
+    
     Retorna: 'BANK', 'CASH', 'INVESTMENT' ou None
     """
+    # CRÍTICO: Excluir contas que estão em grupos de Despesa/Custo/Receita
+    grupo_lower = (grupo_nome or "").lower().strip()
+    subgrupo_lower = (subgrupo_nome or "").lower().strip()
+    
+    # Se o grupo ou subgrupo contém palavras de despesa/custo/receita, excluir
+    exclude_groups = ["despesa", "custo", "receita", "dedução"]
+    if any(keyword in grupo_lower for keyword in exclude_groups):
+        return None
+    if any(keyword in subgrupo_lower for keyword in exclude_groups):
+        return None
+    
+    # Excluir explicitamente contas de DESPESA, CUSTO ou RECEITA
+    account_type_lower = (account_type or "").lower().strip()
+    if account_type_lower in ["despesa", "custo", "receita", "dedução"]:
+        return None
+    
+    # Verificar nome e código da conta
     name_lower = account_name.lower().strip()
     code_lower = (account_code or "").lower().strip()
     combined = f"{name_lower} {code_lower}"
     
-    # Bancos
+    # Excluir contas que são claramente despesas/custos mesmo tendo palavras-chave
+    exclude_keywords = ["despesa", "custo", "tarifa", "taxa", "juros", "multa", "encargo", "tarifas"]
+    if any(keyword in combined for keyword in exclude_keywords):
+        return None
+    
+    # Bancos (apenas se não for despesa/custo)
     bank_keywords = ["banco", "banc", "conta bancária", "conta corrente", "conta poupança", "cc", "cp"]
     if any(keyword in combined for keyword in bank_keywords):
-        return "BANK"
+        # Verificar se não é uma despesa bancária
+        if "despesa" not in combined and "custo" not in combined and "tarifa" not in combined:
+            return "BANK"
     
-    # Caixa/Dinheiro
-    cash_keywords = ["caixa", "dinheiro", "cash", "cx", "caixa físico", "caixa fisico"]
+    # Caixa/Dinheiro (apenas se não for despesa/custo)
+    cash_keywords = ["caixa", "dinheiro", "cash", "cx"]
     if any(keyword in combined for keyword in cash_keywords):
-        return "CASH"
+        # Verificar se não é uma despesa de caixa
+        if "despesa" not in combined and "custo" not in combined:
+            # Excluir "caixa" que seja parte de "caixa de entrada" ou similar
+            if "caixa físico" in combined or "caixa fisico" in combined or combined == "caixa":
+                return "CASH"
     
-    # Investimentos
+    # Investimentos (apenas se não for despesa/custo)
     investment_keywords = ["investimento", "aplicação", "aplicacao", "invest", "cdb", "lci", "lca", "tesouro", "fundo"]
     if any(keyword in combined for keyword in investment_keywords):
-        return "INVESTMENT"
+        if "despesa" not in combined and "custo" not in combined:
+            return "INVESTMENT"
     
     return None
 
@@ -996,11 +1035,15 @@ def operational_availability(
 
     # Buscar todos os lançamentos realizados até hoje
     # Saldo = soma de RECEITA (entrada) - DESPESA/CUSTO (saída) por conta
+    # IMPORTANTE: Para contas de disponibilidade, RECEITA aumenta saldo, DESPESA/CUSTO diminui
     lancamentos_query = (
         db.query(
             LancamentoDiario.conta_id,
             ChartAccount.name.label("conta_nome"),
             ChartAccount.code.label("conta_codigo"),
+            ChartAccount.account_type.label("conta_tipo"),
+            ChartAccountSubgroup.name.label("subgrupo_nome"),
+            ChartAccountGroup.name.label("grupo_nome"),
             func.sum(
                 case(
                     (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
@@ -1009,13 +1052,22 @@ def operational_availability(
             ).label("saldo")
         )
         .join(ChartAccount, LancamentoDiario.conta_id == ChartAccount.id)
+        .join(ChartAccountSubgroup, ChartAccount.subgroup_id == ChartAccountSubgroup.id)
+        .join(ChartAccountGroup, ChartAccountSubgroup.group_id == ChartAccountGroup.id)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
             LancamentoDiario.is_active.is_(True),
             LancamentoDiario.status != TransactionStatus.CANCELADO,
             func.date(LancamentoDiario.data_movimentacao) <= today,
         )
-        .group_by(LancamentoDiario.conta_id, ChartAccount.name, ChartAccount.code)
+        .group_by(
+            LancamentoDiario.conta_id, 
+            ChartAccount.name, 
+            ChartAccount.code, 
+            ChartAccount.account_type,
+            ChartAccountSubgroup.name,
+            ChartAccountGroup.name
+        )
     )
     
     if business_unit_id:
@@ -1032,10 +1084,18 @@ def operational_availability(
     
     # Agrupar por tipo de conta e somar saldos
     for lanc in lancamentos:
-        account_type = _classify_account_type(lanc.conta_nome, lanc.conta_codigo)
+        # Classificar conta considerando tipo, grupo e subgrupo
+        account_type = _classify_account_type(
+            lanc.conta_nome, 
+            lanc.conta_codigo, 
+            lanc.conta_tipo or "",
+            lanc.grupo_nome or "",
+            lanc.subgrupo_nome or ""
+        )
         saldo = lanc.saldo or Decimal(0)
         
         # Só considerar contas classificadas (BANK, CASH, INVESTMENT)
+        # E que sejam realmente de disponibilidade (não despesas/custos)
         if account_type == "BANK":
             banks_total += saldo
         elif account_type == "CASH":
