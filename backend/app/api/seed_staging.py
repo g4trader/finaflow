@@ -35,6 +35,35 @@ async def run_migration_liquidation(
     try:
         # SQL da migration (inline para evitar problemas de arquivo)
         with engine.connect() as conn:
+            # 0. Criar tabela liquidation_accounts se não existir
+            try:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS liquidation_accounts (
+                        id VARCHAR(36) PRIMARY KEY,
+                        tenant_id VARCHAR(36) NOT NULL,
+                        business_unit_id VARCHAR(36),
+                        code VARCHAR(20) NOT NULL,
+                        name VARCHAR(100) NOT NULL,
+                        description TEXT,
+                        account_type VARCHAR(50) NOT NULL,
+                        bank_name VARCHAR(100),
+                        account_number VARCHAR(50),
+                        current_balance NUMERIC(15, 2) DEFAULT 0,
+                        initial_balance NUMERIC(15, 2) DEFAULT 0,
+                        currency VARCHAR(10) DEFAULT 'BRL',
+                        is_active BOOLEAN DEFAULT TRUE,
+                        is_default BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT fk_liquidation_accounts_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+                        CONSTRAINT fk_liquidation_accounts_bu FOREIGN KEY (business_unit_id) REFERENCES business_units(id)
+                    )
+                """))
+                conn.commit()
+            except Exception as e:
+                if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+                    raise
+            
             # 1. Adicionar coluna se não existir
             try:
                 conn.execute(text("""
