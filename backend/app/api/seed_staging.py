@@ -29,7 +29,8 @@ async def execute_seed_staging(
     ATENÇÃO: Endpoint temporário - remover após uso
     """
     # Verificar se é super_admin
-    if current_user.role.value != "super_admin":
+    user_role = current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role)
+    if user_role != "super_admin":
         raise HTTPException(status_code=403, detail="Apenas super_admin pode executar seed")
     
     # Verificar se está em STAGING
