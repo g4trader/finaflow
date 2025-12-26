@@ -1044,20 +1044,23 @@ def operational_availability(
     """
     Retorna a disponibilidade financeira consolidada.
     
-    Calcula baseado na apuração de resultado (lucro/prejuízo líquido) até hoje:
-    - Receitas realizadas (entrada)
-    - Despesas realizadas (saída)
-    - Custos realizados (saída)
-    - Saldo = Receitas - Despesas - Custos
+    Calcula baseado na apuração de resultado (lucro/prejuízo líquido acumulado):
+    - Usa o mesmo cálculo do annual-summary para garantir consistência
+    - Saldo acumulado até o mês atual (ou até dezembro se for fim do ano)
+    - Considera apenas lançamentos realizados (status != CANCELADO)
     
     IMPORTANTE: Retorna um valor consolidado único, sem separação por contas bancárias,
     caixa ou investimentos, conforme a visão da planilha do cliente.
     
+    A fórmula é a mesma da planilha "Lucro líquido acumulado (Reservas)":
+    - Receitas - Despesas - Custos (acumulado até o mês atual)
+    
     Retorna:
-    - total: Saldo consolidado total (resultado líquido até hoje)
-    - receitas: Total de receitas realizadas até hoje
-    - despesas: Total de despesas realizadas até hoje
-    - custos: Total de custos realizados até hoje
+    - total: Saldo consolidado total (resultado líquido acumulado)
+    - receitas: Total de receitas realizadas no ano
+    - despesas: Total de despesas realizadas no ano
+    - custos: Total de custos realizados no ano
+    - saldo_consolidado: Resultado líquido acumulado (receitas - despesas - custos)
     - saldo_inicial: Saldo inicial do exercício (se houver, será 0 por enquanto)
     """
     tenant_id = str(current_user.tenant_id)
@@ -1065,59 +1068,45 @@ def operational_availability(
     today = date.today()
     current_year = today.year
 
-    # Calcular totais realizados até hoje (sem separação por conta de liquidação)
-    # Considerar apenas lançamentos realizados (status != CANCELADO) até hoje
-    lancamentos_query = (
-        db.query(
-            func.sum(
-                case(
-                    (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
-                    else_=0
-                )
-            ).label("total_receitas"),
-            func.sum(
-                case(
-                    (LancamentoDiario.transaction_type == TransactionType.DESPESA, LancamentoDiario.valor),
-                    else_=0
-                )
-            ).label("total_despesas"),
-            func.sum(
-                case(
-                    (LancamentoDiario.transaction_type == TransactionType.CUSTO, LancamentoDiario.valor),
-                    else_=0
-                )
-            ).label("total_custos")
-        )
-        .filter(
-            LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.is_active.is_(True),
-            LancamentoDiario.status != TransactionStatus.CANCELADO,
-            func.date(LancamentoDiario.data_movimentacao) <= today,
-            func.extract('year', LancamentoDiario.data_movimentacao) == current_year
-        )
+    # Usar o mesmo serviço do annual-summary para garantir consistência
+    # Isso garante que o cálculo seja idêntico ao da planilha
+    annual_summary = FinancialAggregationService.aggregate_monthly_summary(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=current_year,
     )
     
-    if business_unit_id:
-        lancamentos_query = lancamentos_query.filter(
-            LancamentoDiario.business_unit_id == business_unit_id
-        )
+    # Extrair totais anuais
+    receitas = Decimal(str(annual_summary["totals"]["revenue"]))
+    despesas = Decimal(str(annual_summary["totals"]["expense"]))
+    custos = Decimal(str(annual_summary["totals"]["cost"]))
     
-    result = lancamentos_query.first()
-    
-    # Extrair valores (pode ser None se não houver lançamentos)
-    receitas = Decimal(result.total_receitas or 0)
-    despesas = Decimal(result.total_despesas or 0)
-    custos = Decimal(result.total_custos or 0)
-    
-    # Calcular saldo consolidado (resultado líquido)
-    # Saldo = Receitas - Despesas - Custos
+    # Saldo consolidado = Receitas - Despesas - Custos (total do ano)
     saldo_consolidado = receitas - despesas - custos
+    
+    # Obter saldo acumulado até o mês atual (ou dezembro se for fim do ano)
+    # Se estamos em dezembro ou depois, usar o saldo acumulado de dezembro
+    current_month = today.month
+    if current_month > 12:
+        current_month = 12
+    
+    # Buscar o saldo acumulado do mês atual
+    saldo_acumulado = Decimal("0")
+    if annual_summary.get("monthly") and len(annual_summary["monthly"]) >= current_month:
+        # Pegar o saldo acumulado do mês atual
+        month_data = annual_summary["monthly"][current_month - 1]
+        saldo_acumulado = Decimal(str(month_data["accumulated_balance"]))
+    else:
+        # Fallback: usar o saldo consolidado total
+        saldo_acumulado = saldo_consolidado
     
     # Saldo inicial do exercício anterior (por enquanto 0, pode ser configurado depois)
     saldo_inicial = Decimal(0)
     
-    # Total disponível = saldo inicial + saldo consolidado do exercício atual
-    total_disponivel = saldo_inicial + saldo_consolidado
+    # Total disponível = saldo inicial + saldo acumulado até o mês atual
+    # Isso corresponde ao "Lucro líquido acumulado (Reservas)" da planilha
+    total_disponivel = saldo_inicial + saldo_acumulado
 
     return {
         "total": _decimal_to_float(total_disponivel),
@@ -1125,6 +1114,7 @@ def operational_availability(
         "despesas": _decimal_to_float(despesas),
         "custos": _decimal_to_float(custos),
         "saldo_consolidado": _decimal_to_float(saldo_consolidado),
+        "saldo_acumulado": _decimal_to_float(saldo_acumulado),
         "saldo_inicial": _decimal_to_float(saldo_inicial),
         # Manter campos antigos para compatibilidade (retornando total consolidado)
         "banks": _decimal_to_float(total_disponivel),
