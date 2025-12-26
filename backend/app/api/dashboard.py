@@ -1113,6 +1113,118 @@ def operational_availability(
     }
 
 
+@router.get("/dashboard/operational/availability/debug")
+def operational_availability_debug(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Endpoint de debug para investigar saldo negativo de disponibilidades.
+    Retorna detalhes de todas as contas classificadas e seus saldos.
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = date.today()
+
+    lancamentos_query = (
+        db.query(
+            LancamentoDiario.conta_id,
+            ChartAccount.name.label("conta_nome"),
+            ChartAccount.code.label("conta_codigo"),
+            ChartAccount.account_type.label("conta_tipo"),
+            ChartAccountSubgroup.name.label("subgrupo_nome"),
+            ChartAccountGroup.name.label("grupo_nome"),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
+                    else_=-LancamentoDiario.valor
+                )
+            ).label("saldo"),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label("total_receitas"),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]), LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label("total_despesas_custos"),
+            func.count(LancamentoDiario.id).label("qtd_lancamentos")
+        )
+        .join(ChartAccount, LancamentoDiario.conta_id == ChartAccount.id)
+        .join(ChartAccountSubgroup, ChartAccount.subgroup_id == ChartAccountSubgroup.id)
+        .join(ChartAccountGroup, ChartAccountSubgroup.group_id == ChartAccountGroup.id)
+        .filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.is_active.is_(True),
+            LancamentoDiario.status != TransactionStatus.CANCELADO,
+            func.date(LancamentoDiario.data_movimentacao) <= today,
+        )
+        .group_by(
+            LancamentoDiario.conta_id, 
+            ChartAccount.name, 
+            ChartAccount.code, 
+            ChartAccount.account_type,
+            ChartAccountSubgroup.name,
+            ChartAccountGroup.name
+        )
+    )
+    
+    if business_unit_id:
+        lancamentos_query = lancamentos_query.filter(
+            LancamentoDiario.business_unit_id == business_unit_id
+        )
+    
+    lancamentos = lancamentos_query.all()
+    
+    banks = []
+    cash = []
+    investments = []
+    
+    for lanc in lancamentos:
+        account_type = _classify_account_type(
+            lanc.conta_nome, 
+            lanc.conta_codigo, 
+            lanc.conta_tipo or "",
+            lanc.grupo_nome or "",
+            lanc.subgrupo_nome or ""
+        )
+        
+        if account_type:
+            item = {
+                "conta": lanc.conta_nome,
+                "codigo": lanc.conta_codigo,
+                "grupo": lanc.grupo_nome,
+                "subgrupo": lanc.subgrupo_nome,
+                "account_type": lanc.conta_tipo,
+                "saldo": _decimal_to_float(lanc.saldo or Decimal(0)),
+                "receitas": _decimal_to_float(lanc.total_receitas or Decimal(0)),
+                "despesas_custos": _decimal_to_float(lanc.total_despesas_custos or Decimal(0)),
+                "qtd_lancamentos": lanc.qtd_lancamentos or 0,
+            }
+            
+            if account_type == "BANK":
+                banks.append(item)
+            elif account_type == "CASH":
+                cash.append(item)
+            elif account_type == "INVESTMENT":
+                investments.append(item)
+    
+    return {
+        "banks": banks,
+        "cash": cash,
+        "investments": investments,
+        "summary": {
+            "total_banks": sum(b["saldo"] for b in banks),
+            "total_cash": sum(c["saldo"] for c in cash),
+            "total_investments": sum(i["saldo"] for i in investments),
+        }
+    }
+
+
 @router.get("/dashboard/operational/alerts")
 def operational_alerts(
     current_user: User = Depends(get_current_active_user),
