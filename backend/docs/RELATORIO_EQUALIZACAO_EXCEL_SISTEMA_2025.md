@@ -186,3 +186,102 @@ cat artifacts/audit_report_2025.json | jq '.mismatches'
 
 **Status Final**: ⚠️ DIVERGÊNCIAS IDENTIFICADAS - Requer correções no seed e/ou na API
 
+---
+
+## 📦 Entregas Realizadas
+
+### ✅ FASE 0 - Preparar ambiente
+- Ambiente preparado e atualizado
+- Arquivo Excel confirmado: `backend/data/fluxo_caixa_2025.xlsx` (1.7MB)
+
+### ✅ FASE 1 - Baseline do Excel
+- Script `generate_baseline_excel.py` criado
+- Baseline JSON gerado com totais anuais e mensais
+- CSV de ordem do plano de contas gerado
+- Hash MD5 do Excel calculado para rastreabilidade
+
+### ✅ FASE 3 - Auditoria Excel vs API
+- Script `audit_excel_vs_api.py` criado
+- Comparação de totais anuais e mensais implementada
+- Validação de monthly-daily-summary implementada
+- Relatório JSON estruturado gerado
+- Endpoints operacionais validados
+
+### ✅ FASE 6 - Automação
+- Makefile criado com comandos:
+  - `make baseline` - Gera baseline
+  - `make audit` - Executa auditoria
+  - `make qa-equalizacao` - Processo completo
+
+### ⏳ FASE 2 - Seed determinístico (Pendente)
+- Seed atual funciona, mas precisa de revisão para garantir determinismo
+- Adicionar logs detalhados de linhas ignoradas
+- Adicionar hash do input Excel no relatório de seed
+
+### ⏳ FASE 4 - Equalização UI (Pendente)
+- Teste E2E de ordem do fluxo de caixa não implementado
+- Validação de valores na UI não implementada
+- Implementar campo `display_order` se necessário
+
+### ⏳ FASE 5 - Dashboard Operacional (Pendente)
+- Validação de coerência básica não implementada
+- Teste E2E do dashboard operacional não implementado
+
+---
+
+## 🚀 Como Usar
+
+### Executar Equalização Completa
+```bash
+make qa-equalizacao
+```
+
+### Executar Passo a Passo
+```bash
+# 1. Gerar baseline
+make baseline
+
+# 2. Executar auditoria
+make audit
+
+# 3. Verificar relatórios
+cat backend/artifacts/audit_report_2025.json | jq '.mismatches'
+```
+
+### Variáveis de Ambiente
+```bash
+export YEAR=2025
+export BACKEND_URL=https://finaflow-backend-staging-642830139828.us-central1.run.app
+export QA_EMAIL=qa@finaflow.test
+export QA_PASSWORD=QaFinaflow123!
+```
+
+---
+
+## 📝 Commits Realizados
+
+- `4ccea08`: `feat(baseline): adicionar scripts de baseline e auditoria Excel vs API`
+- `c0807fa`: `feat(qa): adicionar Makefile para automação de equalização`
+
+---
+
+## 🎯 Próximas Ações Recomendadas
+
+1. **Investigar divergência de CUSTO** (prioridade alta)
+   - Revisar função `determine_transaction_type()`
+   - Comparar classificação Excel vs banco
+   - Ajustar regras se necessário
+
+2. **Re-executar seed com logs detalhados**
+   - Identificar linhas ignoradas
+   - Validar que todas as linhas válidas foram processadas
+
+3. **Implementar FASE 4 e 5**
+   - Testes E2E de UI
+   - Validação de ordem do plano de contas
+   - Validação de coerência do dashboard operacional
+
+4. **Re-executar auditoria após correções**
+   - Validar que divergências foram resolvidas
+   - Confirmar que todos os totais batem
+
