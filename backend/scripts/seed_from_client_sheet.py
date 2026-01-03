@@ -1062,6 +1062,9 @@ def seed_lancamentos_diarios(
                         ).first()
                 
                 if not grupo or not subgrupo:
+                    # CORREÇÃO: Log mais detalhado para debug
+                    if data_movimentacao.year == 2025:
+                        logger.log(f"⚠️  Linha {row_num + 2}: Grupo ou subgrupo não encontrado. Grupo='{grupo_nome}', Subgrupo='{subgrupo_nome}'", "WARNING")
                     if os.getenv("COST_DEBUG") == "1" and data_movimentacao.year == 2025:
                         log_entry = {
                             "excel_row": row_num + 2,
