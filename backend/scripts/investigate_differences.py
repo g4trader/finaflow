@@ -118,9 +118,12 @@ def get_monthly_transactions_from_api(token: str, year: int, month: int, transac
         return []
 
 
-def extract_fluxo_caixa_detailed(excel_file: Path, transaction_type: str = None) -> Dict[int, List[Dict]]:
+def extract_fluxo_caixa_detailed(excel_file: Path, transaction_type: str = None, use_totals_only: bool = True) -> Dict[int, List[Dict]]:
     """
     Extrai lançamentos detalhados da aba "Fluxo de caixa-2025"
+    
+    Se use_totals_only=True, extrai apenas os totais principais (linha "Despesas Operacionais", etc.)
+    Se use_totals_only=False, extrai subitens individuais (pode incluir duplicações)
     
     Retorna:
         {
@@ -134,7 +137,7 @@ def extract_fluxo_caixa_detailed(excel_file: Path, transaction_type: str = None)
             ]
         }
     """
-    print(f"📊 Extraindo dados detalhados da planilha (tipo: {transaction_type or 'todos'})...")
+    print(f"📊 Extraindo dados detalhados da planilha (tipo: {transaction_type or 'todos'}, totals_only={use_totals_only})...")
     
     try:
         df = pd.read_excel(excel_file, sheet_name="Fluxo de caixa-2025", header=None)
@@ -147,12 +150,72 @@ def extract_fluxo_caixa_detailed(excel_file: Path, transaction_type: str = None)
     
     detailed_data = {month: [] for month in range(1, 13)}
     
+    # Se usar apenas totais, extrair apenas as linhas principais
+    if use_totals_only:
+        for idx in range(len(df)):
+            row = df.iloc[idx]
+            if len(row) < 2:
+                continue
+            
+            col1 = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
+            col1_upper = col1.upper()
+            
+            # Identificar apenas linhas de TOTAIS principais
+            category = None
+            if col1_upper == "RECEITA":
+                category = "Receita"
+                current_type = "receita"
+            elif col1_upper in ["DESPESAS OPERACIONAIS", "DESPESAS", "DESPESA"]:
+                category = "Despesas Operacionais"
+                current_type = "despesa"
+            elif col1_upper in ["CUSTOS", "CUSTO"]:
+                category = "Custos"
+                current_type = "custo"
+            
+            # Se encontrou uma linha de total principal e corresponde ao tipo solicitado
+            if category and (transaction_type is None or current_type == transaction_type.lower()):
+                for month in range(1, 13):
+                    col_realizado = month_cols.get(month)
+                    if col_realizado and col_realizado < len(row):
+                        valor = row.iloc[col_realizado]
+                        if pd.notna(valor) and isinstance(valor, (int, float)) and valor != 0:
+                            try:
+                                valor_decimal = Decimal(str(valor))
+                                detailed_data[month].append({
+                                    "categoria": category,
+                                    "subcategoria": category,  # Mesmo valor para totais
+                                    "valor_realizado": valor_decimal,
+                                    "linha_planilha": idx + 1
+                                })
+                            except:
+                                pass
+        return detailed_data
+    
     # Mapear tipos de transação
     type_keywords = {
         "receita": ["receita"],
         "despesa": ["despesa", "despesas operacionais"],
         "custo": ["custo", "custos"]
     }
+    
+    # Linhas que devem ser IGNORADAS (totalizadores, saldos, cálculos)
+    IGNORE_KEYWORDS = [
+        "LUCRO BRUTO",
+        "LUCRO ANTES DOS INVESTIMENTOS",
+        "DESEMBOLSO TOTAL",
+        "LUCRO OPERACIONAL",
+        "LUCRO LÍQUIDO DE CAIXA MENSAL",
+        "LUCRO LÍQUIDO ACUMULADO",
+        "LUCRO LIQUIDO ACUMULADO",
+        "SALDO DO ANO ANTERIOR",
+        "SALDO ANTERIOR",
+        "RECEITA LÍQUIDA",
+        "RESULTADO OPERACIONAL",
+        "DISTRIBUIÇÃO DE LUCROS",
+        "INVESTIMENTOS",  # Grupo de investimentos (não são despesas/custos)
+        "INVESTIMENTOS EM BENS MATERIAIS",  # Subgrupo de investimentos
+        "OUTROS INVESTIMENTOS",
+    ]
     
     current_type = None
     current_category = None
@@ -165,8 +228,12 @@ def extract_fluxo_caixa_detailed(excel_file: Path, transaction_type: str = None)
         col0 = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
         col1 = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
         
-        # Identificar tipo principal
+        # IGNORAR linhas de totalizadores e saldos
         col1_upper = col1.upper()
+        if any(keyword in col1_upper for keyword in IGNORE_KEYWORDS):
+            continue
+        
+        # Identificar tipo principal
         if col1_upper == "RECEITA":
             current_type = "receita"
             current_category = "Receita"
@@ -177,12 +244,24 @@ def extract_fluxo_caixa_detailed(excel_file: Path, transaction_type: str = None)
             current_type = "custo"
             current_category = "Custos"
         elif col1_upper in ["TOTAL", "SALDO", "LUCRO"]:
+            # Ignorar linhas genéricas de total/saldo/lucro que não foram capturadas acima
             current_type = None
             current_category = None
             continue
         
         # Se estamos em uma categoria de interesse e há filtro de tipo
         if current_type and (transaction_type is None or current_type == transaction_type.lower()):
+            # IGNORAR linhas que são apenas o nome do grupo (totalizadores)
+            # Exemplo: "Despesas Operacionais" sem subcategoria específica
+            # Essas linhas são totalizadores, não lançamentos individuais
+            if col1_upper in ["DESPESAS OPERACIONAIS", "DESPESAS", "CUSTOS", "CUSTO", "RECEITA"]:
+                # Esta linha é apenas o cabeçalho/totalizador do grupo
+                continue
+            
+            # IGNORAR grupos de movimentações não operacionais (não são despesas reais)
+            if "MOVIMENTAÇÕES NÃO OPERACIONAIS" in col1_upper or "MOVIMENTACOES NAO OPERACIONAIS" in col1_upper:
+                continue
+            
             # Extrair valores para cada mês
             for month in range(1, 13):
                 col_realizado = month_cols.get(month)
