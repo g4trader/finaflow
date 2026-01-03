@@ -65,8 +65,11 @@ class MonthlyDrilldownService:
         end_dt = datetime(year, month, last_day, 23, 59, 59)
         
         # Query para buscar lançamentos do mês
+        from app.models.chart_of_accounts import ChartAccountGroup
+        
         query = (
             db.query(LancamentoDiario)
+            .join(ChartAccountGroup, LancamentoDiario.grupo_id == ChartAccountGroup.id)
             .filter(
                 LancamentoDiario.tenant_id == tenant_id,
                 LancamentoDiario.business_unit_id == business_unit_id,
@@ -74,6 +77,18 @@ class MonthlyDrilldownService:
                 LancamentoDiario.data_movimentacao >= start_dt,
                 LancamentoDiario.data_movimentacao <= end_dt,
             )
+        )
+        
+        # APLICAR FILTRO DIRETAMENTE NA QUERY para excluir Deduções e Movimentações Não Operacionais
+        query = query.filter(
+            ~ChartAccountGroup.name.ilike('%dedução%'),
+            ~ChartAccountGroup.name.ilike('%deducao%'),
+            ~ChartAccountGroup.name.ilike('%deduções%'),
+            ~ChartAccountGroup.name.ilike('%deducoes%'),
+            ~ChartAccountGroup.name.ilike('%movimentações não operacionais%'),
+            ~ChartAccountGroup.name.ilike('%movimentacoes nao operacionais%'),
+            ~ChartAccountGroup.name.ilike('%movimentações nao operacionais%'),
+            ~ChartAccountGroup.name.ilike('%movimentacoes não operacionais%'),
         )
         
         # Buscar todos os lançamentos
@@ -91,24 +106,11 @@ class MonthlyDrilldownService:
         }
         
         # Agregar transações por dia
+        # FILTRO JÁ APLICADO NA QUERY - não precisa verificar novamente
         for tx in transactions:
             # Ignorar transações sem tipo
             if tx.transaction_type is None:
                 continue
-            
-            # FILTRO CRÍTICO: Excluir categorias que não devem entrar no cálculo
-            # "Deduções" não são despesas - são reduções de receita
-            # "Movimentações Não Operacionais" não são despesas operacionais
-            grupo_nome = tx.grupo.name.lower() if tx.grupo else ""
-            
-            # Excluir Deduções
-            if "dedução" in grupo_nome or "deducao" in grupo_nome or "deduções" in grupo_nome or "deducoes" in grupo_nome:
-                continue  # Não contar como despesa
-            
-            # Excluir Movimentações Não Operacionais
-            if "movimentações não operacionais" in grupo_nome or "movimentacoes nao operacionais" in grupo_nome or \
-               "movimentações nao operacionais" in grupo_nome or "movimentacoes não operacionais" in grupo_nome:
-                continue  # Não contar como despesa operacional
             
             day = tx.data_movimentacao.day
             valor = tx.valor if tx.valor is not None else Decimal("0")

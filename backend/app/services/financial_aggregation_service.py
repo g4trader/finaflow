@@ -81,24 +81,11 @@ class FinancialAggregationService:
         }
 
         # Agregar transações por mês
+        # FILTRO JÁ APLICADO NA QUERY - não precisa verificar novamente
         for tx in transactions:
             # Ignorar transações sem tipo
             if tx.transaction_type is None:
                 continue
-
-            # FILTRO CRÍTICO: Excluir categorias que não devem entrar no cálculo
-            # "Deduções" não são despesas - são reduções de receita
-            # "Movimentações Não Operacionais" não são despesas operacionais
-            grupo_nome = tx.grupo.name.lower() if tx.grupo else ""
-            
-            # Excluir Deduções
-            if "dedução" in grupo_nome or "deducao" in grupo_nome or "deduções" in grupo_nome or "deducoes" in grupo_nome:
-                continue  # Não contar como despesa
-            
-            # Excluir Movimentações Não Operacionais
-            if "movimentações não operacionais" in grupo_nome or "movimentacoes nao operacionais" in grupo_nome or \
-               "movimentações nao operacionais" in grupo_nome or "movimentacoes não operacionais" in grupo_nome:
-                continue  # Não contar como despesa operacional
 
             month = tx.data_movimentacao.month
             valor = tx.valor if tx.valor is not None else Decimal("0")
