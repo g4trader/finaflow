@@ -102,15 +102,31 @@ def determine_transaction_type(grupo_nome: str, subgrupo_nome: Optional[str] = N
     
     REGRA CRÍTICA: Grupos com "Custos" (singular ou plural) devem ser CUSTO.
     Ordem de verificação:
-    1. RECEITA (palavras-chave: receita, venda, renda, faturamento, vendas)
-    2. CUSTO (palavras-chave: custo, custos - no grupo OU subgrupo)
-    3. DESPESA (padrão)
+    1. EXCLUSÕES (Deduções, Movimentações Não Operacionais)
+    2. RECEITA (palavras-chave: receita, venda, renda, faturamento, vendas)
+    3. CUSTO (palavras-chave: custo, custos - no grupo OU subgrupo)
+    4. DESPESA (padrão)
     """
     if not grupo_nome:
         return TransactionType.DESPESA
     
     grupo_lower = grupo_nome.lower().strip()
     subgrupo_lower = (subgrupo_nome or "").lower().strip()
+    
+    # 0. EXCLUSÕES EXPLÍCITAS - Não devem ser classificadas como DESPESA/CUSTO/RECEITA
+    # "Deduções" não são despesas - são reduções de receita
+    if "dedução" in grupo_lower or "deducao" in grupo_lower or "deduções" in grupo_lower or "deducoes" in grupo_lower:
+        # Deduções devem ser tratadas separadamente ou como RECEITA negativa
+        # Por enquanto, retornar DESPESA mas será filtrado no cálculo
+        # TODO: Criar tipo DEDUCAO ou tratar como receita negativa
+        return TransactionType.DESPESA  # Temporário - será filtrado
+    
+    # "Movimentações Não Operacionais" não são despesas operacionais
+    if "movimentações não operacionais" in grupo_lower or "movimentacoes nao operacionais" in grupo_lower or \
+       "movimentações nao operacionais" in grupo_lower or "movimentacoes não operacionais" in grupo_lower:
+        # Movimentações não operacionais não devem entrar no cálculo de despesas operacionais
+        # Por enquanto, retornar DESPESA mas será filtrado no cálculo
+        return TransactionType.DESPESA  # Temporário - será filtrado
     
     # 1. Verificar RECEITA
     receita_keywords = ["receita", "venda", "renda", "faturamento", "vendas"]
