@@ -959,6 +959,11 @@ def seed_lancamentos_diarios(
                 if 'observacoes' in column_map:
                     observacoes = str(row[column_map['observacoes']]).strip() if pd.notna(row[column_map['observacoes']]) else ""
                 
+                # CORREÇÃO CRÍTICA: Remover espaços extras no final (problema comum em Excel)
+                grupo_nome = grupo_nome.rstrip()
+                subgrupo_nome = subgrupo_nome.rstrip()
+                conta_nome = conta_nome.rstrip()
+                
                 # Ler coluna de liquidação (código da conta: scb, cef, cx, etc.)
                 liquidacao_codigo = None
                 if 'liquidacao' in column_map:
