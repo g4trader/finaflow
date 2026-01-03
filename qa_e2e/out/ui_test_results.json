@@ -1,10 +1,10 @@
 {
   "dashboard": {
-    "status": "FAIL",
+    "status": "PASS",
     "totals": {
-      "revenue": 0.0,
-      "expense": 0.0,
-      "cost": 0.0
+      "revenue": 1098490.83,
+      "expense": 712606.65,
+      "cost": 347107.64
     },
     "api_totals": {
       "revenue": 1098490.83,
@@ -12,47 +12,55 @@
       "cost": 347107.64,
       "balance": 38776.54
     },
-    "mismatches": [
-      {
-        "field": "revenue",
-        "ui": 0.0,
-        "api": 1098490.83,
-        "diff": 1098490.83
-      },
-      {
-        "field": "expense",
-        "ui": 0.0,
-        "api": 712606.65,
-        "diff": 712606.65
-      },
-      {
-        "field": "cost",
-        "ui": 0.0,
-        "api": 347107.64,
-        "diff": 347107.64
-      }
-    ]
+    "mismatches": [],
+    "url": "https://finaflow-lcz5.vercel.app/dashboard?year=2025",
+    "title": ""
   },
   "dashboard_operational": {
-    "status": "PASS",
+    "status": "FAIL",
     "components": {
       "disponibilidades": true,
       "alertas": true,
       "previsto_vs_realizado": true,
-      "contas_pagar": true,
-      "contas_receber": true
+      "contas_pagar": false,
+      "contas_receber": false
     },
-    "has_error": false
+    "has_error": true,
+    "url": "https://finaflow-lcz5.vercel.app/dashboard-operational",
+    "title": "",
+    "cards_found": 0
   },
   "financial_forecasts": {
     "status": "FAIL",
     "has_cors_error": false,
     "has_network_error": false,
     "has_500_error": true,
-    "console_logs": [
-      "{'level': 'SEVERE', 'message': 'https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()', 'source': 'network', 'timestamp': 1765896653858}",
-      "{'level': 'SEVERE', 'message': 'https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()', 'source': 'network', 'timestamp': 1765896659103}",
-      "{'level': 'SEVERE', 'message': 'https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()', 'source': 'network', 'timestamp': 1765896659103}"
+    "has_content": true,
+    "has_table_or_list": true,
+    "url": "https://finaflow-lcz5.vercel.app/financial-forecasts",
+    "title": "",
+    "console_logs_count": 19,
+    "console_errors": [
+      {
+        "level": "SEVERE",
+        "message": "https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "level": "SEVERE",
+        "message": "https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "level": "SEVERE",
+        "message": "https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "level": "SEVERE",
+        "message": "https://finaflow-backend-staging-642830139828.us-central1.run.app/api/v1/operational/availability - Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "level": "SEVERE",
+        "message": "https://finaflow-backend-staging-642830139828.us-central1.run.app/api/v1/operational/receivables-summary - Failed to load resource: the server responded with a status of 404 ()"
+      }
     ]
   }
 }

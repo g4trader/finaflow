@@ -117,3 +117,11 @@ Após o deploy bem-sucedido:
 3. ✅ Validar CORS está funcionando
 4. ✅ Executar testes E2E se necessário
 
+
+
+
+
+
+
+
+

@@ -1,0 +1,133 @@
+{
+  "year": 2025,
+  "type": "despesa",
+  "monthly_analysis": [
+    {
+      "month": 1,
+      "type": "despesa",
+      "excel_total": 41538.7,
+      "system_total": 41538.7,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 57
+    },
+    {
+      "month": 2,
+      "type": "despesa",
+      "excel_total": 34449.2,
+      "system_total": 34449.2,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 32
+    },
+    {
+      "month": 3,
+      "type": "despesa",
+      "excel_total": 29352.89,
+      "system_total": 29352.89,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 36
+    },
+    {
+      "month": 4,
+      "type": "despesa",
+      "excel_total": 40137.73,
+      "system_total": 40087.73,
+      "total_diff": 50.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 50
+    },
+    {
+      "month": 5,
+      "type": "despesa",
+      "excel_total": 50281.01,
+      "system_total": 50281.01,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 66
+    },
+    {
+      "month": 6,
+      "type": "despesa",
+      "excel_total": 46719.84,
+      "system_total": 46290.43,
+      "total_diff": 429.41,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 64
+    },
+    {
+      "month": 7,
+      "type": "despesa",
+      "excel_total": 33220.52,
+      "system_total": 33220.52,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 55
+    },
+    {
+      "month": 8,
+      "type": "despesa",
+      "excel_total": 43814.34,
+      "system_total": 43501.97,
+      "total_diff": 312.37,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 62
+    },
+    {
+      "month": 9,
+      "type": "despesa",
+      "excel_total": 47495.36,
+      "system_total": 47743.71,
+      "total_diff": -248.35,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 78
+    },
+    {
+      "month": 10,
+      "type": "despesa",
+      "excel_total": 53023.0,
+      "system_total": 55492.0,
+      "total_diff": -2469.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 77
+    },
+    {
+      "month": 11,
+      "type": "despesa",
+      "excel_total": 54012.92,
+      "system_total": 54457.97,
+      "total_diff": -445.05,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 69
+    },
+    {
+      "month": 12,
+      "type": "despesa",
+      "excel_total": 14767.18,
+      "system_total": 14767.18,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 7
+    }
+  ],
+  "duplicates": [],
+  "summary": {
+    "total_excel": 488812.69,
+    "total_system": 491183.31,
+    "total_diff": -2370.6199999999953,
+    "total_duplicates": 0
+  }
+}

@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import Layout from '../../components/layout/Layout';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { Building2, Users, MapPin, Plus } from 'lucide-react';
+import { Building2, Users, MapPin, Plus, Upload } from 'lucide-react';
 import { getTenants, getBusinessUnits } from '../../services/api';
 
 interface Tenant {

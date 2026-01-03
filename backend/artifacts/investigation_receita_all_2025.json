@@ -1,0 +1,208 @@
+{
+  "year": 2025,
+  "type": "receita",
+  "monthly_analysis": [
+    {
+      "month": 1,
+      "type": "receita",
+      "excel_total": 86026.29,
+      "system_total": 86153.06,
+      "total_diff": -126.77,
+      "differences": [
+        {
+          "categoria": "Receita::Receita",
+          "excel": 86026.29,
+          "sistema": 85198.49,
+          "diff": 827.8
+        },
+        {
+          "categoria": "Receita Financeira::Receita Financeira",
+          "excel": 0.0,
+          "sistema": 954.57,
+          "diff": -954.57
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 133
+    },
+    {
+      "month": 2,
+      "type": "receita",
+      "excel_total": 70722.25,
+      "system_total": 70722.25,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 112
+    },
+    {
+      "month": 3,
+      "type": "receita",
+      "excel_total": 62536.86,
+      "system_total": 61536.86,
+      "total_diff": 1000.0,
+      "differences": [
+        {
+          "categoria": "Receita::Receita",
+          "excel": 62536.86,
+          "sistema": 61536.86,
+          "diff": 1000.0
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 117
+    },
+    {
+      "month": 4,
+      "type": "receita",
+      "excel_total": 88419.87,
+      "system_total": 87419.87,
+      "total_diff": 1000.0,
+      "differences": [
+        {
+          "categoria": "Receita::Receita",
+          "excel": 88419.87,
+          "sistema": 87419.87,
+          "diff": 1000.0
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 137
+    },
+    {
+      "month": 5,
+      "type": "receita",
+      "excel_total": 103320.05,
+      "system_total": 103520.05,
+      "total_diff": -200.0,
+      "differences": [
+        {
+          "categoria": "Receita::Receita",
+          "excel": 103320.05,
+          "sistema": 101020.05,
+          "diff": 2300.0
+        },
+        {
+          "categoria": "Receita Financeira::Receita Financeira",
+          "excel": 0.0,
+          "sistema": 2500.0,
+          "diff": -2500.0
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 176
+    },
+    {
+      "month": 6,
+      "type": "receita",
+      "excel_total": 125118.89,
+      "system_total": 124829.19,
+      "total_diff": 289.7,
+      "differences": [
+        {
+          "categoria": "Receita::Receita",
+          "excel": 125118.89,
+          "sistema": 124829.19,
+          "diff": 289.7
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 161
+    },
+    {
+      "month": 7,
+      "type": "receita",
+      "excel_total": 117839.6792,
+      "system_total": 117579.98,
+      "total_diff": 259.6992,
+      "differences": [
+        {
+          "categoria": "Receita::Receita",
+          "excel": 117839.6792,
+          "sistema": 117579.98,
+          "diff": 259.6992
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 178
+    },
+    {
+      "month": 8,
+      "type": "receita",
+      "excel_total": 118382.58,
+      "system_total": 118177.78,
+      "total_diff": 204.8,
+      "differences": [
+        {
+          "categoria": "Receita::Receita",
+          "excel": 118382.58,
+          "sistema": 118177.78,
+          "diff": 204.8
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 153
+    },
+    {
+      "month": 9,
+      "type": "receita",
+      "excel_total": 115831.87,
+      "system_total": 115831.87,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 167
+    },
+    {
+      "month": 10,
+      "type": "receita",
+      "excel_total": 106221.25,
+      "system_total": 105101.19,
+      "total_diff": 1120.06,
+      "differences": [
+        {
+          "categoria": "Receita::Receita",
+          "excel": 106221.25,
+          "sistema": 105101.19,
+          "diff": 1120.06
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 185
+    },
+    {
+      "month": 11,
+      "type": "receita",
+      "excel_total": 84145.7,
+      "system_total": 93922.9,
+      "total_diff": -9777.2,
+      "differences": [
+        {
+          "categoria": "Receita Financeira::Receita Financeira",
+          "excel": 0.0,
+          "sistema": 9777.2,
+          "diff": -9777.2
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 118
+    },
+    {
+      "month": 12,
+      "type": "receita",
+      "excel_total": 13695.83,
+      "system_total": 13695.83,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 23
+    }
+  ],
+  "duplicates": [],
+  "summary": {
+    "total_excel": 1092261.1192,
+    "total_system": 1098490.83,
+    "total_diff": -6229.710800000001,
+    "total_duplicates": 0
+  }
+}

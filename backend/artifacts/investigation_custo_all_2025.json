@@ -1,0 +1,342 @@
+{
+  "year": 2025,
+  "type": "custo",
+  "monthly_analysis": [
+    {
+      "month": 1,
+      "type": "custo",
+      "excel_total": 34054.53,
+      "system_total": 28443.42,
+      "total_diff": 5611.11,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 15463.61,
+          "diff": -15463.61
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 34054.53,
+          "sistema": 0.0,
+          "diff": 34054.53
+        },
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 12979.81,
+          "diff": -12979.81
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 36
+    },
+    {
+      "month": 2,
+      "type": "custo",
+      "excel_total": 28154.08,
+      "system_total": 23325.37,
+      "total_diff": 4828.71,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 15954.87,
+          "diff": -15954.87
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 28154.08,
+          "sistema": 0.0,
+          "diff": 28154.08
+        },
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 7370.5,
+          "diff": -7370.5
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 33
+    },
+    {
+      "month": 3,
+      "type": "custo",
+      "excel_total": 30747.8,
+      "system_total": 27626.11,
+      "total_diff": 3121.69,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 21418.5,
+          "diff": -21418.5
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 30747.8,
+          "sistema": 0.0,
+          "diff": 30747.8
+        },
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 6207.61,
+          "diff": -6207.61
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 30
+    },
+    {
+      "month": 4,
+      "type": "custo",
+      "excel_total": 28164.7,
+      "system_total": 25822.33,
+      "total_diff": 2342.37,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 15884.77,
+          "diff": -15884.77
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 28164.7,
+          "sistema": 0.0,
+          "diff": 28164.7
+        },
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 9937.56,
+          "diff": -9937.56
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 31
+    },
+    {
+      "month": 5,
+      "type": "custo",
+      "excel_total": 31131.11,
+      "system_total": 29614.17,
+      "total_diff": 1516.94,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 21182.71,
+          "diff": -21182.71
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 31131.11,
+          "sistema": 0.0,
+          "diff": 31131.11
+        },
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 8431.46,
+          "diff": -8431.46
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 44
+    },
+    {
+      "month": 6,
+      "type": "custo",
+      "excel_total": 43716.87,
+      "system_total": 40330.01,
+      "total_diff": 3386.86,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 22499.97,
+          "diff": -22499.97
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 43716.87,
+          "sistema": 0.0,
+          "diff": 43716.87
+        },
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 17830.04,
+          "diff": -17830.04
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 45
+    },
+    {
+      "month": 7,
+      "type": "custo",
+      "excel_total": 44674.1,
+      "system_total": 41377.85,
+      "total_diff": 3296.25,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 18493.04,
+          "diff": -18493.04
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 44674.1,
+          "sistema": 0.0,
+          "diff": 44674.1
+        },
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 22884.81,
+          "diff": -22884.81
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 58
+    },
+    {
+      "month": 8,
+      "type": "custo",
+      "excel_total": 34641.88,
+      "system_total": 28976.61,
+      "total_diff": 5665.27,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 9659.88,
+          "diff": -9659.88
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 34641.88,
+          "sistema": 0.0,
+          "diff": 34641.88
+        },
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 19316.73,
+          "diff": -19316.73
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 45
+    },
+    {
+      "month": 9,
+      "type": "custo",
+      "excel_total": 38608.34,
+      "system_total": 36138.16,
+      "total_diff": 2470.18,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 26574.39,
+          "diff": -26574.39
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 38608.34,
+          "sistema": 0.0,
+          "diff": 38608.34
+        },
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 9563.77,
+          "diff": -9563.77
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 53
+    },
+    {
+      "month": 10,
+      "type": "custo",
+      "excel_total": 39423.03,
+      "system_total": 33774.16,
+      "total_diff": 5648.87,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 18089.85,
+          "diff": -18089.85
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 39423.03,
+          "sistema": 0.0,
+          "diff": 39423.03
+        },
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 15684.31,
+          "diff": -15684.31
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 59
+    },
+    {
+      "month": 11,
+      "type": "custo",
+      "excel_total": 42913.23,
+      "system_total": 31679.45,
+      "total_diff": 11233.78,
+      "differences": [
+        {
+          "categoria": "Custos::Custos com Mão de Obra",
+          "excel": 0.0,
+          "sistema": 16537.51,
+          "diff": -16537.51
+        },
+        {
+          "categoria": "Custos::Custos",
+          "excel": 42913.23,
+          "sistema": 0.0,
+          "diff": 42913.23
+        },
+        {
+          "categoria": "Custos::Custos com Serviços Prestados",
+          "excel": 0.0,
+          "sistema": 15141.94,
+          "diff": -15141.94
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 55
+    },
+    {
+      "month": 12,
+      "type": "custo",
+      "excel_total": 0.0,
+      "system_total": 0.0,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 0,
+      "system_items": 0
+    }
+  ],
+  "duplicates": [],
+  "summary": {
+    "total_excel": 396229.67,
+    "total_system": 347107.64,
+    "total_diff": 49122.02999999997,
+    "total_duplicates": 0
+  }
+}

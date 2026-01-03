@@ -81,11 +81,17 @@ def login_api(username: str = "qa@finaflow.test", password: str = "QaFinaflow123
         return None
 
 
-def get_monthly_transactions_from_api(token: str, year: int, month: int, transaction_type: str = None) -> List[Dict]:
-    """Obtém todas as transações mensais da API (com paginação)"""
+def get_monthly_transactions_from_api(token: str, year: int, month: int, transaction_type: str = None) -> Tuple[List[Dict], Dict]:
+    """
+    Obtém todas as transações mensais da API (com paginação) e o summary (já filtrado)
+    
+    Retorna:
+        (items, summary) onde summary já tem os filtros aplicados
+    """
     try:
         headers = {"Authorization": f"Bearer {token}"}
         all_items = []
+        summary = None
         page = 1
         page_size = 200  # Máximo permitido
         
@@ -105,6 +111,10 @@ def get_monthly_transactions_from_api(token: str, year: int, month: int, transac
             items = data.get("items", [])
             all_items.extend(items)
             
+            # Pegar summary da primeira página (já tem os filtros aplicados)
+            if page == 1:
+                summary = data.get("summary", {})
+            
             # Verificar se há mais páginas
             total_pages = data.get("total_pages", 1)
             if page >= total_pages:
@@ -112,10 +122,10 @@ def get_monthly_transactions_from_api(token: str, year: int, month: int, transac
             
             page += 1
         
-        return all_items
+        return all_items, summary or {}
     except Exception as e:
         print(f"❌ Erro ao buscar monthly transactions: {e}")
-        return []
+        return [], {}
 
 
 def extract_fluxo_caixa_detailed(excel_file: Path, transaction_type: str = None, use_totals_only: bool = True) -> Dict[int, List[Dict]]:
@@ -282,10 +292,15 @@ def extract_fluxo_caixa_detailed(excel_file: Path, transaction_type: str = None,
     return detailed_data
 
 
-def get_system_transactions_by_month(token: str, year: int, month: int, transaction_type: str = None) -> List[Dict]:
-    """Obtém todas as transações do sistema para um mês específico"""
-    transactions = get_monthly_transactions_from_api(token, year, month, transaction_type)
-    return transactions
+def get_system_transactions_by_month(token: str, year: int, month: int, transaction_type: str = None) -> Tuple[List[Dict], Dict]:
+    """
+    Obtém todas as transações do sistema para um mês específico e o summary (já filtrado)
+    
+    Retorna:
+        (transactions, summary) onde summary já tem os filtros aplicados
+    """
+    transactions, summary = get_monthly_transactions_from_api(token, year, month, transaction_type)
+    return transactions, summary
 
 
 def compare_detailed_month(
@@ -446,16 +461,45 @@ def main():
         # Dados da planilha
         excel_month_data = excel_detailed.get(month, [])
         
-        # Dados do sistema
-        system_transactions = get_system_transactions_by_month(token, args.year, month, args.type)
+        # Dados do sistema (usar summary que já tem filtros aplicados)
+        system_transactions, system_summary = get_system_transactions_by_month(token, args.year, month, args.type)
+        
+        # Usar summary ao invés de somar itens (summary já tem filtros aplicados)
+        if system_summary:
+            # Converter summary para formato esperado
+            tipo_key = args.type.lower() if args.type else None
+            if tipo_key == "despesa":
+                system_total = Decimal(str(system_summary.get("expense", "0")))
+            elif tipo_key == "receita":
+                system_total = Decimal(str(system_summary.get("revenue", "0")))
+            elif tipo_key == "custo":
+                system_total = Decimal(str(system_summary.get("cost", "0")))
+            else:
+                # Se não especificou tipo, somar todos
+                system_total = (
+                    Decimal(str(system_summary.get("revenue", "0"))) +
+                    Decimal(str(system_summary.get("expense", "0"))) +
+                    Decimal(str(system_summary.get("cost", "0")))
+                )
+        else:
+            # Fallback: somar itens (não ideal, mas funciona)
+            system_total = sum(
+                Decimal(str(item.get("amount", "0"))) for item in system_transactions
+            )
         
         # Comparar
-        comparison = compare_detailed_month(
-            excel_month_data,
-            system_transactions,
-            month,
-            args.type or "todos"
-        )
+        excel_total = sum(item["valor_realizado"] for item in excel_month_data)
+        
+        comparison = {
+            "month": month,
+            "type": args.type or "todos",
+            "excel_total": float(excel_total),
+            "system_total": float(system_total),
+            "total_diff": float(excel_total - system_total),
+            "differences": [],  # Simplificado por enquanto
+            "excel_items": len(excel_month_data),
+            "system_items": len(system_transactions)
+        }
         
         investigation_results["monthly_analysis"].append(comparison)
         

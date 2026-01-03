@@ -1,0 +1,23 @@
+{
+  "year": 2025,
+  "type": "despesa",
+  "monthly_analysis": [
+    {
+      "month": 1,
+      "type": "despesa",
+      "excel_total": 41538.7,
+      "system_total": 56231.57,
+      "total_diff": -14692.87,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 67
+    }
+  ],
+  "duplicates": [],
+  "summary": {
+    "total_excel": 41538.7,
+    "total_system": 56231.57,
+    "total_diff": -14692.870000000003,
+    "total_duplicates": 0
+  }
+}

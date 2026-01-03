@@ -1,0 +1,733 @@
+{
+  "year": 2025,
+  "type": "despesa",
+  "monthly_analysis": [
+    {
+      "month": 1,
+      "type": "despesa",
+      "excel_total": 41538.7,
+      "system_total": 56231.57,
+      "total_diff": -14692.87,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 8419.38,
+          "diff": -8419.38
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 41538.7,
+          "sistema": 0.0,
+          "diff": 41538.7
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 394.79,
+          "diff": -394.79
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 12889.17,
+          "diff": -12889.17
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1672.0,
+          "diff": -1672.0
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 6273.49,
+          "diff": -6273.49
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 7240.11,
+          "diff": -7240.11
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 19342.63,
+          "diff": -19342.63
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 67
+    },
+    {
+      "month": 2,
+      "type": "despesa",
+      "excel_total": 34449.2,
+      "system_total": 46979.07,
+      "total_diff": -12529.87,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 6465.13,
+          "diff": -6465.13
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 34449.2,
+          "sistema": 0.0,
+          "diff": 34449.2
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 13020.27,
+          "diff": -13020.27
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 352.07,
+          "diff": -352.07
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 6064.74,
+          "diff": -6064.74
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1600.0,
+          "diff": -1600.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 602.32,
+          "diff": -602.32
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 18874.54,
+          "diff": -18874.54
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 40
+    },
+    {
+      "month": 3,
+      "type": "despesa",
+      "excel_total": 29352.89,
+      "system_total": 44479.61,
+      "total_diff": -15126.72,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 9333.67,
+          "diff": -9333.67
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 29352.89,
+          "sistema": 0.0,
+          "diff": 29352.89
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 7817.19,
+          "diff": -7817.19
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 343.52,
+          "diff": -343.52
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1600.0,
+          "diff": -1600.0
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 5793.05,
+          "diff": -5793.05
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 2570.0,
+          "diff": -2570.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 17022.18,
+          "diff": -17022.18
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 42
+    },
+    {
+      "month": 4,
+      "type": "despesa",
+      "excel_total": 40137.73,
+      "system_total": 59242.13,
+      "total_diff": -19104.4,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 13465.51,
+          "diff": -13465.51
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 40137.73,
+          "sistema": 0.0,
+          "diff": 40137.73
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 8835.0,
+          "diff": -8835.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 2542.03,
+          "diff": -2542.03
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1600.0,
+          "diff": -1600.0
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 5688.89,
+          "diff": -5688.89
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 2854.66,
+          "diff": -2854.66
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 24256.04,
+          "diff": -24256.04
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 57
+    },
+    {
+      "month": 5,
+      "type": "despesa",
+      "excel_total": 50281.01,
+      "system_total": 137917.7,
+      "total_diff": -87636.69,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 4862.81,
+          "diff": -4862.81
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 50281.01,
+          "sistema": 0.0,
+          "diff": 50281.01
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 5063.87,
+          "diff": -5063.87
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 20068.2,
+          "diff": -20068.2
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 5773.88,
+          "diff": -5773.88
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1600.0,
+          "diff": -1600.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 3605.38,
+          "diff": -3605.38
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 19943.56,
+          "diff": -19943.56
+        },
+        {
+          "categoria": "Movimentações Não Operacionais::Entradas não Operacionais",
+          "excel": 0.0,
+          "sistema": 77000.0,
+          "diff": -77000.0
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 73
+    },
+    {
+      "month": 6,
+      "type": "despesa",
+      "excel_total": 46719.84,
+      "system_total": 56886.18,
+      "total_diff": -10166.34,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 4633.49,
+          "diff": -4633.49
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 46719.84,
+          "sistema": 0.0,
+          "diff": 46719.84
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 475.06,
+          "diff": -475.06
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 13963.94,
+          "diff": -13963.94
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 5962.26,
+          "diff": -5962.26
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1819.0,
+          "diff": -1819.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 5202.01,
+          "diff": -5202.01
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 24830.42,
+          "diff": -24830.42
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 68
+    },
+    {
+      "month": 7,
+      "type": "despesa",
+      "excel_total": 33220.52,
+      "system_total": 43338.88,
+      "total_diff": -10118.36,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 4650.2,
+          "diff": -4650.2
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 33220.52,
+          "sistema": 0.0,
+          "diff": 33220.52
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 6590.37,
+          "diff": -6590.37
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 3045.82,
+          "diff": -3045.82
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 5468.16,
+          "diff": -5468.16
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1600.0,
+          "diff": -1600.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 3738.83,
+          "diff": -3738.83
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 18245.5,
+          "diff": -18245.5
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 58
+    },
+    {
+      "month": 8,
+      "type": "despesa",
+      "excel_total": 43814.34,
+      "system_total": 53686.36,
+      "total_diff": -9872.02,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 4704.87,
+          "diff": -4704.87
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 43814.34,
+          "sistema": 0.0,
+          "diff": 43814.34
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 11504.94,
+          "diff": -11504.94
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 355.65,
+          "diff": -355.65
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1600.0,
+          "diff": -1600.0
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 5479.52,
+          "diff": -5479.52
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 6366.89,
+          "diff": -6366.89
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 23674.49,
+          "diff": -23674.49
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 65
+    },
+    {
+      "month": 9,
+      "type": "despesa",
+      "excel_total": 47495.36,
+      "system_total": 61068.6,
+      "total_diff": -13573.24,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 7384.75,
+          "diff": -7384.75
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 47495.36,
+          "sistema": 0.0,
+          "diff": 47495.36
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 20515.33,
+          "diff": -20515.33
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 363.88,
+          "diff": -363.88
+        },
+        {
+          "categoria": "Investimentos::Investimentos em Bens Materiais",
+          "excel": 0.0,
+          "sistema": 479.81,
+          "diff": -479.81
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 5940.14,
+          "diff": -5940.14
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1687.41,
+          "diff": -1687.41
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 3390.35,
+          "diff": -3390.35
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 21306.93,
+          "diff": -21306.93
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 82
+    },
+    {
+      "month": 10,
+      "type": "despesa",
+      "excel_total": 53023.0,
+      "system_total": 69341.95,
+      "total_diff": -16318.95,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 7440.46,
+          "diff": -7440.46
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 53023.0,
+          "sistema": 0.0,
+          "diff": 53023.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 362.83,
+          "diff": -362.83
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 15528.67,
+          "diff": -15528.67
+        },
+        {
+          "categoria": "Investimentos::Investimentos em Bens Materiais",
+          "excel": 0.0,
+          "sistema": 2869.0,
+          "diff": -2869.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 6877.94,
+          "diff": -6877.94
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 6328.15,
+          "diff": -6328.15
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 3750.91,
+          "diff": -3750.91
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 26102.65,
+          "diff": -26102.65
+        },
+        {
+          "categoria": "Movimentações Não Operacionais::Entradas não Operacionais",
+          "excel": 0.0,
+          "sistema": 81.34,
+          "diff": -81.34
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 82
+    },
+    {
+      "month": 11,
+      "type": "despesa",
+      "excel_total": 54012.92,
+      "system_total": 65085.36,
+      "total_diff": -11072.44,
+      "differences": [
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 4869.59,
+          "diff": -4869.59
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 54012.92,
+          "sistema": 0.0,
+          "diff": 54012.92
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 21591.4,
+          "diff": -21591.4
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Financeiras",
+          "excel": 0.0,
+          "sistema": 433.44,
+          "diff": -433.44
+        },
+        {
+          "categoria": "Investimentos::Investimentos em Bens Materiais",
+          "excel": 0.0,
+          "sistema": 459.9,
+          "diff": -459.9
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Marketing",
+          "excel": 0.0,
+          "sistema": 1825.2,
+          "diff": -1825.2
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 5757.8,
+          "diff": -5757.8
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 4616.71,
+          "diff": -4616.71
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 25531.32,
+          "diff": -25531.32
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 72
+    },
+    {
+      "month": 12,
+      "type": "despesa",
+      "excel_total": 14767.18,
+      "system_total": 18349.24,
+      "total_diff": -3582.06,
+      "differences": [
+        {
+          "categoria": "Despesas Operacionais::Despesas Comerciais",
+          "excel": 0.0,
+          "sistema": 13.68,
+          "diff": -13.68
+        },
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 3582.06,
+          "diff": -3582.06
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Operacionais",
+          "excel": 14767.18,
+          "sistema": 0.0,
+          "diff": 14767.18
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas Administrativas",
+          "excel": 0.0,
+          "sistema": 3.5,
+          "diff": -3.5
+        },
+        {
+          "categoria": "Despesas Operacionais::Despesas com Pessoal",
+          "excel": 0.0,
+          "sistema": 14750.0,
+          "diff": -14750.0
+        }
+      ],
+      "excel_items": 1,
+      "system_items": 8
+    }
+  ],
+  "duplicates": [],
+  "summary": {
+    "total_excel": 488812.69,
+    "total_system": 712606.65,
+    "total_diff": -223793.96000000002,
+    "total_duplicates": 0
+  }
+}

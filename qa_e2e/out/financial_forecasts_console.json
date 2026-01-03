@@ -1,5 +1,78 @@
 [
-  "{'level': 'SEVERE', 'message': 'https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()', 'source': 'network', 'timestamp': 1765896653858}",
-  "{'level': 'SEVERE', 'message': 'https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()', 'source': 'network', 'timestamp': 1765896659103}",
-  "{'level': 'SEVERE', 'message': 'https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()', 'source': 'network', 'timestamp': 1765896659103}"
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/api/v1/system/validation-status?year=2025 - Failed to load resource: the server responded with a status of 404 ()"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-backend-staging-642830139828.us-central1.run.app/api/v1/operational/availability - Failed to load resource: the server responded with a status of 404 ()"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-backend-staging-642830139828.us-central1.run.app/api/v1/operational/receivables-summary - Failed to load resource: the server responded with a status of 404 ()"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:881 \"Erro ao buscar dados de /api/v1/operational/availability:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:4054 \"Erro ao buscar disponibilidades:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 15:6309 \"Erro ao carregar dados do dashboard operacional:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:881 \"Erro ao buscar dados de /api/v1/operational/receivables-summary:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:4865 \"Erro ao buscar contas a receber:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-backend-staging-642830139828.us-central1.run.app/api/v1/operational/payables-summary - Failed to load resource: the server responded with a status of 404 ()"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:881 \"Erro ao buscar dados de /api/v1/operational/payables-summary:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:4680 \"Erro ao buscar contas a pagar:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-backend-staging-642830139828.us-central1.run.app/api/v1/operational/forecast-vs-realized?months=6 - Failed to load resource: the server responded with a status of 404 ()"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:881 \"Erro ao buscar dados de /api/v1/operational/forecast-vs-realized?months=6:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:4494 \"Erro ao buscar previsto vs realizado:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-backend-staging-642830139828.us-central1.run.app/api/v1/operational/alerts - Failed to load resource: the server responded with a status of 404 ()"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:881 \"Erro ao buscar dados de /api/v1/operational/alerts:\" AxiosError"
+  },
+  {
+    "level": "SEVERE",
+    "message": "https://finaflow-lcz5.vercel.app/_next/static/chunks/pages/dashboard-operational-8ab9575e45ce7dd6.js 0:4227 \"Erro ao buscar alertas:\" AxiosError"
+  }
 ]

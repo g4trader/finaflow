@@ -881,6 +881,52 @@ export const getChartAccounts = async (subgroupId?: string, groupId?: string, to
   }
 };
 
+// Funções de Onboarding
+export const validateSpreadsheet = async (url: string, tenantId: string, businessUnitId: string, token?: string) => {
+  try {
+    const response = await api.post('/api/v1/onboarding/validate-spreadsheet', {
+      url,
+      tenant_id: tenantId,
+      business_unit_id: businessUnitId
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao validar planilha');
+  }
+};
+
+export const startOnboarding = async (tenantId: string, businessUnitId: string, spreadsheetUrl: string, resetData: boolean = false, token?: string) => {
+  try {
+    const response = await api.post('/api/v1/onboarding/import', {
+      tenant_id: tenantId,
+      business_unit_id: businessUnitId,
+      spreadsheet_url: spreadsheetUrl,
+      reset_data: resetData
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao iniciar onboarding');
+  }
+};
+
+export const getOnboardingStatus = async (tenantId: string, businessUnitId: string, token?: string) => {
+  try {
+    const response = await api.get(`/api/v1/onboarding/status/${tenantId}/${businessUnitId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao buscar status do onboarding');
+  }
+};
+
+export const getReconciliation = async (tenantId: string, businessUnitId: string, token?: string) => {
+  try {
+    const response = await api.get(`/api/v1/onboarding/reconciliation/${tenantId}/${businessUnitId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao buscar conciliação');
+  }
+};
+
 // Função para importar plano de contas do CSV
 export const importChartAccounts = async (file: File, token?: string) => {
   try {

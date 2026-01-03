@@ -1,0 +1,168 @@
+{
+  "year": 2025,
+  "type": "despesa",
+  "monthly_analysis": [
+    {
+      "month": 1,
+      "type": "despesa",
+      "excel_total": 99916.16,
+      "system_total": 56231.57,
+      "total_diff": 43684.59,
+      "differences": [
+        {
+          "categoria": "Despesas Operacionais::Outras despesas Comerciais",
+          "excel": 1513.7,
+          "sistema": 0.0,
+          "diff": 1513.7
+        },
+        {
+          "categoria": "Despesas Operacionais::Pagamento de dívidas passadas",
+          "excel": 490.68,
+          "sistema": 0.0,
+          "diff": 490.68
+        },
+        {
+          "categoria": "Despesas Operacionais::Celular-COM",
+          "excel": 282.27,
+          "sistema": 0.0,
+          "diff": 282.27
+        },
+        {
+          "categoria": "Despesas Operacionais::Seguros",
+          "excel": 417.36,
+          "sistema": 0.0,
+          "diff": 417.36
+        },
+        {
+          "categoria": "Despesas Operacionais::Agências de markentig e Gestão de trafégo",
+          "excel": 1450.0,
+          "sistema": 0.0,
+          "diff": 1450.0
+        },
+        {
+          "categoria": "Despesas Operacionais::DARF",
+          "excel": 2140.39,
+          "sistema": 0.0,
+          "diff": 2140.39
+        },
+        {
+          "categoria": "Despesas Operacionais::Outras despesas administrativas",
+          "excel": 4848.69,
+          "sistema": 0.0,
+          "diff": 4848.69
+        },
+        {
+          "categoria": "Despesas Operacionais::Tarifas Bancárias",
+          "excel": 158.79,
+          "sistema": 0.0,
+          "diff": 158.79
+        },
+        {
+          "categoria": "Despesas Operacionais::Brindes",
+          "excel": 4114.8,
+          "sistema": 0.0,
+          "diff": 4114.8
+        },
+        {
+          "categoria": "Despesas Operacionais::Outras saídas não operacionais",
+          "excel": 4041.74,
+          "sistema": 0.0,
+          "diff": 4041.74
+        },
+        {
+          "categoria": "Despesas Operacionais::Aluguel de Máquinas de Cartão",
+          "excel": 236.0,
+          "sistema": 0.0,
+          "diff": 236.0
+        },
+        {
+          "categoria": "Deduções::Deduções da receita",
+          "excel": 0.0,
+          "sistema": 6273.49,
+          "diff": -6273.49
+        },
+        {
+          "categoria": "Movimentações Não Operacionais::Saídas não Operacionais",
+          "excel": 0.0,
+          "sistema": 8419.38,
+          "diff": -8419.38
+        },
+        {
+          "categoria": "Despesas Operacionais::Gasolina / Combustível-COM",
+          "excel": 1329.34,
+          "sistema": 0.0,
+          "diff": 1329.34
+        },
+        {
+          "categoria": "Despesas Operacionais::Exames ocupacionais-ADM",
+          "excel": 130.0,
+          "sistema": 0.0,
+          "diff": 130.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Vale Alimentação-ADM",
+          "excel": 389.79,
+          "sistema": 0.0,
+          "diff": 389.79
+        },
+        {
+          "categoria": "Despesas Operacionais::Pró-Labore-ADM",
+          "excel": 12369.38,
+          "sistema": 0.0,
+          "diff": 12369.38
+        },
+        {
+          "categoria": "Despesas Operacionais::Telefone e Internet-ADM",
+          "excel": 118.9,
+          "sistema": 0.0,
+          "diff": 118.9
+        },
+        {
+          "categoria": "Despesas Operacionais::Ferramentas e aplicativos - Marketing",
+          "excel": 222.0,
+          "sistema": 0.0,
+          "diff": 222.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Contabilidade",
+          "excel": 440.0,
+          "sistema": 0.0,
+          "diff": 440.0
+        },
+        {
+          "categoria": "Despesas Operacionais::Aluguel e Condomínio",
+          "excel": 11194.41,
+          "sistema": 0.0,
+          "diff": 11194.41
+        },
+        {
+          "categoria": "Despesas Operacionais::Pagamento de Empréstimos",
+          "excel": 3886.96,
+          "sistema": 0.0,
+          "diff": 3886.96
+        },
+        {
+          "categoria": "Despesas Operacionais::Serviços de terceiros-ADM",
+          "excel": 182.88,
+          "sistema": 0.0,
+          "diff": 182.88
+        },
+        {
+          "categoria": "Despesas Operacionais::Saídas não Operacionais",
+          "excel": 8419.38,
+          "sistema": 0.0,
+          "diff": 8419.38
+        }
+      ],
+      "excel_items": 27,
+      "system_items": 67
+    }
+  ],
+  "duplicates": [],
+  "summary": {
+    "total_excel": 99916.16,
+    "total_system": 56231.57,
+    "total_diff": 43684.590000000004,
+    "total_duplicates": 0
+  }
+}

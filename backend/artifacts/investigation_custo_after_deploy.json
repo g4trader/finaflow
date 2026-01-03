@@ -1,0 +1,133 @@
+{
+  "year": 2025,
+  "type": "custo",
+  "monthly_analysis": [
+    {
+      "month": 1,
+      "type": "custo",
+      "excel_total": 34054.53,
+      "system_total": 28443.42,
+      "total_diff": 5611.11,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 36
+    },
+    {
+      "month": 2,
+      "type": "custo",
+      "excel_total": 28154.08,
+      "system_total": 23325.37,
+      "total_diff": 4828.71,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 33
+    },
+    {
+      "month": 3,
+      "type": "custo",
+      "excel_total": 30747.8,
+      "system_total": 27626.11,
+      "total_diff": 3121.69,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 30
+    },
+    {
+      "month": 4,
+      "type": "custo",
+      "excel_total": 28164.7,
+      "system_total": 25822.33,
+      "total_diff": 2342.37,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 31
+    },
+    {
+      "month": 5,
+      "type": "custo",
+      "excel_total": 31131.11,
+      "system_total": 29614.17,
+      "total_diff": 1516.94,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 44
+    },
+    {
+      "month": 6,
+      "type": "custo",
+      "excel_total": 43716.87,
+      "system_total": 40330.01,
+      "total_diff": 3386.86,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 45
+    },
+    {
+      "month": 7,
+      "type": "custo",
+      "excel_total": 44674.1,
+      "system_total": 41377.85,
+      "total_diff": 3296.25,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 58
+    },
+    {
+      "month": 8,
+      "type": "custo",
+      "excel_total": 34641.88,
+      "system_total": 28976.61,
+      "total_diff": 5665.27,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 45
+    },
+    {
+      "month": 9,
+      "type": "custo",
+      "excel_total": 38608.34,
+      "system_total": 36138.16,
+      "total_diff": 2470.18,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 53
+    },
+    {
+      "month": 10,
+      "type": "custo",
+      "excel_total": 39423.03,
+      "system_total": 33774.16,
+      "total_diff": 5648.87,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 59
+    },
+    {
+      "month": 11,
+      "type": "custo",
+      "excel_total": 42913.23,
+      "system_total": 31679.45,
+      "total_diff": 11233.78,
+      "differences": [],
+      "excel_items": 1,
+      "system_items": 55
+    },
+    {
+      "month": 12,
+      "type": "custo",
+      "excel_total": 0.0,
+      "system_total": 0.0,
+      "total_diff": 0.0,
+      "differences": [],
+      "excel_items": 0,
+      "system_items": 0
+    }
+  ],
+  "duplicates": [],
+  "summary": {
+    "total_excel": 396229.67,
+    "total_system": 347107.64,
+    "total_diff": 49122.02999999997,
+    "total_duplicates": 0
+  }
+}
