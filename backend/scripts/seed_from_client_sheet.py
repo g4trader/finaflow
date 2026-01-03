@@ -51,6 +51,7 @@ except ImportError:
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from app.database import SessionLocal, create_tables
 
 # Importar TODOS os modelos para garantir que os relacionamentos sejam resolvidos corretamente
