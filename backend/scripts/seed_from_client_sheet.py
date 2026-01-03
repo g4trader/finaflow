@@ -1094,9 +1094,10 @@ def seed_lancamentos_diarios(
                 # Buscar conta específica da planilha (se informada), senão usar primeira conta do subgrupo
                 conta = None
                 if conta_nome:
-                    # Buscar conta específica pelo nome no subgrupo
+                    # CORREÇÃO: Buscar conta específica com case-insensitive e trim
+                    from sqlalchemy import func
                     conta = db.query(ChartAccount).filter(
-                        ChartAccount.name == conta_nome,
+                        func.trim(func.lower(ChartAccount.name)) == conta_nome.lower().strip(),
                         ChartAccount.subgroup_id == subgrupo.id,
                         ChartAccount.tenant_id == tenant.id
                     ).first()
