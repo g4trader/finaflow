@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, cast, Integer
+from sqlalchemy import func, and_, cast, Integer, not_
 
 from app.models.lancamento_diario import LancamentoDiario, TransactionType
 
@@ -55,8 +55,11 @@ class FinancialAggregationService:
         end_dt = datetime(year, 12, 31, 23, 59, 59)
 
         # Query para buscar lançamentos do ano
+        from app.models.chart_of_accounts import ChartAccountGroup
+        
         query = (
             db.query(LancamentoDiario)
+            .join(ChartAccountGroup, LancamentoDiario.grupo_id == ChartAccountGroup.id)
             .filter(
                 LancamentoDiario.tenant_id == tenant_id,
                 LancamentoDiario.business_unit_id == business_unit_id,
@@ -64,6 +67,18 @@ class FinancialAggregationService:
                 LancamentoDiario.data_movimentacao >= start_dt,
                 LancamentoDiario.data_movimentacao <= end_dt,
             )
+        )
+        
+        # APLICAR FILTRO DIRETAMENTE NA QUERY para excluir Deduções e Movimentações Não Operacionais
+        query = query.filter(
+            ~ChartAccountGroup.name.ilike('%dedução%'),
+            ~ChartAccountGroup.name.ilike('%deducao%'),
+            ~ChartAccountGroup.name.ilike('%deduções%'),
+            ~ChartAccountGroup.name.ilike('%deducoes%'),
+            ~ChartAccountGroup.name.ilike('%movimentações não operacionais%'),
+            ~ChartAccountGroup.name.ilike('%movimentacoes nao operacionais%'),
+            ~ChartAccountGroup.name.ilike('%movimentações nao operacionais%'),
+            ~ChartAccountGroup.name.ilike('%movimentacoes não operacionais%'),
         )
 
         # Buscar todos os lançamentos
