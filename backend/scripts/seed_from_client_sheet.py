@@ -1359,14 +1359,20 @@ def main():
             if args.reset_data:
                 logger.log("\n" + "-"*60, "STEP")
                 logger.log("⚠️  Resetando lançamentos existentes do tenant antes de semear...", "WARNING")
+                # CORREÇÃO: Filtrar apenas ano 2025 para não deletar dados de outros anos
+                from datetime import date
                 deleted_diarios = db.query(LancamentoDiario).filter(
-                    LancamentoDiario.tenant_id == tenant.id
+                    LancamentoDiario.tenant_id == tenant.id,
+                    LancamentoDiario.data_movimentacao >= date(2025, 1, 1),
+                    LancamentoDiario.data_movimentacao <= date(2025, 12, 31)
                 ).delete(synchronize_session=False)
                 deleted_prev = db.query(LancamentoPrevisto).filter(
-                    LancamentoPrevisto.tenant_id == tenant.id
+                    LancamentoPrevisto.tenant_id == tenant.id,
+                    LancamentoPrevisto.data_prevista >= date(2025, 1, 1),
+                    LancamentoPrevisto.data_prevista <= date(2025, 12, 31)
                 ).delete(synchronize_session=False)
                 db.commit()
-                logger.log(f"✅ Removidos {deleted_diarios} lançamentos diários e {deleted_prev} lançamentos previstos.", "SUCCESS")
+                logger.log(f"✅ Removidos {deleted_diarios} lançamentos diários de 2025 e {deleted_prev} lançamentos previstos de 2025.", "SUCCESS")
             
             # 2. Seed do Plano de Contas
             logger.log("\n" + "-"*60, "STEP")
