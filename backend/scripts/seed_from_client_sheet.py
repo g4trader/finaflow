@@ -1123,30 +1123,23 @@ def seed_lancamentos_diarios(
                     continue
                 
                 # Verificar se já existe (idempotência)
-                # CORREÇÃO: Incluir observações na verificação para permitir múltiplos lançamentos
-                # legítimos com mesma data+conta+valor mas observações diferentes (ex: funcionários diferentes)
-                existing_query = db.query(LancamentoDiario).filter(
-                    LancamentoDiario.data_movimentacao == data_movimentacao,
-                    LancamentoDiario.conta_id == conta.id,
-                    LancamentoDiario.valor == valor,
-                    LancamentoDiario.tenant_id == tenant.id,
-                    LancamentoDiario.business_unit_id == business_unit.id
-                )
+                # CORREÇÃO CRÍTICA: Permitir múltiplos lançamentos legítimos com mesma data+conta+valor
+                # Exemplo: Funcionários diferentes recebendo mesmo salário no mesmo dia
+                # Se há observações específicas, usar na verificação. Se não, permitir múltiplos.
+                existing = None
                 
-                # Se há observações, incluir na verificação de idempotência
                 if observacoes and observacoes.strip():
-                    existing_query = existing_query.filter(
-                        LancamentoDiario.observacoes == observacoes
-                    )
-                else:
-                    # Se não há observações, verificar se já existe um lançamento sem observações
-                    existing_query = existing_query.filter(
-                        (LancamentoDiario.observacoes == None) | 
-                        (LancamentoDiario.observacoes == "") |
-                        (LancamentoDiario.observacoes == f"Lançamento de {subgrupo_nome}")
-                    )
-                
-                existing = existing_query.first()
+                    # Se há observações específicas, verificar idempotência incluindo observações
+                    existing = db.query(LancamentoDiario).filter(
+                        LancamentoDiario.data_movimentacao == data_movimentacao,
+                        LancamentoDiario.conta_id == conta.id,
+                        LancamentoDiario.valor == valor,
+                        LancamentoDiario.observacoes == observacoes,
+                        LancamentoDiario.tenant_id == tenant.id,
+                        LancamentoDiario.business_unit_id == business_unit.id
+                    ).first()
+                # Se não há observações, NÃO verificar idempotência - permitir múltiplos lançamentos
+                # (são funcionários diferentes recebendo mesmo valor no mesmo dia)
                 
                 if existing:
                     if os.getenv("COST_DEBUG") == "1" and data_movimentacao.year == 2025:
