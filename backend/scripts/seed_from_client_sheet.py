@@ -1123,23 +1123,23 @@ def seed_lancamentos_diarios(
                     continue
                 
                 # Verificar se já existe (idempotência)
-                # CORREÇÃO CRÍTICA: Permitir múltiplos lançamentos legítimos com mesma data+conta+valor
+                # CORREÇÃO CRÍTICA: Usar número da linha do Excel como parte da observação
+                # Isso permite múltiplos lançamentos legítimos com mesma data+conta+valor
                 # Exemplo: Funcionários diferentes recebendo mesmo salário no mesmo dia
-                # Se há observações específicas, usar na verificação. Se não, permitir múltiplos.
-                existing = None
-                
                 if observacoes and observacoes.strip():
-                    # Se há observações específicas, verificar idempotência incluindo observações
-                    existing = db.query(LancamentoDiario).filter(
-                        LancamentoDiario.data_movimentacao == data_movimentacao,
-                        LancamentoDiario.conta_id == conta.id,
-                        LancamentoDiario.valor == valor,
-                        LancamentoDiario.observacoes == observacoes,
-                        LancamentoDiario.tenant_id == tenant.id,
-                        LancamentoDiario.business_unit_id == business_unit.id
-                    ).first()
-                # Se não há observações, NÃO verificar idempotência - permitir múltiplos lançamentos
-                # (são funcionários diferentes recebendo mesmo valor no mesmo dia)
+                    obs_para_idempotencia = observacoes
+                else:
+                    # Usar número da linha como identificador único
+                    obs_para_idempotencia = f"Lançamento linha {row_num + 2}"
+                
+                existing = db.query(LancamentoDiario).filter(
+                    LancamentoDiario.data_movimentacao == data_movimentacao,
+                    LancamentoDiario.conta_id == conta.id,
+                    LancamentoDiario.valor == valor,
+                    LancamentoDiario.observacoes == obs_para_idempotencia,
+                    LancamentoDiario.tenant_id == tenant.id,
+                    LancamentoDiario.business_unit_id == business_unit.id
+                ).first()
                 
                 if existing:
                     if os.getenv("COST_DEBUG") == "1" and data_movimentacao.year == 2025:
@@ -1196,13 +1196,21 @@ def seed_lancamentos_diarios(
                         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
                 
                 # Criar lançamento (adicionar ao lote)
+                # CORREÇÃO: Se não há observações, usar número da linha do Excel para diferenciar
+                # Isso permite múltiplos lançamentos legítimos sem observações
+                if observacoes and observacoes.strip():
+                    obs_final = observacoes
+                else:
+                    # Usar número da linha como identificador único para permitir múltiplos lançamentos
+                    obs_final = f"Lançamento linha {row_num + 2}"
+                
                 lancamento = LancamentoDiario(
                     id=str(uuid4()),
                     data_movimentacao=data_movimentacao,
                     valor=valor,
                     liquidacao=None,  # Campo DateTime - manter None por enquanto
                     liquidation_account_id=liquidation_account_id,  # Conta de liquidação (scb, cef, cx, etc.)
-                    observacoes=observacoes or f"Lançamento de {subgrupo_nome}",
+                    observacoes=obs_final,
                     conta_id=conta.id,
                     subgrupo_id=subgrupo.id,
                     grupo_id=grupo.id,
