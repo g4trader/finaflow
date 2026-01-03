@@ -914,6 +914,8 @@ def seed_lancamentos_diarios(
                 column_map['subgrupo'] = col
             if 'grupo' in col_lower and 'subgrupo' not in col_lower and 'grupo' not in column_map:
                 column_map['grupo'] = col
+            if 'conta' in col_lower and 'subgrupo' not in col_lower and 'grupo' not in col_lower and 'conta' not in column_map:
+                column_map['conta'] = col
             if 'valor' in col_lower and 'valor' not in column_map:
                 column_map['valor'] = col
             if ('observação' in col_lower or 'observacao' in col_lower) and 'observacoes' not in column_map:
@@ -945,10 +947,13 @@ def seed_lancamentos_diarios(
                 data_mov_str = str(row[column_map['data_movimentacao']]) if pd.notna(row[column_map['data_movimentacao']]) else ""
                 subgrupo_nome = ""
                 grupo_nome = ""
+                conta_nome = ""  # CORREÇÃO: Buscar conta específica da planilha
                 if 'subgrupo' in column_map:
                     subgrupo_nome = str(row[column_map['subgrupo']]).strip() if pd.notna(row[column_map['subgrupo']]) else ""
                 if 'grupo' in column_map:
                     grupo_nome = str(row[column_map['grupo']]).strip() if pd.notna(row[column_map['grupo']]) else ""
+                if 'conta' in column_map:
+                    conta_nome = str(row[column_map['conta']]).strip() if pd.notna(row[column_map['conta']]) else ""
                 valor_str = str(row[column_map['valor']]) if pd.notna(row[column_map['valor']]) else ""
                 observacoes = ""
                 if 'observacoes' in column_map:
@@ -1078,11 +1083,22 @@ def seed_lancamentos_diarios(
                     logger.stats['linhas_ignoradas'] += 1
                     continue
                 
-                # Buscar primeira conta do subgrupo
-                conta = db.query(ChartAccount).filter(
-                    ChartAccount.subgroup_id == subgrupo.id,
-                    ChartAccount.tenant_id == tenant.id
-                ).first()
+                # Buscar conta específica da planilha (se informada), senão usar primeira conta do subgrupo
+                conta = None
+                if conta_nome:
+                    # Buscar conta específica pelo nome no subgrupo
+                    conta = db.query(ChartAccount).filter(
+                        ChartAccount.name == conta_nome,
+                        ChartAccount.subgroup_id == subgrupo.id,
+                        ChartAccount.tenant_id == tenant.id
+                    ).first()
+                
+                # Se não encontrou conta específica, usar primeira conta do subgrupo (fallback)
+                if not conta:
+                    conta = db.query(ChartAccount).filter(
+                        ChartAccount.subgroup_id == subgrupo.id,
+                        ChartAccount.tenant_id == tenant.id
+                    ).first()
                 
                 if not conta:
                     if os.getenv("COST_DEBUG") == "1" and data_movimentacao.year == 2025:
