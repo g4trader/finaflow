@@ -1049,20 +1049,22 @@ def seed_lancamentos_diarios(
                 subgrupo = None
                 
                 if grupo_nome:
-                    grupo_key = grupo_nome.lower()
+                    grupo_key = grupo_nome.lower().strip()
                     grupo = grupos_map.get(grupo_key)
                     if not grupo:
+                        # CORREÇÃO: Buscar com case-insensitive e trim para garantir matching
                         grupo = db.query(ChartAccountGroup).filter(
-                            ChartAccountGroup.name == grupo_nome,
+                            func.trim(func.lower(ChartAccountGroup.name)) == grupo_key,
                             ChartAccountGroup.tenant_id == tenant.id
                         ).first()
                 
                 if subgrupo_nome and grupo:
-                    subgrupo_key = f"{grupo.id}::{subgrupo_nome.lower()}"
+                    subgrupo_key = f"{grupo.id}::{subgrupo_nome.lower().strip()}"
                     subgrupo = subgrupos_map.get(subgrupo_key)
                     if not subgrupo:
+                        # CORREÇÃO: Buscar com case-insensitive e trim para garantir matching
                         subgrupo = db.query(ChartAccountSubgroup).filter(
-                            ChartAccountSubgroup.name == subgrupo_nome,
+                            func.trim(func.lower(ChartAccountSubgroup.name)) == subgrupo_nome.lower().strip(),
                             ChartAccountSubgroup.group_id == grupo.id,
                             ChartAccountSubgroup.tenant_id == tenant.id
                         ).first()
