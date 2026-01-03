@@ -1098,7 +1098,7 @@ def seed_lancamentos_diarios(
                 conta = None
                 if conta_nome:
                     # CORREÇÃO: Buscar conta específica com case-insensitive e trim
-                    from sqlalchemy import func
+                    # func já está importado no topo do arquivo
                     conta = db.query(ChartAccount).filter(
                         func.trim(func.lower(ChartAccount.name)) == conta_nome.lower().strip(),
                         ChartAccount.subgroup_id == subgrupo.id,
