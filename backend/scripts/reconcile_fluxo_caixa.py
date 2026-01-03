@@ -52,7 +52,7 @@ DEFAULT_BACKEND_URL = os.getenv(
     "BACKEND_URL",
     "https://finaflow-backend-staging-642830139828.us-central1.run.app"
 )
-TOLERANCE = Decimal("0.01")  # Tolerância de 1 centavo
+TOLERANCE = Decimal("0.00")  # Tolerância ZERO - dados financeiros devem bater exatamente
 
 # ============================================================================
 # FUNÇÕES AUXILIARES
@@ -284,7 +284,8 @@ def reconcile_data(
             diff_custo = excel_custo - api_custo
             diff_saldo = excel_saldo - api_saldo
             
-            if abs(diff_receita) > TOLERANCE or abs(diff_despesa) > TOLERANCE or abs(diff_custo) > TOLERANCE:
+            # Tolerância ZERO - qualquer diferença deve ser reportada
+            if abs(diff_receita) != 0 or abs(diff_despesa) != 0 or abs(diff_custo) != 0:
                 reconciliation["monthly_diffs"].append({
                     "month": month,
                     "receita": {
@@ -358,10 +359,10 @@ def print_report(reconciliation: Dict, year: int):
             print(f"    Planilha: R$ {dados['excel']:,.2f}")
             print(f"    Sistema:  R$ {dados['api']:,.2f}")
             diff = dados['diff']
-            if abs(diff) > TOLERANCE:
-                print(f"    ⚠️  DIFERENÇA: R$ {diff:,.2f}")
+            if abs(diff) != 0:
+                print(f"    ❌ DIFERENÇA: R$ {diff:,.2f} (NÃO ACEITÁVEL - tolerância ZERO)")
             else:
-                print(f"    ✅ OK (diferença < R$ {TOLERANCE})")
+                print(f"    ✅ OK (valores idênticos)")
     
     # Diferenças mensais
     if reconciliation["monthly_diffs"]:
@@ -373,8 +374,8 @@ def print_report(reconciliation: Dict, year: int):
             print(f"\n  {month_name}/{year}:")
             for tipo in ["receita", "despesa", "custo", "saldo"]:
                 dados = diff[tipo]
-                if abs(dados["diff"]) > TOLERANCE:
-                    print(f"    {tipo.upper()}: Planilha R$ {dados['excel']:,.2f} | Sistema R$ {dados['api']:,.2f} | Diff R$ {dados['diff']:,.2f}")
+                if abs(dados["diff"]) != 0:
+                    print(f"    {tipo.upper()}: Planilha R$ {dados['excel']:,.2f} | Sistema R$ {dados['api']:,.2f} | ❌ Diff R$ {dados['diff']:,.2f}")
     else:
         print("\n✅ Nenhuma diferença mensal encontrada!")
     
@@ -451,16 +452,18 @@ def main():
         print(f"\n💾 Relatório salvo em: {output_file}")
     
     # Exit code baseado em diferenças encontradas
+    # Tolerância ZERO - qualquer diferença é inaceitável
     has_diffs = len(reconciliation["monthly_diffs"]) > 0 or any(
-        abs(v["diff"]) > TOLERANCE for v in reconciliation.get("annual_totals", {}).values()
+        abs(v["diff"]) != 0 for v in reconciliation.get("annual_totals", {}).values()
     )
     has_duplicates = len(reconciliation["duplicates"]["exact_duplicates"]) > 0
     
     if has_diffs or has_duplicates:
-        print("\n⚠️  ATENÇÃO: Diferenças ou duplicações encontradas!")
+        print("\n❌ FALHA NA CONCILIAÇÃO: Diferenças ou duplicações encontradas!")
+        print("   Tolerância: ZERO - todos os valores devem bater exatamente")
         sys.exit(2)
     else:
-        print("\n✅ Conciliação OK - Sem diferenças ou duplicações!")
+        print("\n✅ Conciliação OK - Todos os valores batem exatamente (tolerância ZERO)!")
         sys.exit(0)
 
 

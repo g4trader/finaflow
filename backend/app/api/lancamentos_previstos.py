@@ -177,22 +177,22 @@ def list_lancamentos_previstos(
         for prev in previsoes:
             try:
                 payload.append({
-                    "id": str(prev.id),
-                    "data_prevista": prev.data_prevista.isoformat() if prev.data_prevista else None,
-                    "valor": float(prev.valor) if prev.valor else 0.0,
-                    "observacoes": prev.observacoes or "",
-                    "conta_id": str(prev.conta_id) if prev.conta_id else None,
-                    "conta_nome": _safe_name(prev.conta),
-                    "conta_codigo": _safe_code(prev.conta),
-                    "subgrupo_id": str(prev.subgrupo_id) if prev.subgrupo_id else None,
-                    "subgrupo_nome": _safe_name(prev.subgrupo),
-                    "subgrupo_codigo": _safe_code(prev.subgrupo),
-                    "grupo_id": str(prev.grupo_id) if prev.grupo_id else None,
-                    "grupo_nome": _safe_name(prev.grupo),
-                    "grupo_codigo": _safe_code(prev.grupo),
-                    "transaction_type": (prev.transaction_type.value if prev.transaction_type else None),
-                    "status": prev.status.value if isinstance(prev.status, TransactionStatus) else str(prev.status) if prev.status else None,
-                    "created_at": prev.created_at.isoformat() if prev.created_at else None,
+                "id": str(prev.id),
+                "data_prevista": prev.data_prevista.isoformat() if prev.data_prevista else None,
+                "valor": float(prev.valor) if prev.valor else 0.0,
+                "observacoes": prev.observacoes or "",
+                "conta_id": str(prev.conta_id) if prev.conta_id else None,
+                "conta_nome": _safe_name(prev.conta),
+                "conta_codigo": _safe_code(prev.conta),
+                "subgrupo_id": str(prev.subgrupo_id) if prev.subgrupo_id else None,
+                "subgrupo_nome": _safe_name(prev.subgrupo),
+                "subgrupo_codigo": _safe_code(prev.subgrupo),
+                "grupo_id": str(prev.grupo_id) if prev.grupo_id else None,
+                "grupo_nome": _safe_name(prev.grupo),
+                "grupo_codigo": _safe_code(prev.grupo),
+                "transaction_type": (prev.transaction_type.value if prev.transaction_type else None),
+                "status": prev.status.value if isinstance(prev.status, TransactionStatus) else str(prev.status) if prev.status else None,
+                "created_at": prev.created_at.isoformat() if prev.created_at else None,
                 })
             except Exception as serialize_error:
                 # Log erro de serialização mas continua

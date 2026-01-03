@@ -81,7 +81,7 @@ PLANO_CONTAS_SHEETS = ["Plano de contas|LLM", "Plano de contas", "Plano de Conta
 LANCAMENTOS_DIARIOS_SHEETS = ["Lançamento Diário", "Lançamento Diario", "Lancamento Diario", "Lançamentos Diários"]
 LANCAMENTOS_PREVISTOS_SHEETS = ["Lançamentos Previstos", "Lancamentos Previstos", "Previsões", "Previsoes"]
 
-TOLERANCE = Decimal("0.01")  # Tolerância para comparação de valores
+TOLERANCE = Decimal("0.00")  # Tolerância ZERO - dados financeiros devem bater exatamente
 
 # ============================================================================
 # UTILITÁRIOS

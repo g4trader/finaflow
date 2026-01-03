@@ -56,7 +56,7 @@ DEFAULT_BACKEND_URL = os.getenv(
     "BACKEND_URL",
     "https://finaflow-backend-staging-642830139828.us-central1.run.app"
 )
-DEFAULT_TOLERANCE = Decimal("0.01")  # 1 centavo
+DEFAULT_TOLERANCE = Decimal("0.00")  # Tolerância ZERO - dados financeiros devem bater exatamente
 
 # ============================================================================
 # FUNÇÕES AUXILIARES
@@ -137,7 +137,7 @@ def comparar_valores(
     Retorna (ok, delta).
     """
     delta = abs(esperado - obtido)
-    ok = delta <= tolerance
+    ok = delta == Decimal("0.00")  # Tolerância ZERO
     
     if not ok:
         prefix = f"MES={year:04d}-{mes:02d} " if mes else ""

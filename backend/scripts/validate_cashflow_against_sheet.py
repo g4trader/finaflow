@@ -53,7 +53,7 @@ DEFAULT_BACKEND_URL = os.getenv(
     "BACKEND_URL",
     "https://finaflow-backend-staging-642830139828.us-central1.run.app"
 )
-DEFAULT_TOLERANCE = Decimal("0.01")  # 1 centavo
+DEFAULT_TOLERANCE = Decimal("0.00")  # Tolerância ZERO - dados financeiros devem bater exatamente
 
 # ============================================================================
 # FUNÇÕES AUXILIARES

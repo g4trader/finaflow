@@ -28,7 +28,7 @@ except ImportError:
     sys.exit(1)
 
 ARTIFACTS_DIR = backend_path / "artifacts"
-TOLERANCE = Decimal("0.01")  # R$ 0,01
+TOLERANCE = Decimal("0.00")  # Tolerância ZERO - dados financeiros devem bater exatamente
 
 def login_api(backend_url: str, email: str, password: str) -> str:
     """Faz login e retorna token"""
@@ -98,9 +98,9 @@ def fetch_operational_endpoints(backend_url: str, token: str) -> Dict:
     return results
 
 def compare_values(excel_val: Decimal, api_val: Decimal, tolerance: Decimal) -> tuple[bool, Decimal]:
-    """Compara valores com tolerância"""
+    """Compara valores com tolerância ZERO (dados financeiros devem bater exatamente)"""
     diff = abs(excel_val - api_val)
-    return diff <= tolerance, diff
+    return diff == Decimal("0.00"), diff  # Apenas zero é aceito
 
 def main():
     parser = argparse.ArgumentParser(description="Auditoria Excel vs API")
