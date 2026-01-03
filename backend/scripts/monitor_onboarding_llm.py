@@ -33,12 +33,38 @@ def login():
 
 def find_llm_tenant_and_bu(headers):
     """Encontra tenant e BU LLM"""
-    # Buscar tenants
-    resp = requests.get(f"{BACKEND_URL}/api/v1/auth/tenants", headers=headers, timeout=30)
-    if resp.status_code != 200:
+    # Tentar diferentes endpoints
+    endpoints = [
+        "/api/v1/tenants",
+        "/api/v1/auth/tenants",
+    ]
+    
+    tenants = None
+    for endpoint in endpoints:
+        resp = requests.get(f"{BACKEND_URL}{endpoint}", headers=headers, timeout=30)
+        if resp.status_code == 200:
+            tenants = resp.json()
+            break
+    
+    if not tenants:
+        # Tentar buscar via user-business-units
+        bu_resp = requests.get(f"{BACKEND_URL}/api/v1/auth/user-business-units", headers=headers, timeout=30)
+        if bu_resp.status_code == 200:
+            bus = bu_resp.json()
+            # Assumir que a primeira BU é da LLM (ou buscar por nome)
+            for bu in bus:
+                if isinstance(bu, dict):
+                    bu_id = bu.get("id", "")
+                    tenant_id = bu.get("tenant_id", "")
+                else:
+                    bu_id = getattr(bu, "id", "")
+                    tenant_id = getattr(bu, "tenant_id", "")
+                
+                if tenant_id and bu_id:
+                    # Verificar se é LLM pelo tenant_id (assumir que é o mais recente criado)
+                    return tenant_id, bu_id
         return None, None
     
-    tenants = resp.json()
     llm_tenant = None
     
     for tenant in tenants:

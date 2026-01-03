@@ -548,15 +548,29 @@ def execute_import(
         onboarding_status[status_key].progress = 10
         onboarding_status[status_key].message = "Baixando planilha da URL..."
         
-        # Converter Google Sheets URL
+        # Converter Google Sheets URL para formato de download
         if "docs.google.com/spreadsheets" in spreadsheet_url:
-            if "/edit" in spreadsheet_url:
-                spreadsheet_url = spreadsheet_url.replace("/edit", "/export?format=xlsx")
-            elif "/view" in spreadsheet_url:
-                spreadsheet_url = spreadsheet_url.replace("/view", "/export?format=xlsx")
+            # Extrair o ID da planilha
+            import re
+            match = re.search(r'/spreadsheets/d/([a-zA-Z0-9-_]+)', spreadsheet_url)
+            if match:
+                sheet_id = match.group(1)
+                # Criar URL de exportação limpa
+                spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
             else:
-                if "export" not in spreadsheet_url:
-                    spreadsheet_url = spreadsheet_url.rstrip("/") + "/export?format=xlsx"
+                # Fallback: tentar substituir edit/view
+                if "/edit" in spreadsheet_url:
+                    # Remover tudo após /edit incluindo #gid
+                    base_url = spreadsheet_url.split("/edit")[0]
+                    spreadsheet_url = f"{base_url}/export?format=xlsx"
+                elif "/view" in spreadsheet_url:
+                    base_url = spreadsheet_url.split("/view")[0]
+                    spreadsheet_url = f"{base_url}/export?format=xlsx"
+                else:
+                    if "export" not in spreadsheet_url:
+                        # Remover fragmentos (#gid=...) e adicionar export
+                        clean_url = spreadsheet_url.split("#")[0].split("?")[0].rstrip("/")
+                        spreadsheet_url = f"{clean_url}/export?format=xlsx"
         
         response = requests.get(spreadsheet_url, timeout=60)
         response.raise_for_status()
