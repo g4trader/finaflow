@@ -235,12 +235,21 @@ const CompaniesPage: React.FC = () => {
                           ) : (
                             <div className="flex flex-wrap gap-2">
                               {tenantBUs.map((bu) => (
-                                <span
-                                  key={bu.id}
-                                  className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
-                                >
-                                  {bu.name} ({bu.code})
-                                </span>
+                                <div key={bu.id} className="flex items-center gap-2">
+                                  <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
+                                    {bu.name} ({bu.code})
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="primary"
+                                    onClick={() => router.push(`/admin/onboarding?tenant_id=${tenant.id}&business_unit_id=${bu.id}`)}
+                                    title="Iniciar onboarding"
+                                    className="h-6 px-2 text-xs"
+                                  >
+                                    <Upload className="w-3 h-3 mr-1" />
+                                    Onboarding
+                                  </Button>
+                                </div>
                               ))}
                             </div>
                           )}
