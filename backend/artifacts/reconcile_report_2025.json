@@ -1,0 +1,310 @@
+{
+  "monthly_diffs": [
+    {
+      "month": 1,
+      "receita": {
+        "excel": 86026.29,
+        "api": 86153.06,
+        "diff": -126.77
+      },
+      "despesa": {
+        "excel": 41538.7,
+        "api": 56231.57,
+        "diff": -14692.87
+      },
+      "custo": {
+        "excel": 34054.53,
+        "api": 28443.42,
+        "diff": 5611.11
+      },
+      "saldo": {
+        "excel": 10433.06,
+        "api": 1478.07,
+        "diff": 8954.99
+      }
+    },
+    {
+      "month": 2,
+      "receita": {
+        "excel": 70722.25,
+        "api": 70722.25,
+        "diff": 0.0
+      },
+      "despesa": {
+        "excel": 34449.2,
+        "api": 46979.07,
+        "diff": -12529.87
+      },
+      "custo": {
+        "excel": 28154.08,
+        "api": 23325.37,
+        "diff": 4828.71
+      },
+      "saldo": {
+        "excel": 8118.97,
+        "api": 417.81,
+        "diff": 7701.16
+      }
+    },
+    {
+      "month": 3,
+      "receita": {
+        "excel": 62536.86,
+        "api": 61536.86,
+        "diff": 1000.0
+      },
+      "despesa": {
+        "excel": 29352.89,
+        "api": 44479.61,
+        "diff": -15126.72
+      },
+      "custo": {
+        "excel": 30747.8,
+        "api": 27626.11,
+        "diff": 3121.69
+      },
+      "saldo": {
+        "excel": 2436.17,
+        "api": -10568.86,
+        "diff": 13005.03
+      }
+    },
+    {
+      "month": 4,
+      "receita": {
+        "excel": 88419.87,
+        "api": 87419.87,
+        "diff": 1000.0
+      },
+      "despesa": {
+        "excel": 40137.73,
+        "api": 59242.13,
+        "diff": -19104.4
+      },
+      "custo": {
+        "excel": 28164.7,
+        "api": 25822.33,
+        "diff": 2342.37
+      },
+      "saldo": {
+        "excel": 20117.44,
+        "api": 2355.41,
+        "diff": 17762.03
+      }
+    },
+    {
+      "month": 5,
+      "receita": {
+        "excel": 103320.05,
+        "api": 103520.05,
+        "diff": -200.0
+      },
+      "despesa": {
+        "excel": 50281.01,
+        "api": 137917.7,
+        "diff": -87636.69
+      },
+      "custo": {
+        "excel": 31131.11,
+        "api": 29614.17,
+        "diff": 1516.94
+      },
+      "saldo": {
+        "excel": 21907.93,
+        "api": -64011.82,
+        "diff": 85919.75
+      }
+    },
+    {
+      "month": 6,
+      "receita": {
+        "excel": 125118.89,
+        "api": 124829.19,
+        "diff": 289.7
+      },
+      "despesa": {
+        "excel": 46719.84,
+        "api": 56886.18,
+        "diff": -10166.34
+      },
+      "custo": {
+        "excel": 43716.87,
+        "api": 40330.01,
+        "diff": 3386.86
+      },
+      "saldo": {
+        "excel": 34682.18,
+        "api": 27613.0,
+        "diff": 7069.18
+      }
+    },
+    {
+      "month": 7,
+      "receita": {
+        "excel": 117839.6792,
+        "api": 117579.98,
+        "diff": 259.6992
+      },
+      "despesa": {
+        "excel": 33220.52,
+        "api": 43338.88,
+        "diff": -10118.36
+      },
+      "custo": {
+        "excel": 44674.1,
+        "api": 41377.85,
+        "diff": 3296.25
+      },
+      "saldo": {
+        "excel": 39945.0592,
+        "api": 32863.25,
+        "diff": 7081.8092
+      }
+    },
+    {
+      "month": 8,
+      "receita": {
+        "excel": 118382.58,
+        "api": 118177.78,
+        "diff": 204.8
+      },
+      "despesa": {
+        "excel": 43814.34,
+        "api": 53686.36,
+        "diff": -9872.02
+      },
+      "custo": {
+        "excel": 34641.88,
+        "api": 28976.61,
+        "diff": 5665.27
+      },
+      "saldo": {
+        "excel": 39926.36,
+        "api": 35514.81,
+        "diff": 4411.55
+      }
+    },
+    {
+      "month": 9,
+      "receita": {
+        "excel": 115831.87,
+        "api": 115831.87,
+        "diff": 0.0
+      },
+      "despesa": {
+        "excel": 47495.36,
+        "api": 61068.6,
+        "diff": -13573.24
+      },
+      "custo": {
+        "excel": 38608.34,
+        "api": 36138.16,
+        "diff": 2470.18
+      },
+      "saldo": {
+        "excel": 29728.17,
+        "api": 18625.11,
+        "diff": 11103.06
+      }
+    },
+    {
+      "month": 10,
+      "receita": {
+        "excel": 106221.25,
+        "api": 105101.19,
+        "diff": 1120.06
+      },
+      "despesa": {
+        "excel": 53023.0,
+        "api": 69341.95,
+        "diff": -16318.95
+      },
+      "custo": {
+        "excel": 39423.03,
+        "api": 33774.16,
+        "diff": 5648.87
+      },
+      "saldo": {
+        "excel": 13775.22,
+        "api": 1985.08,
+        "diff": 11790.14
+      }
+    },
+    {
+      "month": 11,
+      "receita": {
+        "excel": 84145.7,
+        "api": 93922.9,
+        "diff": -9777.2
+      },
+      "despesa": {
+        "excel": 54012.92,
+        "api": 65085.36,
+        "diff": -11072.44
+      },
+      "custo": {
+        "excel": 42913.23,
+        "api": 31679.45,
+        "diff": 11233.78
+      },
+      "saldo": {
+        "excel": -12780.45,
+        "api": -2841.91,
+        "diff": -9938.54
+      }
+    },
+    {
+      "month": 12,
+      "receita": {
+        "excel": 13695.83,
+        "api": 13695.83,
+        "diff": 0.0
+      },
+      "despesa": {
+        "excel": 14767.18,
+        "api": 18349.24,
+        "diff": -3582.06
+      },
+      "custo": {
+        "excel": 0.0,
+        "api": 0.0,
+        "diff": 0.0
+      },
+      "saldo": {
+        "excel": -1071.35,
+        "api": -4653.41,
+        "diff": 3582.06
+      }
+    }
+  ],
+  "annual_totals": {
+    "receita": {
+      "excel": 1092261.1192,
+      "api": 1098490.83,
+      "diff": -6229.7108
+    },
+    "despesa": {
+      "excel": 488812.69,
+      "api": 712606.65,
+      "diff": -223793.96
+    },
+    "custo": {
+      "excel": 396229.67,
+      "api": 347107.64,
+      "diff": 49122.03
+    },
+    "saldo": {
+      "excel": 207218.7592,
+      "api": 38776.54,
+      "diff": 168442.2192
+    }
+  },
+  "duplicates": {
+    "by_value_date": {},
+    "by_description": {},
+    "exact_duplicates": [],
+    "note": "Análise de duplicações requer acesso direto ao banco ou endpoint específico"
+  },
+  "missing_in_system": [],
+  "extra_in_system": []
+}
