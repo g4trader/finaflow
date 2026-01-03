@@ -268,8 +268,49 @@ async def import_data(
             BusinessUnit.id == request.business_unit_id,
             BusinessUnit.tenant_id == request.tenant_id
         ).first()
+        
+        # Se não encontrou BU, criar automaticamente
         if not business_unit:
-            raise HTTPException(status_code=404, detail="Business Unit não encontrada")
+            # Verificar se o business_unit_id é igual ao tenant_id (indicando que precisa criar)
+            if request.business_unit_id == request.tenant_id:
+                # Criar BU padrão
+                from uuid import uuid4
+                business_unit = BusinessUnit(
+                    id=str(uuid4()),
+                    tenant_id=request.tenant_id,
+                    name="Matriz",
+                    code="MAT",
+                    status="active"
+                )
+                db.add(business_unit)
+                db.commit()
+                db.refresh(business_unit)
+                # Atualizar request com o ID real da BU
+                request.business_unit_id = str(business_unit.id)
+            else:
+                # Tentar buscar qualquer BU do tenant
+                business_unit = db.query(BusinessUnit).filter(
+                    BusinessUnit.tenant_id == request.tenant_id
+                ).first()
+                
+                if not business_unit:
+                    # Criar BU padrão
+                    from uuid import uuid4
+                    business_unit = BusinessUnit(
+                        id=str(uuid4()),
+                        tenant_id=request.tenant_id,
+                        name="Matriz",
+                        code="MAT",
+                        status="active"
+                    )
+                    db.add(business_unit)
+                    db.commit()
+                    db.refresh(business_unit)
+                    # Atualizar request com o ID real da BU
+                    request.business_unit_id = str(business_unit.id)
+                else:
+                    # Usar a BU encontrada
+                    request.business_unit_id = str(business_unit.id)
         
         status_key = f"{request.tenant_id}_{request.business_unit_id}"
         
