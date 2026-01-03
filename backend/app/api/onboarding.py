@@ -20,6 +20,7 @@ from app.services.dependencies import get_current_active_user
 from app.models.auth import User, Tenant, BusinessUnit
 from app.database import SessionLocal
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 
 router = APIRouter(prefix="/api/v1/onboarding", tags=["onboarding"])
 
@@ -37,6 +38,11 @@ class ImportRequest(BaseModel):
     business_unit_id: str
     spreadsheet_url: HttpUrl
     reset_data: bool = False
+
+class ClearDataRequest(BaseModel):
+    tenant_id: str
+    business_unit_id: str
+    year: Optional[int] = None
 
 class OnboardingStatus(BaseModel):
     tenant_id: str
@@ -57,6 +63,93 @@ def get_db():
         yield db
     finally:
         db.close()
+
+@router.post("/clear-data")
+async def clear_data(
+    request: ClearDataRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Limpa dados financeiros de uma empresa/BU (mantém estrutura de contas se necessário)
+    """
+    try:
+        # Verificar se tenant e BU existem
+        tenant = db.query(Tenant).filter(Tenant.id == request.tenant_id).first()
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant não encontrado")
+        
+        business_unit = db.query(BusinessUnit).filter(
+            BusinessUnit.id == request.business_unit_id,
+            BusinessUnit.tenant_id == request.tenant_id
+        ).first()
+        if not business_unit:
+            raise HTTPException(status_code=404, detail="Business Unit não encontrada")
+        
+        from app.models.lancamento_diario import LancamentoDiario
+        from app.models.lancamento_previsto import LancamentoPrevisto
+        from datetime import date
+        
+        deleted_counts = {
+            "lancamentos_diarios": 0,
+            "lancamentos_previstos": 0
+        }
+        
+        # Deletar lançamentos diários
+        if request.year:
+            start_date = date(request.year, 1, 1)
+            end_date = date(request.year, 12, 31)
+            deleted_diarios = db.query(LancamentoDiario).filter(
+                and_(
+                    LancamentoDiario.tenant_id == request.tenant_id,
+                    LancamentoDiario.business_unit_id == request.business_unit_id,
+                    LancamentoDiario.data_movimentacao >= start_date,
+                    LancamentoDiario.data_movimentacao <= end_date
+                )
+            ).delete(synchronize_session=False)
+            deleted_counts["lancamentos_diarios"] = deleted_diarios
+            
+            deleted_previstos = db.query(LancamentoPrevisto).filter(
+                and_(
+                    LancamentoPrevisto.tenant_id == request.tenant_id,
+                    LancamentoPrevisto.business_unit_id == request.business_unit_id,
+                    LancamentoPrevisto.data_prevista >= start_date,
+                    LancamentoPrevisto.data_prevista <= end_date
+                )
+            ).delete(synchronize_session=False)
+            deleted_counts["lancamentos_previstos"] = deleted_previstos
+        else:
+            # Deletar todos os lançamentos
+            deleted_diarios = db.query(LancamentoDiario).filter(
+                and_(
+                    LancamentoDiario.tenant_id == request.tenant_id,
+                    LancamentoDiario.business_unit_id == request.business_unit_id
+                )
+            ).delete(synchronize_session=False)
+            deleted_counts["lancamentos_diarios"] = deleted_diarios
+            
+            deleted_previstos = db.query(LancamentoPrevisto).filter(
+                and_(
+                    LancamentoPrevisto.tenant_id == request.tenant_id,
+                    LancamentoPrevisto.business_unit_id == request.business_unit_id
+                )
+            ).delete(synchronize_session=False)
+            deleted_counts["lancamentos_previstos"] = deleted_previstos
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Dados limpos com sucesso",
+            "deleted": deleted_counts,
+            "year": request.year
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao limpar dados: {str(e)}")
 
 @router.post("/validate-spreadsheet")
 async def validate_spreadsheet(
@@ -545,4 +638,3 @@ def execute_import(
         onboarding_status[status_key].status = "error"
         onboarding_status[status_key].message = f"Erro durante onboarding: {str(e)}"
         onboarding_status[status_key].errors.append(str(e))
-
