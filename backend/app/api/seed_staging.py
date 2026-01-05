@@ -178,8 +178,10 @@ async def init_database():
             user = User(
                 id=str(uuid4()),
                 email="qa@finaflow.test",
+                username="qa",
                 hashed_password=hashed_password,
-                full_name="QA User",
+                first_name="QA",
+                last_name="User",
                 status=UserStatus.ACTIVE,
                 created_at=datetime.now(),
                 updated_at=datetime.now()
