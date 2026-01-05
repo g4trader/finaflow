@@ -66,7 +66,12 @@ def create_tables():
     """
     Cria todas as tabelas no banco de dados PostgreSQL.
     """
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except Exception as e:
+        print(f"⚠️  Erro ao criar tabelas: {e}")
+        # Re-raise para que o caller possa decidir o que fazer
+        raise
 
 def drop_tables():
     """

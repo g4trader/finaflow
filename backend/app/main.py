@@ -41,8 +41,12 @@ async def lifespan(app: FastAPI):
     """Lifecycle da aplicação."""
     # Startup
     print("🚀 Iniciando FinaFlow Backend...")
-    create_tables()
-    print("✅ Tabelas criadas com sucesso")
+    try:
+        create_tables()
+        print("✅ Tabelas criadas/verificadas com sucesso")
+    except Exception as e:
+        print(f"⚠️  Aviso ao criar tabelas (podem já existir): {e}")
+        # Continuar mesmo se houver erro - as tabelas podem já existir
     
     yield
     
