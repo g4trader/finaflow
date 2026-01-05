@@ -25,9 +25,9 @@ from sqlalchemy import and_
 
 router = APIRouter(prefix="/api/v1/onboarding", tags=["onboarding"])
 
-# Adicionar backend ao path para importar scripts
+# Adicionar backend ao path para importar scripts (apenas quando necessário)
 backend_path = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(backend_path))
+# Não adicionar ao sys.path no nível do módulo - fazer apenas quando necessário
 
 class SpreadsheetUrlRequest(BaseModel):
     url: HttpUrl
@@ -631,6 +631,9 @@ def execute_import(
         onboarding_status[status_key].message = "Importando lançamentos diários e previstos..."
         
         # Executar seed diretamente (sem subprocess para evitar timeout)
+        # Adicionar backend ao path para importar scripts
+        if str(backend_path) not in sys.path:
+            sys.path.insert(0, str(backend_path))
         from scripts.seed_from_client_sheet import seed_lancamentos_previstos, seed_lancamentos_diarios
         
         db = SessionLocal()
