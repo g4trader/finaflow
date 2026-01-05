@@ -9,7 +9,7 @@ echo "🚀 Deploy Manual - FinaFlow Backend STAGING"
 echo "==========================================="
 
 # Variáveis
-PROJECT_ID="trivihair"
+PROJECT_ID="project-c6f9c72d-aca4-476d-82f"
 REGION="us-central1"
 SERVICE_NAME="finaflow-backend-staging"
 
@@ -74,6 +74,7 @@ echo ""
 echo "🔍 Para ver os logs:"
 echo "   gcloud logging tail \"resource.type=cloud_run_revision AND resource.labels.service_name=${SERVICE_NAME}\" --project=${PROJECT_ID}"
 echo ""
+
 
 
 

@@ -1,10 +1,11 @@
-DATABASE_URL: 'postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/trivihair:us-central1:finaflow-db-staging'
+DATABASE_URL: 'postgresql://finaflow_user:Finaflow123!@/finaflow?host=/cloudsql/project-c6f9c72d-aca4-476d-82f:us-central1:finaflow-db-staging'
 SECRET_KEY: 'finaflow-secret-key-2024-staging'
 JWT_SECRET: 'finaflow-secret-key-2024-staging'
 CORS_ORIGINS: 'https://finaflow-lcz5.vercel.app,https://finaflow.vercel.app,http://localhost:3000'
 ALLOWED_HOSTS: '*'
-PROJECT_ID: 'trivihair'
+PROJECT_ID: 'project-c6f9c72d-aca4-476d-82f'
 ENVIRONMENT: 'staging'
+
 
 
 
