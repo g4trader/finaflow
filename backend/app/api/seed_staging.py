@@ -145,6 +145,67 @@ async def run_migration_liquidation(
             }
         )
 
+@router.post("/init-database")
+async def init_database():
+    """
+    Inicializa o banco de dados - cria tabelas e usuário inicial
+    ATENÇÃO: Endpoint temporário sem autenticação - remover após uso
+    """
+    from app.database import SessionLocal, create_tables
+    from app.models.auth import User, UserStatus
+    from app.services.security import SecurityService
+    from uuid import uuid4
+    from datetime import datetime
+    
+    try:
+        # Criar tabelas
+        print("🔄 Criando tabelas...")
+        create_tables()
+        print("✅ Tabelas criadas")
+        
+        db = SessionLocal()
+        try:
+            # Verificar se usuário já existe
+            existing_user = db.query(User).filter(User.email == "qa@finaflow.test").first()
+            if existing_user:
+                return {"message": "Banco já inicializado", "user_id": existing_user.id}
+            
+            # Criar usuário
+            print("👤 Criando usuário qa@finaflow.test...")
+            security_service = SecurityService()
+            hashed_password = security_service.hash_password("QaFinaflow123!")
+            
+            user = User(
+                id=str(uuid4()),
+                email="qa@finaflow.test",
+                hashed_password=hashed_password,
+                full_name="QA User",
+                status=UserStatus.ACTIVE,
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+            
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            
+            return {
+                "message": "Banco inicializado com sucesso",
+                "user_id": user.id,
+                "email": user.email
+            }
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Erro ao criar usuário: {str(e)}")
+        finally:
+            db.close()
+    except Exception as e:
+        import traceback
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao inicializar banco: {str(e)}\n{traceback.format_exc()}"
+        )
+
 @router.post("/seed-staging")
 async def execute_seed_staging(
     reset_data: Optional[bool] = Body(False, description="Resetar dados antes do seed"),
