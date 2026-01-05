@@ -165,10 +165,44 @@ async def init_database():
         
         db = SessionLocal()
         try:
+            from app.models.auth import Tenant, BusinessUnit, UserRole
+            
             # Verificar se usuário já existe
             existing_user = db.query(User).filter(User.email == "qa@finaflow.test").first()
             if existing_user:
                 return {"message": "Banco já inicializado", "user_id": existing_user.id}
+            
+            # Criar tenant padrão se não existir
+            tenant = db.query(Tenant).filter(Tenant.domain == "finaflow.test").first()
+            if not tenant:
+                tenant = Tenant(
+                    id=str(uuid4()),
+                    name="FinaFlow Default",
+                    domain="finaflow.test",
+                    status="active"
+                )
+                db.add(tenant)
+                db.commit()
+                db.refresh(tenant)
+                print(f"✅ Tenant criado: {tenant.name}")
+            
+            # Criar Business Unit padrão se não existir
+            bu = db.query(BusinessUnit).filter(
+                BusinessUnit.tenant_id == tenant.id,
+                BusinessUnit.name == "Matriz"
+            ).first()
+            if not bu:
+                bu = BusinessUnit(
+                    id=str(uuid4()),
+                    tenant_id=tenant.id,
+                    name="Matriz",
+                    code="MAT",
+                    status="active"
+                )
+                db.add(bu)
+                db.commit()
+                db.refresh(bu)
+                print(f"✅ Business Unit criada: {bu.name}")
             
             # Criar usuário
             print("👤 Criando usuário qa@finaflow.test...")
@@ -177,11 +211,14 @@ async def init_database():
             
             user = User(
                 id=str(uuid4()),
-                email="qa@finaflow.test",
+                tenant_id=tenant.id,
+                business_unit_id=bu.id,
                 username="qa",
+                email="qa@finaflow.test",
                 hashed_password=hashed_password,
                 first_name="QA",
                 last_name="User",
+                role=UserRole.SUPER_ADMIN,
                 status=UserStatus.ACTIVE,
                 created_at=datetime.now(),
                 updated_at=datetime.now()
@@ -194,7 +231,9 @@ async def init_database():
             return {
                 "message": "Banco inicializado com sucesso",
                 "user_id": user.id,
-                "email": user.email
+                "email": user.email,
+                "tenant_id": tenant.id,
+                "business_unit_id": bu.id
             }
         except Exception as e:
             db.rollback()
