@@ -592,6 +592,7 @@ def execute_import(
         # Executar seed do plano de contas
         from scripts.seed_from_client_sheet import seed_plano_contas
         from app.database import SessionLocal
+        from app.models import Tenant, BusinessUnit, LancamentoDiario, LancamentoPrevisto
         
         db = SessionLocal()
         try:
@@ -626,49 +627,71 @@ def execute_import(
         onboarding_status[status_key].progress = 60
         onboarding_status[status_key].message = "Importando lançamentos diários e previstos..."
         
-        # Executar seed completo
-        import subprocess
-        import os
+        # Executar seed diretamente (sem subprocess para evitar timeout)
+        from scripts.seed_from_client_sheet import seed_lancamentos_previstos, seed_lancamentos_diarios
         
-        env = os.environ.copy()
-        env["DATABASE_URL"] = os.getenv("DATABASE_URL")
-        env["STAGING_TENANT_ID"] = tenant_id
-        env["STAGING_BUSINESS_UNIT_ID"] = business_unit_id
-        env["STAGING_USER_ID"] = user_id
-        
-        cmd = [
-            sys.executable,
-            "-m", "scripts.seed_from_client_sheet",
-            "--file", str(excel_file_path),
-            "--tenant-id", tenant_id,
-            "--business-unit-id", business_unit_id,
-            "--user-id", user_id
-        ]
-        
-        if reset_data:
-            cmd.append("--reset-data")
-        
+        db = SessionLocal()
         try:
-            process = subprocess.run(
-                cmd,
-                cwd=str(backend_path),
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=600
-            )
+            # Buscar tenant e BU novamente
+            tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+            if not tenant:
+                raise Exception(f"Tenant {tenant_id} não encontrado")
             
-            if process.returncode == 0:
-                onboarding_status[status_key].progress = 90
-                onboarding_status[status_key].message = "Lançamentos importados com sucesso"
-            else:
-                raise Exception(f"Seed falhou: {process.stderr}")
+            business_unit = db.query(BusinessUnit).filter(
+                BusinessUnit.id == business_unit_id,
+                BusinessUnit.tenant_id == tenant_id
+            ).first()
+            if not business_unit:
+                raise Exception(f"Business Unit {business_unit_id} não encontrada")
+            
+            # Resetar dados se solicitado
+            if reset_data:
+                from datetime import date
+                from sqlalchemy import and_
+                
+                deleted_diarios = db.query(LancamentoDiario).filter(
+                    and_(
+                        LancamentoDiario.tenant_id == tenant.id,
+                        LancamentoDiario.data_movimentacao >= date(2025, 1, 1),
+                        LancamentoDiario.data_movimentacao <= date(2025, 12, 31)
+                    )
+                ).delete(synchronize_session=False)
+                
+                deleted_prev = db.query(LancamentoPrevisto).filter(
+                    and_(
+                        LancamentoPrevisto.tenant_id == tenant.id,
+                        LancamentoPrevisto.data_prevista >= date(2025, 1, 1),
+                        LancamentoPrevisto.data_prevista <= date(2025, 12, 31)
+                    )
+                ).delete(synchronize_session=False)
+                
+                db.commit()
+                onboarding_status[status_key].message = f"Dados resetados: {deleted_diarios} diários, {deleted_prev} previstos"
+            
+            # Importar lançamentos previstos
+            onboarding_status[status_key].progress = 65
+            onboarding_status[status_key].message = "Importando lançamentos previstos..."
+            seed_lancamentos_previstos(db, tenant, business_unit, excel_file_path, grupos_map, subgrupos_map, contas_map)
+            
+            # Importar lançamentos diários
+            onboarding_status[status_key].progress = 80
+            onboarding_status[status_key].message = "Importando lançamentos diários..."
+            seed_lancamentos_diarios(db, tenant, business_unit, excel_file_path, grupos_map, subgrupos_map, contas_map)
+            
+            db.commit()
+            onboarding_status[status_key].progress = 90
+            onboarding_status[status_key].message = "Lançamentos importados com sucesso"
                 
         except Exception as e:
+            db.rollback()
             onboarding_status[status_key].status = "error"
             onboarding_status[status_key].message = f"Erro ao importar lançamentos: {str(e)}"
             onboarding_status[status_key].errors.append(str(e))
+            import traceback
+            onboarding_status[status_key].errors.append(traceback.format_exc())
             return
+        finally:
+            db.close()
         
         # Etapa 4: Conciliação
         onboarding_status[status_key].status = "reconciling"
