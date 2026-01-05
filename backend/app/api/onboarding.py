@@ -18,7 +18,11 @@ import json
 
 from app.services.dependencies import get_current_active_user
 from app.models.auth import User
-from app.models.tenant import Tenant, BusinessUnit
+try:
+    from app.models.tenant import Tenant, BusinessUnit
+except ImportError:
+    # Fallback caso o import falhe
+    from app.models.auth import Tenant, BusinessUnit
 from app.database import SessionLocal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
