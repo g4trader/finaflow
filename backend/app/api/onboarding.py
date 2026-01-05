@@ -592,7 +592,7 @@ def execute_import(
         # Executar seed do plano de contas
         from scripts.seed_from_client_sheet import seed_plano_contas
         from app.database import SessionLocal
-        from app.models.tenant import Tenant, BusinessUnit
+        from app.models.auth import Tenant, BusinessUnit
         from app.models.lancamento_diario import LancamentoDiario
         from app.models.lancamento_previsto import LancamentoPrevisto
         
