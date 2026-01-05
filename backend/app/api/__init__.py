@@ -19,7 +19,14 @@ from app.api.caixa import router as caixa_router
 from app.api.investments import router as investments_router
 from app.api.seed_staging import router as seed_staging_router
 from app.api.system import router as system_router
-from app.api.onboarding import router as onboarding_router
+# Importar onboarding de forma condicional para evitar erros na inicialização
+try:
+    from app.api.onboarding import router as onboarding_router
+    ONBOARDING_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️  Aviso: Não foi possível importar onboarding router: {e}")
+    ONBOARDING_AVAILABLE = False
+    onboarding_router = None
 
 # Routers baseados em BigQuery/legacy
 LEGACY_ROUTERS = [
@@ -42,8 +49,11 @@ LEGACY_ROUTERS = [
     investments_router,
     seed_staging_router,
     system_router,
-    onboarding_router,
 ]
+
+# Adicionar onboarding apenas se estiver disponível
+if ONBOARDING_AVAILABLE and onboarding_router:
+    LEGACY_ROUTERS.append(onboarding_router)
 
 
 def include_routers(app: FastAPI, prefix: str = "") -> None:
