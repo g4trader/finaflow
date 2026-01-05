@@ -15,7 +15,7 @@ sys.path.insert(0, str(backend_path))
 
 BACKEND_URL = os.getenv(
     "BACKEND_URL",
-    "https://finaflow-backend-staging-642830139828.us-central1.run.app"
+    "https://finaflow-backend-staging-556803510516.us-central1.run.app"
 )
 QA_USERNAME = os.getenv("QA_USERNAME", "qa@finaflow.test")
 QA_PASSWORD = os.getenv("QA_PASSWORD", "QaFinaflow123!")
