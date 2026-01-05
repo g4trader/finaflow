@@ -17,7 +17,8 @@ import tempfile
 import json
 
 from app.services.dependencies import get_current_active_user
-from app.models.auth import User, Tenant, BusinessUnit
+from app.models.auth import User
+from app.models.tenant import Tenant, BusinessUnit
 from app.database import SessionLocal
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
