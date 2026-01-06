@@ -615,39 +615,20 @@ def execute_import(
             onboarding_status[status_key].progress = 50
             onboarding_status[status_key].message = f"Plano de contas importado: {len(contas_map)} contas"
             
-        except Exception as e:
-            onboarding_status[status_key].status = "error"
-            onboarding_status[status_key].message = f"Erro ao importar plano de contas: {str(e)}"
-            onboarding_status[status_key].errors.append(str(e))
-            return
-        finally:
-            db.close()
-        
-        # Etapa 3: Importar Lançamentos
-        onboarding_status[status_key].status = "importing_transactions"
-        onboarding_status[status_key].current_step = "Importando Lançamentos Financeiros"
-        onboarding_status[status_key].progress = 60
-        onboarding_status[status_key].message = "Importando lançamentos diários e previstos..."
-        
-        # Executar seed diretamente (sem subprocess para evitar timeout)
-        # Adicionar backend ao path para importar scripts
-        if str(backend_path) not in sys.path:
-            sys.path.insert(0, str(backend_path))
-        from scripts.seed_from_client_sheet import seed_lancamentos_previstos, seed_lancamentos_diarios
-        
-        db = SessionLocal()
-        try:
-            # Buscar tenant e BU novamente
-            tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-            if not tenant:
-                raise Exception(f"Tenant {tenant_id} não encontrado")
+            # Buscar ou criar usuário para o seed
+            if str(backend_path) not in sys.path:
+                sys.path.insert(0, str(backend_path))
+            from scripts.seed_from_client_sheet import get_or_create_user
+            user = get_or_create_user(db, tenant, business_unit, user_id)
             
-            business_unit = db.query(BusinessUnit).filter(
-                BusinessUnit.id == business_unit_id,
-                BusinessUnit.tenant_id == tenant_id
-            ).first()
-            if not business_unit:
-                raise Exception(f"Business Unit {business_unit_id} não encontrada")
+            # Etapa 3: Importar Lançamentos
+            onboarding_status[status_key].status = "importing_transactions"
+            onboarding_status[status_key].current_step = "Importando Lançamentos Financeiros"
+            onboarding_status[status_key].progress = 60
+            onboarding_status[status_key].message = "Importando lançamentos diários e previstos..."
+            
+            # Executar seed diretamente (sem subprocess para evitar timeout)
+            from scripts.seed_from_client_sheet import seed_lancamentos_previstos, seed_lancamentos_diarios
             
             # Resetar dados se solicitado
             if reset_data:
@@ -676,12 +657,12 @@ def execute_import(
             # Importar lançamentos previstos
             onboarding_status[status_key].progress = 65
             onboarding_status[status_key].message = "Importando lançamentos previstos..."
-            seed_lancamentos_previstos(db, tenant, business_unit, Path(excel_file_path), grupos_map, subgrupos_map, contas_map)
+            seed_lancamentos_previstos(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, Path(excel_file_path))
             
             # Importar lançamentos diários
             onboarding_status[status_key].progress = 80
             onboarding_status[status_key].message = "Importando lançamentos diários..."
-            seed_lancamentos_diarios(db, tenant, business_unit, Path(excel_file_path), grupos_map, subgrupos_map, contas_map)
+            seed_lancamentos_diarios(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, Path(excel_file_path))
             
             db.commit()
             onboarding_status[status_key].progress = 90
