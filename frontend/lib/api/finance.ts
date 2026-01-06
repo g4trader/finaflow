@@ -6,7 +6,7 @@ import type {
   MonthlyTransactionsResponse
 } from '../../types/dashboard';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-556803510516.us-central1.run.app';
 
 // Importação dinâmica do api para evitar SSR
 const getApi = async () => {

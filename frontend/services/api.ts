@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Usar variável de ambiente ou fallback para staging
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-556803510516.us-central1.run.app';
 
 // Log da URL da API (para debug) - só no cliente
 // Removido do top-level para evitar execução durante SSR

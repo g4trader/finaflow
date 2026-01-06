@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // Configurações
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-556803510516.us-central1.run.app';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const YEAR = 2025;
 

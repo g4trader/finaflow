@@ -17,7 +17,7 @@ declare global {
 const getApiUrl = () => {
   const url = process.env.NEXT_PUBLIC_API_URL;
   if (!url) {
-    return 'https://finaflow-backend-609095880025.us-central1.run.app';
+    return 'https://finaflow-backend-staging-556803510516.us-central1.run.app';
   }
   // Forçar HTTPS se for HTTP
   if (url.startsWith('http://')) {

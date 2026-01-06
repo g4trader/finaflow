@@ -21,7 +21,7 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-642830139828.us-central1.run.app';
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-556803510516.us-central1.run.app';
   console.log('🔍 [Proxy Login] BACKEND_URL:', BACKEND_URL);
 
   try {
