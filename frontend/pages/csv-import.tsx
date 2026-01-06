@@ -50,7 +50,7 @@ const CSVImportContent = () => {
 
     try {
       // Garantir HTTPS
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-609095880025.us-central1.run.app';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-556803510516.us-central1.run.app';
       const secureUrl = apiUrl.startsWith('http://') ? apiUrl.replace('http://', 'https://') : apiUrl;
       const response = await fetch(`${secureUrl.replace(/\/$/, '')}/csv/import/${importType}`, {
         method: 'POST',
@@ -81,7 +81,7 @@ const CSVImportContent = () => {
   const downloadTemplate = async (type: string) => {
     try {
       // Garantir HTTPS
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-609095880025.us-central1.run.app';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backend-staging-556803510516.us-central1.run.app';
       const secureUrl = apiUrl.startsWith('http://') ? apiUrl.replace('http://', 'https://') : apiUrl;
       const response = await fetch(`${secureUrl.replace(/\/$/, '')}/csv/template/${type}`, {
         headers: {
