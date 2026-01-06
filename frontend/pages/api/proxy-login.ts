@@ -15,6 +15,8 @@ export default async function handler(
 ) {
   console.log('🔍 [Proxy Login] Iniciando handler');
   console.log('🔍 [Proxy Login] Method:', req.method);
+  console.log('🔍 [Proxy Login] Headers:', JSON.stringify(req.headers));
+  console.log('🔍 [Proxy Login] Body type:', typeof req.body);
   console.log('🔍 [Proxy Login] Body:', JSON.stringify(req.body));
   
   if (req.method !== 'POST') {
@@ -25,18 +27,32 @@ export default async function handler(
   console.log('🔍 [Proxy Login] BACKEND_URL:', BACKEND_URL);
 
   try {
+    // Tentar parsear body se necessário
+    let body = req.body;
+    
+    // Se o body é uma string, tentar parsear como JSON
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        console.error('❌ [Proxy Login] Erro ao parsear body como JSON:', e);
+      }
+    }
+    
     // Validar body
-    if (!req.body) {
-      console.error('❌ [Proxy Login] Body vazio');
+    if (!body || (typeof body === 'object' && Object.keys(body).length === 0)) {
+      console.error('❌ [Proxy Login] Body vazio ou inválido');
       return res.status(400).json({ error: 'Body é obrigatório' });
     }
     
-    const { username, password } = req.body;
-    console.log('🔍 [Proxy Login] Username:', username ? 'fornecido' : 'não fornecido');
+    const { username, password } = body;
+    console.log('🔍 [Proxy Login] Username:', username ? `"${username}"` : 'não fornecido');
+    console.log('🔍 [Proxy Login] Password:', password ? '***fornecido***' : 'não fornecido');
     
     // Validar campos obrigatórios
     if (!username || !password) {
       console.error('❌ [Proxy Login] Username ou password faltando');
+      console.error('❌ [Proxy Login] Body completo:', JSON.stringify(body));
       return res.status(400).json({ error: 'Username e password são obrigatórios' });
     }
 
