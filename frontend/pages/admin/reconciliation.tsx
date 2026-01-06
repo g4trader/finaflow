@@ -213,6 +213,11 @@ const ReconciliationPage: React.FC = () => {
                               const data = month[key as keyof typeof month];
                               if (!data) return <td key={key} className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">-</td>;
                               
+                              // Verificar se data é um objeto com excel, system, diff
+                              if (typeof data === 'number' || !('excel' in data)) {
+                                return <td key={key} className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">-</td>;
+                              }
+                              
                               return (
                                 <td key={key} className="px-4 py-3 whitespace-nowrap">
                                   <div className="text-sm">
