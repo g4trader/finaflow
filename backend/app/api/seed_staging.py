@@ -391,3 +391,107 @@ async def execute_seed_staging(
             detail=f"Erro ao executar seed: {str(e)}\n\nDetalhes:\n{error_details}"
         )
 
+@router.post("/clean-duplicate-business-units", summary="Remove Business Units duplicadas (APENAS STAGING)", status_code=200)
+async def clean_duplicate_business_units():
+    """
+    Remove Business Units duplicadas, mantendo apenas uma por tenant (a mais antiga).
+    Migra usuários e acessos para a BU mantida.
+    ATENÇÃO: Endpoint temporário sem autenticação - remover após uso
+    """
+    from app.database import SessionLocal
+    from app.models.auth import Tenant, BusinessUnit, User, UserBusinessUnitAccess
+    from collections import defaultdict
+    from datetime import datetime
+    
+    db = SessionLocal()
+    
+    try:
+        print("🔍 Analisando Business Units duplicadas...")
+        
+        # Agrupar BUs por tenant_id e name
+        all_bus = db.query(BusinessUnit).order_by(BusinessUnit.created_at).all()
+        
+        # Agrupar por (tenant_id, name)
+        groups = defaultdict(list)
+        for bu in all_bus:
+            key = (bu.tenant_id, bu.name)
+            groups[key].append(bu)
+        
+        # Identificar e remover duplicatas
+        deleted_count = 0
+        migrated_users = 0
+        migrated_accesses = 0
+        details = []
+        
+        for (tenant_id, name), bus in groups.items():
+            if len(bus) > 1:
+                tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+                tenant_name = tenant.name if tenant else "Desconhecido"
+                
+                # Ordenar por data de criação (mais antiga primeiro)
+                bus_sorted = sorted(bus, key=lambda x: x.created_at if x.created_at else datetime.min)
+                
+                # Manter a primeira (mais antiga)
+                keep_bu = bus_sorted[0]
+                to_delete = bus_sorted[1:]
+                
+                detail = {
+                    "tenant": tenant_name,
+                    "bu_name": name,
+                    "kept_bu_id": str(keep_bu.id),
+                    "deleted_bu_ids": []
+                }
+                
+                for bu in to_delete:
+                    # Verificar se há usuários associados
+                    users_count = db.query(User).filter(User.business_unit_id == bu.id).count()
+                    access_count = db.query(UserBusinessUnitAccess).filter(
+                        UserBusinessUnitAccess.business_unit_id == bu.id
+                    ).count()
+                    
+                    if users_count > 0:
+                        # Migrar usuários
+                        db.query(User).filter(User.business_unit_id == bu.id).update({
+                            User.business_unit_id: keep_bu.id
+                        })
+                        migrated_users += users_count
+                    
+                    if access_count > 0:
+                        # Migrar acessos
+                        db.query(UserBusinessUnitAccess).filter(
+                            UserBusinessUnitAccess.business_unit_id == bu.id
+                        ).update({
+                            UserBusinessUnitAccess.business_unit_id: keep_bu.id
+                        })
+                        migrated_accesses += access_count
+                    
+                    # Deletar BU
+                    db.delete(bu)
+                    deleted_count += 1
+                    detail["deleted_bu_ids"].append(str(bu.id))
+                
+                details.append(detail)
+        
+        db.commit()
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": f"Limpeza concluída! {deleted_count} Business Units removidas.",
+            "deleted_count": deleted_count,
+            "migrated_users": migrated_users,
+            "migrated_accesses": migrated_accesses,
+            "details": details
+        })
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+    finally:
+        db.close()
+

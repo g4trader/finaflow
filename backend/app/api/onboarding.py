@@ -269,32 +269,27 @@ async def import_data(
             BusinessUnit.tenant_id == request.tenant_id
         ).first()
         
-        # Se não encontrou BU, criar automaticamente
+        # Se não encontrou BU, criar automaticamente (mas verificar duplicatas primeiro)
         if not business_unit:
-            # Verificar se o business_unit_id é igual ao tenant_id (indicando que precisa criar)
-            if request.business_unit_id == request.tenant_id:
-                # Criar BU padrão
-                from uuid import uuid4
-                business_unit = BusinessUnit(
-                    id=str(uuid4()),
-                    tenant_id=request.tenant_id,
-                    name="Matriz",
-                    code="MAT",
-                    status="active"
-                )
-                db.add(business_unit)
-                db.commit()
-                db.refresh(business_unit)
-                # Atualizar request com o ID real da BU
-                request.business_unit_id = str(business_unit.id)
-            else:
-                # Tentar buscar qualquer BU do tenant
-                business_unit = db.query(BusinessUnit).filter(
-                    BusinessUnit.tenant_id == request.tenant_id
+            # Primeiro, tentar buscar qualquer BU do tenant (evitar duplicatas)
+            business_unit = db.query(BusinessUnit).filter(
+                BusinessUnit.tenant_id == request.tenant_id
+            ).order_by(BusinessUnit.created_at.asc()).first()  # Pegar a mais antiga
+            
+            if not business_unit:
+                # Verificar se já existe uma BU "Matriz" para este tenant (evitar duplicatas)
+                existing_matriz = db.query(BusinessUnit).filter(
+                    BusinessUnit.tenant_id == request.tenant_id,
+                    BusinessUnit.name == "Matriz",
+                    BusinessUnit.code == "MAT"
                 ).first()
                 
-                if not business_unit:
-                    # Criar BU padrão
+                if existing_matriz:
+                    # Usar a BU existente
+                    business_unit = existing_matriz
+                    request.business_unit_id = str(business_unit.id)
+                else:
+                    # Criar BU padrão apenas se não existir nenhuma
                     from uuid import uuid4
                     business_unit = BusinessUnit(
                         id=str(uuid4()),
@@ -308,9 +303,9 @@ async def import_data(
                     db.refresh(business_unit)
                     # Atualizar request com o ID real da BU
                     request.business_unit_id = str(business_unit.id)
-                else:
-                    # Usar a BU encontrada
-                    request.business_unit_id = str(business_unit.id)
+            else:
+                # Usar a BU encontrada (mais antiga)
+                request.business_unit_id = str(business_unit.id)
         
         status_key = f"{request.tenant_id}_{request.business_unit_id}"
         
