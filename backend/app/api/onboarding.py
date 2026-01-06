@@ -676,12 +676,12 @@ def execute_import(
             # Importar lançamentos previstos
             onboarding_status[status_key].progress = 65
             onboarding_status[status_key].message = "Importando lançamentos previstos..."
-            seed_lancamentos_previstos(db, tenant, business_unit, excel_file_path, grupos_map, subgrupos_map, contas_map)
+            seed_lancamentos_previstos(db, tenant, business_unit, Path(excel_file_path), grupos_map, subgrupos_map, contas_map)
             
             # Importar lançamentos diários
             onboarding_status[status_key].progress = 80
             onboarding_status[status_key].message = "Importando lançamentos diários..."
-            seed_lancamentos_diarios(db, tenant, business_unit, excel_file_path, grupos_map, subgrupos_map, contas_map)
+            seed_lancamentos_diarios(db, tenant, business_unit, Path(excel_file_path), grupos_map, subgrupos_map, contas_map)
             
             db.commit()
             onboarding_status[status_key].progress = 90
