@@ -141,6 +141,11 @@ const ReconciliationPage: React.FC = () => {
                         balance: 'Saldo'
                       };
                       
+                      // Verificar se data é um objeto com excel, system, diff
+                      if (typeof data === 'number' || !('excel' in data)) {
+                        return null;
+                      }
+                      
                       return (
                         <div key={key} className="p-4 bg-gray-50 rounded-lg">
                           <h3 className="text-sm font-medium text-gray-700 mb-3">{labels[key]}</h3>
