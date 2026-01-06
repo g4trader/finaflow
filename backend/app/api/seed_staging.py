@@ -443,10 +443,22 @@ async def clean_duplicate_business_units():
                 }
                 
                 for bu in to_delete:
-                    # Verificar se há usuários associados
+                    # Verificar e migrar dados relacionados
                     users_count = db.query(User).filter(User.business_unit_id == bu.id).count()
                     access_count = db.query(UserBusinessUnitAccess).filter(
                         UserBusinessUnitAccess.business_unit_id == bu.id
+                    ).count()
+                    
+                    # Migrar lançamentos previstos
+                    from app.models.lancamento_previsto import LancamentoPrevisto
+                    previstos_count = db.query(LancamentoPrevisto).filter(
+                        LancamentoPrevisto.business_unit_id == bu.id
+                    ).count()
+                    
+                    # Migrar lançamentos diários
+                    from app.models.lancamento_diario import LancamentoDiario
+                    diarios_count = db.query(LancamentoDiario).filter(
+                        LancamentoDiario.business_unit_id == bu.id
                     ).count()
                     
                     if users_count > 0:
@@ -465,7 +477,23 @@ async def clean_duplicate_business_units():
                         })
                         migrated_accesses += access_count
                     
-                    # Deletar BU
+                    if previstos_count > 0:
+                        # Migrar lançamentos previstos
+                        db.query(LancamentoPrevisto).filter(
+                            LancamentoPrevisto.business_unit_id == bu.id
+                        ).update({
+                            LancamentoPrevisto.business_unit_id: keep_bu.id
+                        })
+                    
+                    if diarios_count > 0:
+                        # Migrar lançamentos diários
+                        db.query(LancamentoDiario).filter(
+                            LancamentoDiario.business_unit_id == bu.id
+                        ).update({
+                            LancamentoDiario.business_unit_id: keep_bu.id
+                        })
+                    
+                    # Deletar BU (agora que todos os dados foram migrados)
                     db.delete(bu)
                     deleted_count += 1
                     detail["deleted_bu_ids"].append(str(bu.id))
