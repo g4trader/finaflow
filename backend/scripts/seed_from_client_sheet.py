@@ -753,11 +753,15 @@ def seed_lancamentos_previstos(
                 )
                 
                 db.add(previsao)
-                db.commit()
                 logger.stats['lancamentos_previstos_criados'] += 1
                 
-                if logger.stats['lancamentos_previstos_criados'] % 100 == 0:
+                # Commit em batch a cada 50 registros para melhor performance
+                if logger.stats['lancamentos_previstos_criados'] % 50 == 0:
+                    db.commit()
                     logger.log(f"Lançamentos previstos criados: {logger.stats['lancamentos_previstos_criados']}", "INFO")
+        
+        # Commit final para garantir que todos os registros foram salvos
+        db.commit()
             
             except Exception as e:
                 error_msg = f"Erro na linha {row_num + 2}: {str(e)}"
