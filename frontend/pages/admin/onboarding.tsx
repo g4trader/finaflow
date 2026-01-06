@@ -6,7 +6,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Upload, CheckCircle, XCircle, Loader, FileSpreadsheet, AlertCircle } from 'lucide-react';
-import { getApiInstance } from '../../services/api';
+import api from '../../services/api';
 
 interface OnboardingProps {
   tenantId?: string;
@@ -26,7 +26,7 @@ const OnboardingPage: React.FC<OnboardingProps> = () => {
   const [error, setError] = useState('');
   const [step, setStep] = useState<'url' | 'validating' | 'importing' | 'reconciling' | 'completed'>('url');
   
-  const api = getApiInstance();
+  // api já está importado como default
   
   useEffect(() => {
     if (tenant_id && business_unit_id && importing) {

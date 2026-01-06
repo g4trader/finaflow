@@ -9,7 +9,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-backen
 // Lazy initialization do axios - só cria quando necessário e no cliente
 let apiInstance: any = null;
 
-const getApiInstance = () => {
+export const getApiInstance = () => {
   // Só criar no cliente
   if (typeof window === 'undefined') {
     throw new Error('API só pode ser usada no cliente');
