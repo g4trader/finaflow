@@ -178,13 +178,13 @@ export const login = async (username: string, password: string) => {
     console.error('❌ [API] Erro no proxy, tentando direto...', proxyError.message);
     
     // Fallback: tentar direto (pode falhar por CORS)
-    const formData = new FormData();
+    const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
     
     console.log('📤 [API] Enviando requisição direta para /api/v1/auth/login');
     
-    const response = await api.post('/api/v1/auth/login', formData, {
+    const response = await api.post('/api/v1/auth/login', formData.toString(), {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
