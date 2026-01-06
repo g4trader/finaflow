@@ -759,9 +759,6 @@ def seed_lancamentos_previstos(
                 if logger.stats['lancamentos_previstos_criados'] % 50 == 0:
                     db.commit()
                     logger.log(f"Lançamentos previstos criados: {logger.stats['lancamentos_previstos_criados']}", "INFO")
-        
-        # Commit final para garantir que todos os registros foram salvos
-        db.commit()
             
             except Exception as e:
                 error_msg = f"Erro na linha {row_num + 2}: {str(e)}"
