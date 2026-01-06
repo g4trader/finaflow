@@ -178,15 +178,27 @@ async def validate_spreadsheet(
             # Converter Google Sheets URL para formato de download
             spreadsheet_url = str(request.url)
             if "docs.google.com/spreadsheets" in spreadsheet_url:
-                # Converter para formato de exportação Excel
-                if "/edit" in spreadsheet_url:
-                    spreadsheet_url = spreadsheet_url.replace("/edit", "/export?format=xlsx")
-                elif "/view" in spreadsheet_url:
-                    spreadsheet_url = spreadsheet_url.replace("/view", "/export?format=xlsx")
+                # Extrair o ID da planilha usando regex
+                import re
+                match = re.search(r'/spreadsheets/d/([a-zA-Z0-9_-]+)', spreadsheet_url)
+                if match:
+                    sheet_id = match.group(1)
+                    # Construir URL de exportação limpa
+                    spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
                 else:
-                    # Adicionar /export?format=xlsx se não tiver
-                    if "export" not in spreadsheet_url:
-                        spreadsheet_url = spreadsheet_url.rstrip("/") + "/export?format=xlsx"
+                    # Fallback: tentar substituir /edit ou /view
+                    if "/edit" in spreadsheet_url:
+                        # Remover query params e hash antes de substituir
+                        base_url = spreadsheet_url.split("?")[0].split("#")[0]
+                        spreadsheet_url = base_url.replace("/edit", "/export?format=xlsx")
+                    elif "/view" in spreadsheet_url:
+                        base_url = spreadsheet_url.split("?")[0].split("#")[0]
+                        spreadsheet_url = base_url.replace("/view", "/export?format=xlsx")
+                    else:
+                        # Adicionar /export?format=xlsx se não tiver
+                        if "export" not in spreadsheet_url:
+                            base_url = spreadsheet_url.split("?")[0].split("#")[0]
+                            spreadsheet_url = base_url.rstrip("/") + "/export?format=xlsx"
             
             response = requests.get(spreadsheet_url, timeout=30)
             response.raise_for_status()
