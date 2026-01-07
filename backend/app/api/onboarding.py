@@ -688,15 +688,22 @@ def execute_import(
                 import threading
                 import time as time_module
                 
+                # Resetar stats do logger para esta execução
                 diarios_before = seed_logger.stats.get('lancamentos_diarios_criados', 0)
+                previstos_before = seed_logger.stats.get('lancamentos_previstos_criados', 0)
+                
+                print(f"🔍 [ONBOARDING] Antes da importação: Diários={diarios_before}, Previstos={previstos_before}")
                 
                 # Função para atualizar progresso periodicamente durante importação
                 def update_progress():
                     while True:
                         time_module.sleep(15)  # Atualizar a cada 15 segundos
                         current_diarios = seed_logger.stats.get('lancamentos_diarios_criados', 0)
-                        current_created = current_diarios - diarios_before
-                        onboarding_status[status_key].message = f"Importando lançamentos diários... {current_created} criados até agora"
+                        current_previstos = seed_logger.stats.get('lancamentos_previstos_criados', 0)
+                        current_created_diarios = current_diarios - diarios_before
+                        current_created_previstos = current_previstos - previstos_before
+                        onboarding_status[status_key].message = f"Importando... Diários: {current_created_diarios} | Previstos: {current_created_previstos}"
+                        print(f"📊 [ONBOARDING] Progresso: Diários={current_created_diarios}, Previstos={current_created_previstos}")
                         if onboarding_status[status_key].status == "completed" or onboarding_status[status_key].status == "error":
                             break
                 
@@ -704,13 +711,28 @@ def execute_import(
                 progress_thread = threading.Thread(target=update_progress, daemon=True)
                 progress_thread.start()
                 
-                # Executar importação
+                # Executar importação com logging detalhado
+                print(f"🚀 [ONBOARDING] Iniciando seed_lancamentos_diarios...")
+                print(f"   Excel file: {excel_file_path}")
+                print(f"   Tenant: {tenant.name} ({tenant.id})")
+                print(f"   BU: {business_unit.name} ({business_unit.id})")
+                print(f"   Grupos: {len(grupos_map)}, Subgrupos: {len(subgrupos_map)}, Contas: {len(contas_map)}")
+                
                 seed_lancamentos_diarios(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, Path(excel_file_path))
+                
+                print(f"✅ [ONBOARDING] seed_lancamentos_diarios concluído")
+                print(f"   Stats após execução: {seed_logger.stats}")
+                
                 db.commit()  # Commit após diários
+                print(f"✅ [ONBOARDING] Commit realizado")
                 
                 diarios_after = seed_logger.stats.get('lancamentos_diarios_criados', 0)
+                previstos_after = seed_logger.stats.get('lancamentos_previstos_criados', 0)
                 diarios_count = diarios_after - diarios_before
-                previstos_count = seed_logger.stats.get('lancamentos_previstos_criados', 0)
+                previstos_count = previstos_after - previstos_before
+                
+                print(f"📊 [ONBOARDING] Resultado final: Diários criados={diarios_count}, Previstos criados={previstos_count}")
+                
                 onboarding_status[status_key].progress = 90
                 onboarding_status[status_key].message = f"Lançamentos importados! Diários: {diarios_count}, Previstos: {previstos_count}"
                 onboarding_status[status_key].stats = {
@@ -724,9 +746,13 @@ def execute_import(
                 db.rollback()
                 import traceback
                 error_trace = traceback.format_exc()
-                print(f"❌ ERRO DETALHADO na importação de lançamentos diários:")
+                print(f"❌ [ONBOARDING] ERRO DETALHADO na importação de lançamentos diários:")
                 print(error_trace)
-                raise Exception(f"Erro ao importar lançamentos diários: {str(e)}\n{error_trace}")
+                onboarding_status[status_key].status = "error"
+                onboarding_status[status_key].message = f"Erro ao importar lançamentos diários: {str(e)}"
+                onboarding_status[status_key].errors.append(str(e))
+                onboarding_status[status_key].errors.append(error_trace)
+                return
                 
         except Exception as e:
             db.rollback()
