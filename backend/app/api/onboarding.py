@@ -685,9 +685,29 @@ def execute_import(
             try:
                 # Usar logger global do módulo seed
                 from scripts.seed_from_client_sheet import logger as seed_logger
+                import threading
+                import time as time_module
+                
                 diarios_before = seed_logger.stats.get('lancamentos_diarios_criados', 0)
+                
+                # Função para atualizar progresso periodicamente durante importação
+                def update_progress():
+                    while True:
+                        time_module.sleep(15)  # Atualizar a cada 15 segundos
+                        current_diarios = seed_logger.stats.get('lancamentos_diarios_criados', 0)
+                        current_created = current_diarios - diarios_before
+                        onboarding_status[status_key].message = f"Importando lançamentos diários... {current_created} criados até agora"
+                        if onboarding_status[status_key].status == "completed" or onboarding_status[status_key].status == "error":
+                            break
+                
+                # Iniciar thread de atualização de progresso
+                progress_thread = threading.Thread(target=update_progress, daemon=True)
+                progress_thread.start()
+                
+                # Executar importação
                 seed_lancamentos_diarios(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, Path(excel_file_path))
                 db.commit()  # Commit após diários
+                
                 diarios_after = seed_logger.stats.get('lancamentos_diarios_criados', 0)
                 diarios_count = diarios_after - diarios_before
                 previstos_count = seed_logger.stats.get('lancamentos_previstos_criados', 0)
@@ -704,6 +724,8 @@ def execute_import(
                 db.rollback()
                 import traceback
                 error_trace = traceback.format_exc()
+                print(f"❌ ERRO DETALHADO na importação de lançamentos diários:")
+                print(error_trace)
                 raise Exception(f"Erro ao importar lançamentos diários: {str(e)}\n{error_trace}")
                 
         except Exception as e:

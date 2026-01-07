@@ -932,18 +932,28 @@ def seed_lancamentos_diarios(
             return
         
         # Processar em lotes para melhor performance
-        BATCH_SIZE = 100
+        BATCH_SIZE = 50  # Reduzir tamanho do lote para commits mais frequentes
         lancamentos_batch = []
         total_rows = len(df)
         logger.log(f"Processando {total_rows} linhas de lançamentos diários...", "INFO")
         logger.log(f"Progresso será mostrado a cada {BATCH_SIZE} lançamentos criados", "INFO")
         
         processed_count = 0
+        last_log_time = time.time()
+        start_time = time.time()
         for row_num, row in df.iterrows():
             processed_count += 1
-            # Mostrar progresso a cada 50 linhas processadas (mesmo que não criadas)
-            if processed_count % 50 == 0:
-                logger.log(f"Processando linha {processed_count}/{total_rows}...", "INFO")
+            # Mostrar progresso a cada 50 linhas processadas OU a cada 10 segundos
+            current_time = time.time()
+            if processed_count % 50 == 0 or (current_time - last_log_time) >= 10:
+                created_count = logger.stats['lancamentos_diarios_criados']
+                skipped_count = logger.stats['linhas_ignoradas']
+                elapsed = current_time - start_time
+                rate = processed_count / elapsed if elapsed > 0 else 0
+                remaining = (total_rows - processed_count) / rate if rate > 0 else 0
+                progress_pct = (processed_count / total_rows) * 100 if total_rows > 0 else 0
+                logger.log(f"📊 Progresso: {processed_count}/{total_rows} ({progress_pct:.1f}%) | {created_count} criados | {skipped_count} ignorados | Velocidade: {rate:.1f} linhas/s | Tempo restante: {remaining/60:.1f} min", "INFO")
+                last_log_time = current_time
             try:
                 # Parse dos campos
                 data_mov_str = str(row[column_map['data_movimentacao']]) if pd.notna(row[column_map['data_movimentacao']]) else ""
