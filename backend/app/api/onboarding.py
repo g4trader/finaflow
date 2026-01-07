@@ -664,16 +664,47 @@ def execute_import(
             # Importar lançamentos previstos
             onboarding_status[status_key].progress = 65
             onboarding_status[status_key].message = "Importando lançamentos previstos..."
-            seed_lancamentos_previstos(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, Path(excel_file_path))
+            try:
+                # Usar logger global do módulo seed
+                from scripts.seed_from_client_sheet import logger as seed_logger
+                previstos_before = seed_logger.stats.get('lancamentos_previstos_criados', 0)
+                seed_lancamentos_previstos(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, Path(excel_file_path))
+                db.commit()  # Commit após previstos
+                previstos_after = seed_logger.stats.get('lancamentos_previstos_criados', 0)
+                previstos_count = previstos_after - previstos_before
+                onboarding_status[status_key].message = f"Lançamentos previstos importados: {previstos_count}"
+            except Exception as e:
+                db.rollback()
+                import traceback
+                error_trace = traceback.format_exc()
+                raise Exception(f"Erro ao importar lançamentos previstos: {str(e)}\n{error_trace}")
             
             # Importar lançamentos diários
             onboarding_status[status_key].progress = 80
-            onboarding_status[status_key].message = "Importando lançamentos diários..."
-            seed_lancamentos_diarios(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, Path(excel_file_path))
-            
-            db.commit()
-            onboarding_status[status_key].progress = 90
-            onboarding_status[status_key].message = "Lançamentos importados com sucesso"
+            onboarding_status[status_key].message = "Importando lançamentos diários (pode levar alguns minutos)..."
+            try:
+                # Usar logger global do módulo seed
+                from scripts.seed_from_client_sheet import logger as seed_logger
+                diarios_before = seed_logger.stats.get('lancamentos_diarios_criados', 0)
+                seed_lancamentos_diarios(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, Path(excel_file_path))
+                db.commit()  # Commit após diários
+                diarios_after = seed_logger.stats.get('lancamentos_diarios_criados', 0)
+                diarios_count = diarios_after - diarios_before
+                previstos_count = seed_logger.stats.get('lancamentos_previstos_criados', 0)
+                onboarding_status[status_key].progress = 90
+                onboarding_status[status_key].message = f"Lançamentos importados! Diários: {diarios_count}, Previstos: {previstos_count}"
+                onboarding_status[status_key].stats = {
+                    "contas_importadas": len(contas_map),
+                    "grupos_importados": len(grupos_map),
+                    "subgrupos_importados": len(subgrupos_map),
+                    "lancamentos_diarios_criados": diarios_count,
+                    "lancamentos_previstos_criados": previstos_count
+                }
+            except Exception as e:
+                db.rollback()
+                import traceback
+                error_trace = traceback.format_exc()
+                raise Exception(f"Erro ao importar lançamentos diários: {str(e)}\n{error_trace}")
                 
         except Exception as e:
             db.rollback()
