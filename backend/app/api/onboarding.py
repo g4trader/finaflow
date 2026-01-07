@@ -723,8 +723,19 @@ def execute_import(
                 print(f"✅ [ONBOARDING] seed_lancamentos_diarios concluído")
                 print(f"   Stats após execução: {seed_logger.stats}")
                 
-                db.commit()  # Commit após diários
-                print(f"✅ [ONBOARDING] Commit realizado")
+                # Commit final (a função já faz commits em lotes, mas garantimos o commit final)
+                try:
+                    db.commit()
+                    print(f"✅ [ONBOARDING] Commit final realizado")
+                except Exception as commit_error:
+                    print(f"⚠️ [ONBOARDING] Erro no commit final (pode ser que já foi commitado): {commit_error}")
+                    db.rollback()
+                    # Tentar novamente
+                    try:
+                        db.commit()
+                        print(f"✅ [ONBOARDING] Commit final realizado na segunda tentativa")
+                    except:
+                        pass
                 
                 diarios_after = seed_logger.stats.get('lancamentos_diarios_criados', 0)
                 previstos_after = seed_logger.stats.get('lancamentos_previstos_criados', 0)
