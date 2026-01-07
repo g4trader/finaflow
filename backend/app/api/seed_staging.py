@@ -523,3 +523,175 @@ async def clean_duplicate_business_units():
     finally:
         db.close()
 
+@router.post("/test-seed-direct", summary="Testa seed diretamente com logging detalhado (APENAS STAGING)", status_code=200)
+async def test_seed_direct():
+    """
+    Testa o seed diretamente para diagnosticar problemas de importação.
+    Retorna logs detalhados de cada etapa.
+    ATENÇÃO: Endpoint temporário sem autenticação - remover após uso
+    """
+    import io
+    import sys
+    from contextlib import redirect_stdout, redirect_stderr
+    
+    TENANT_ID = 'ed987f9e-8a32-440e-a7fc-ffeb56368d7c'
+    BU_ID = 'b365bbaa-7796-47a8-a8e3-a0812c694c85'
+    SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1rWMdDhwiNoC7iMycmQGWWDIacrePr1gB7c_mbt1patQ/edit?gid=1158090564#gid=1158090564'
+    
+    logs = []
+    
+    def log_capture(msg):
+        logs.append(msg)
+        print(msg, flush=True)
+    
+    try:
+        from app.database import SessionLocal
+        from app.models.auth import Tenant, BusinessUnit, User
+        from scripts.seed_from_client_sheet import (
+            seed_plano_contas,
+            seed_lancamentos_previstos,
+            seed_lancamentos_diarios,
+            logger
+        )
+        import requests
+        import re
+        from pathlib import Path
+        
+        log_capture("="*80)
+        log_capture("🧪 TESTE DIRETO DO SEED")
+        log_capture("="*80)
+        
+        # Baixar planilha
+        log_capture("\n📥 Baixando planilha...")
+        match = re.search(r'/spreadsheets/d/([a-zA-Z0-9_-]+)', SPREADSHEET_URL)
+        if match:
+            sheet_id = match.group(1)
+            export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
+        else:
+            export_url = SPREADSHEET_URL.replace("/edit", "/export?format=xlsx")
+        
+        response = requests.get(export_url, timeout=60)
+        response.raise_for_status()
+        
+        data_dir = Path(__file__).parent.parent.parent / "data"
+        data_dir.mkdir(exist_ok=True)
+        excel_file = data_dir / "test_onboarding_direct.xlsx"
+        
+        with open(excel_file, "wb") as f:
+            f.write(response.content)
+        
+        log_capture(f"✅ Planilha salva: {excel_file} ({len(response.content)} bytes)")
+        
+        # Conectar ao banco
+        db = SessionLocal()
+        try:
+            # Buscar tenant, BU e user
+            tenant = db.query(Tenant).filter(Tenant.id == TENANT_ID).first()
+            if not tenant:
+                return JSONResponse(status_code=404, content={"error": f"Tenant {TENANT_ID} não encontrado", "logs": logs})
+            
+            business_unit = db.query(BusinessUnit).filter(BusinessUnit.id == BU_ID).first()
+            if not business_unit:
+                return JSONResponse(status_code=404, content={"error": f"Business Unit {BU_ID} não encontrado", "logs": logs})
+            
+            user = db.query(User).filter(User.email == "qa@finaflow.test").first()
+            if not user:
+                return JSONResponse(status_code=404, content={"error": "Usuário qa@finaflow.test não encontrado", "logs": logs})
+            
+            log_capture(f"\n✅ Tenant: {tenant.name}")
+            log_capture(f"✅ Business Unit: {business_unit.name}")
+            log_capture(f"✅ User: {user.email}")
+            
+            # Resetar stats
+            logger.stats = {
+                'grupos_criados': 0, 'grupos_existentes': 0,
+                'subgrupos_criados': 0, 'subgrupos_existentes': 0,
+                'contas_criadas': 0, 'contas_existentes': 0,
+                'lancamentos_diarios_criados': 0, 'lancamentos_diarios_existentes': 0,
+                'lancamentos_previstos_criados': 0, 'lancamentos_previstos_existentes': 0,
+                'linhas_ignoradas': 0, 'erros': []
+            }
+            
+            # 1. Plano de contas
+            log_capture("\n1️⃣ Importando Plano de Contas...")
+            grupos_map, subgrupos_map, contas_map = seed_plano_contas(db, tenant, excel_file)
+            log_capture(f"   ✅ Grupos: {len(grupos_map)}, Subgrupos: {len(subgrupos_map)}, Contas: {len(contas_map)}")
+            
+            # 2. Lançamentos previstos
+            log_capture("\n2️⃣ Importando Lançamentos Previstos...")
+            previstos_before = logger.stats['lancamentos_previstos_criados']
+            seed_lancamentos_previstos(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, excel_file)
+            db.commit()
+            previstos_after = logger.stats['lancamentos_previstos_criados']
+            previstos_count = previstos_after - previstos_before
+            log_capture(f"   ✅ Lançamentos Previstos criados: {previstos_count}")
+            log_capture(f"   📊 Erros: {len(logger.stats['erros'])}")
+            if logger.stats['erros']:
+                for err in logger.stats['erros'][:5]:
+                    log_capture(f"      - {str(err)[:200]}")
+            
+            # 3. Lançamentos diários
+            log_capture("\n3️⃣ Importando Lançamentos Diários...")
+            diarios_before = logger.stats['lancamentos_diarios_criados']
+            seed_lancamentos_diarios(db, tenant, business_unit, user, grupos_map, subgrupos_map, contas_map, excel_file)
+            db.commit()
+            diarios_after = logger.stats['lancamentos_diarios_criados']
+            diarios_count = diarios_after - diarios_before
+            log_capture(f"   ✅ Lançamentos Diários criados: {diarios_count}")
+            log_capture(f"   📊 Linhas ignoradas: {logger.stats['linhas_ignoradas']}")
+            log_capture(f"   📊 Erros: {len(logger.stats['erros'])}")
+            if logger.stats['erros']:
+                for err in logger.stats['erros'][:10]:
+                    log_capture(f"      - {str(err)[:300]}")
+            
+            # Verificar no banco
+            from app.models.lancamento_diario import LancamentoDiario
+            from app.models.lancamento_previsto import LancamentoPrevisto
+            
+            db_diarios = db.query(LancamentoDiario).filter(
+                LancamentoDiario.tenant_id == tenant.id,
+                LancamentoDiario.business_unit_id == business_unit.id
+            ).count()
+            
+            db_previstos = db.query(LancamentoPrevisto).filter(
+                LancamentoPrevisto.tenant_id == tenant.id,
+                LancamentoPrevisto.business_unit_id == business_unit.id
+            ).count()
+            
+            log_capture("\n" + "="*80)
+            log_capture("📊 RESULTADO FINAL")
+            log_capture("="*80)
+            log_capture(f"Lançamentos Diários no banco: {db_diarios}")
+            log_capture(f"Lançamentos Previstos no banco: {db_previstos}")
+            log_capture(f"Stats: {logger.stats}")
+            log_capture("="*80)
+            
+            return JSONResponse(content={
+                "success": db_diarios > 0 or db_previstos > 0,
+                "diarios_banco": db_diarios,
+                "previstos_banco": db_previstos,
+                "diarios_criados": diarios_count,
+                "previstos_criados": previstos_count,
+                "stats": logger.stats,
+                "logs": logs
+            })
+            
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            log_capture(f"\n❌ Erro: {e}")
+            log_capture(error_trace)
+            return JSONResponse(
+                status_code=500,
+                content={"error": str(e), "traceback": error_trace, "logs": logs}
+            )
+        finally:
+            db.close()
+            
+    except Exception as e:
+        import traceback
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "traceback": traceback.format_exc(), "logs": logs}
+        )
+
