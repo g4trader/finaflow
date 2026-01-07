@@ -887,20 +887,39 @@ def seed_lancamentos_diarios(
     - exceção durante processamento da linha
     """
     logger.log("Iniciando seed de Lançamentos Diários...", "STEP")
+    print(f"🔍 [SEED] Iniciando seed_lancamentos_diarios")
+    print(f"   Arquivo: {excel_file}")
+    print(f"   Existe: {excel_file.exists()}")
     
     # Encontrar a aba correta
     sheet_name = find_sheet_in_excel(excel_file, LANCAMENTOS_DIARIOS_SHEETS)
     if not sheet_name:
-        logger.log("Aba de Lançamentos Diários não encontrada", "ERROR")
-        logger.stats['erros'].append("Aba de Lançamentos Diários não encontrada")
+        error_msg = "Aba de Lançamentos Diários não encontrada"
+        logger.log(error_msg, "ERROR")
+        logger.stats['erros'].append(error_msg)
+        print(f"❌ [SEED] {error_msg}")
+        print(f"   Abas procuradas: {LANCAMENTOS_DIARIOS_SHEETS}")
+        try:
+            excel_file_obj = pd.ExcelFile(excel_file)
+            print(f"   Abas disponíveis: {excel_file_obj.sheet_names}")
+        except Exception as e:
+            print(f"   Erro ao ler abas: {e}")
         return
+    
+    print(f"✅ [SEED] Aba encontrada: '{sheet_name}'")
     
     try:
         # Ler dados da planilha
+        print(f"📖 [SEED] Lendo dados da aba '{sheet_name}'...")
         df = read_excel_sheet(excel_file, sheet_name)
+        print(f"📊 [SEED] DataFrame lido: {len(df)} linhas, {len(df.columns)} colunas")
+        print(f"   Colunas: {list(df.columns)[:10]}...")
+        
         if df.empty:
-            logger.log("Nenhum dado encontrado na aba de Lançamentos Diários", "ERROR")
-            logger.stats['erros'].append("Nenhum dado encontrado na aba de Lançamentos Diários")
+            error_msg = "Nenhum dado encontrado na aba de Lançamentos Diários"
+            logger.log(error_msg, "ERROR")
+            logger.stats['erros'].append(error_msg)
+            print(f"❌ [SEED] {error_msg}")
             return
         
         # Normalizar nomes de colunas
