@@ -749,6 +749,86 @@ async def clean_duplicate_tenants():
     finally:
         db.close()
 
+@router.post("/remove-empty-tenants", summary="Remove Tenants vazios (sem dados importantes) (APENAS STAGING)", status_code=200)
+async def remove_empty_tenants():
+    """
+    Remove Tenants que não têm dados importantes (lançamentos, usuários ativos, etc.).
+    ATENÇÃO: Endpoint temporário sem autenticação - remover após uso
+    """
+    from app.database import SessionLocal
+    from app.models.auth import Tenant, BusinessUnit, User
+    from app.models.lancamento_previsto import LancamentoPrevisto
+    from app.models.lancamento_diario import LancamentoDiario
+    
+    db = SessionLocal()
+    
+    try:
+        print("🔍 Analisando Tenants vazios...")
+        
+        all_tenants = db.query(Tenant).all()
+        deleted_count = 0
+        details = []
+        
+        for tenant in all_tenants:
+            # Contar dados do tenant
+            user_count = db.query(User).filter(User.tenant_id == tenant.id).count()
+            previstos_count = db.query(LancamentoPrevisto).filter(
+                LancamentoPrevisto.tenant_id == tenant.id
+            ).count()
+            diarios_count = db.query(LancamentoDiario).filter(
+                LancamentoDiario.tenant_id == tenant.id
+            ).count()
+            
+            # Verificar se tem dados importantes
+            has_data = previstos_count > 0 or diarios_count > 0
+            
+            # Verificar se tem usuários ativos (não contar usuários inativos)
+            active_users = db.query(User).filter(
+                User.tenant_id == tenant.id,
+                User.status == 'active'
+            ).count()
+            
+            print(f"   Tenant {tenant.name} ({tenant.id[:8]}...): Users: {user_count} (ativos: {active_users}), Previstos: {previstos_count}, Diários: {diarios_count}")
+            
+            # Remover apenas se não tiver dados E não tiver usuários ativos
+            if not has_data and active_users == 0:
+                print(f"   ✅ Removendo tenant vazio: {tenant.name}")
+                
+                # Deletar BUs do tenant
+                bus = db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).all()
+                for bu in bus:
+                    db.delete(bu)
+                
+                # Deletar tenant
+                db.delete(tenant)
+                deleted_count += 1
+                details.append({
+                    "tenant_name": tenant.name,
+                    "tenant_id": str(tenant.id),
+                    "reason": "Sem dados e sem usuários ativos"
+                })
+        
+        db.commit()
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": f"Limpeza concluída! {deleted_count} Tenants vazios removidos.",
+            "deleted_count": deleted_count,
+            "details": details
+        })
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+    finally:
+        db.close()
+
 @router.post("/test-seed-direct", summary="Testa seed diretamente com logging detalhado (APENAS STAGING)", status_code=200)
 async def test_seed_direct():
     """
