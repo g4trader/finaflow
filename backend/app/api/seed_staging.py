@@ -596,16 +596,41 @@ async def clean_duplicate_tenants():
                 }
                 
                 for tenant in to_delete:
-                    # Verificar se tem dados antes de deletar
-                    bu_count = db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).count()
+                    # Verificar se tem dados importantes antes de deletar
                     user_count = db.query(User).filter(User.tenant_id == tenant.id).count()
                     
-                    if bu_count > 0 or user_count > 0:
-                        print(f"   ⚠️  Tenant {tenant.id[:8]}... tem {bu_count} BUs e {user_count} usuários - pulando remoção")
+                    # Contar lançamentos do tenant
+                    from app.models.lancamento_previsto import LancamentoPrevisto
+                    from app.models.lancamento_diario import LancamentoDiario
+                    previstos_count = db.query(LancamentoPrevisto).filter(
+                        LancamentoPrevisto.tenant_id == tenant.id
+                    ).count()
+                    diarios_count = db.query(LancamentoDiario).filter(
+                        LancamentoDiario.tenant_id == tenant.id
+                    ).count()
+                    
+                    # Se tem lançamentos ou usuários, não deletar
+                    if previstos_count > 0 or diarios_count > 0 or user_count > 0:
+                        print(f"   ⚠️  Tenant {tenant.id[:8]}... tem dados (Users: {user_count}, Previstos: {previstos_count}, Diários: {diarios_count}) - pulando remoção")
                         continue
                     
-                    # Deletar BUs do tenant
-                    db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).delete()
+                    # Deletar BUs do tenant (só se não tiverem dados)
+                    bus_to_delete = db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).all()
+                    for bu in bus_to_delete:
+                        # Verificar se BU tem dados
+                        bu_previstos = db.query(LancamentoPrevisto).filter(
+                            LancamentoPrevisto.business_unit_id == bu.id
+                        ).count()
+                        bu_diarios = db.query(LancamentoDiario).filter(
+                            LancamentoDiario.business_unit_id == bu.id
+                        ).count()
+                        bu_users = db.query(User).filter(User.business_unit_id == bu.id).count()
+                        
+                        if bu_previstos > 0 or bu_diarios > 0 or bu_users > 0:
+                            print(f"   ⚠️  BU {bu.id[:8]}... tem dados - pulando remoção")
+                            continue
+                        
+                        db.delete(bu)
                     
                     # Deletar tenant
                     db.delete(tenant)
