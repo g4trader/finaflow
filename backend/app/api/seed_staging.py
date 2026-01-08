@@ -749,6 +749,75 @@ async def clean_duplicate_tenants():
     finally:
         db.close()
 
+@router.post("/migrate-qa-user-to-llm", summary="Migra usuário QA para tenant LLM Lavanderia (APENAS STAGING)", status_code=200)
+async def migrate_qa_user_to_llm():
+    """
+    Migra o usuário qa@finaflow.test do tenant "FinaFlow Default" para "LLM Lavanderia".
+    ATENÇÃO: Endpoint temporário sem autenticação - remover após uso
+    """
+    from app.database import SessionLocal
+    from app.models.auth import Tenant, BusinessUnit, User
+    
+    db = SessionLocal()
+    
+    try:
+        # Buscar tenant LLM Lavanderia
+        llm_tenant = db.query(Tenant).filter(Tenant.name == "LLM Lavanderia").first()
+        if not llm_tenant:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "Tenant 'LLM Lavanderia' não encontrado"}
+            )
+        
+        # Buscar BU Matriz do LLM
+        llm_bu = db.query(BusinessUnit).filter(
+            BusinessUnit.tenant_id == llm_tenant.id,
+            BusinessUnit.name == "Matriz"
+        ).first()
+        if not llm_bu:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "BU 'Matriz' do LLM não encontrada"}
+            )
+        
+        # Buscar usuário QA
+        qa_user = db.query(User).filter(User.email == "qa@finaflow.test").first()
+        if not qa_user:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "Usuário qa@finaflow.test não encontrado"}
+            )
+        
+        # Migrar usuário
+        old_tenant_id = qa_user.tenant_id
+        old_bu_id = qa_user.business_unit_id
+        
+        qa_user.tenant_id = llm_tenant.id
+        qa_user.business_unit_id = llm_bu.id
+        
+        db.commit()
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Usuário QA migrado com sucesso",
+            "old_tenant_id": str(old_tenant_id),
+            "new_tenant_id": str(llm_tenant.id),
+            "old_bu_id": str(old_bu_id) if old_bu_id else None,
+            "new_bu_id": str(llm_bu.id)
+        })
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+    finally:
+        db.close()
+
 @router.post("/remove-empty-tenants", summary="Remove Tenants vazios (sem dados importantes) (APENAS STAGING)", status_code=200)
 async def remove_empty_tenants():
     """
