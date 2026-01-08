@@ -205,6 +205,7 @@ def list_lancamentos_previstos(
             return getattr(obj, "code", default) if obj else default
 
         payload = []
+        serialize_errors = []
         for prev in previsoes:
             try:
                 payload.append({
@@ -227,7 +228,16 @@ def list_lancamentos_previstos(
                 })
             except Exception as serialize_error:
                 # Log erro de serialização mas continua
-                print(f"⚠️  Erro ao serializar previsão {prev.id}: {serialize_error}")
+                import traceback
+                error_trace = traceback.format_exc()
+                error_msg = f"Erro ao serializar previsão {prev.id}: {serialize_error}"
+                print(f"⚠️  {error_msg}")
+                print(error_trace)
+                serialize_errors.append({
+                    "prev_id": str(prev.id) if prev else None,
+                    "error": str(serialize_error),
+                    "traceback": error_trace[:500]
+                })
                 continue
 
         result = {
@@ -240,6 +250,9 @@ def list_lancamentos_previstos(
         if total_bu > 0 and len(payload) == 0:
             result["debug"] = debug_info
             result["debug"]["query_count_before_limit"] = query.count() if limit > 0 else len(payload)
+            result["debug"]["previsoes_count"] = len(previsoes)
+            if serialize_errors:
+                result["debug"]["serialize_errors"] = serialize_errors[:3]  # Primeiros 3 erros
         
         return result
     except HTTPException:
