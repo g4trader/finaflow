@@ -81,6 +81,37 @@ def list_lancamentos_previstos(
     """Listar lançamentos previstos com filtros."""
     try:
         tenant_id, business_unit_id = _user_context(current_user)
+        
+        # Debug temporário
+        debug_info = {
+            "tenant_id": tenant_id,
+            "business_unit_id": business_unit_id,
+            "user_role": current_user.role,
+            "user_tenant_id": str(current_user.tenant_id) if current_user.tenant_id else None,
+            "user_bu_id": str(current_user.business_unit_id) if current_user.business_unit_id else None,
+        }
+        
+        # Contar total no banco antes de filtrar
+        total_raw = db.query(LancamentoPrevisto).filter(
+            LancamentoPrevisto.tenant_id == tenant_id
+        ).count()
+        total_active = db.query(LancamentoPrevisto).filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True)
+        ).count()
+        if business_unit_id:
+            total_bu = db.query(LancamentoPrevisto).filter(
+                LancamentoPrevisto.tenant_id == tenant_id,
+                LancamentoPrevisto.business_unit_id == business_unit_id,
+                LancamentoPrevisto.is_active.is_(True)
+            ).count()
+        else:
+            total_bu = total_active
+        debug_info.update({
+            "total_raw_tenant": total_raw,
+            "total_active_tenant": total_active,
+            "total_active_bu": total_bu
+        })
 
         query = (
         db.query(LancamentoPrevisto)
@@ -199,11 +230,18 @@ def list_lancamentos_previstos(
                 print(f"⚠️  Erro ao serializar previsão {prev.id}: {serialize_error}")
                 continue
 
-        return {
+        result = {
             "success": True,
             "previsoes": payload,
             "total": len(payload),
         }
+        
+        # Adicionar debug temporário se houver discrepância
+        if total_bu > 0 and len(payload) == 0:
+            result["debug"] = debug_info
+            result["debug"]["query_count_before_limit"] = query.count() if limit > 0 else len(payload)
+        
+        return result
     except HTTPException:
         # Re-raise HTTP exceptions (já têm status code apropriado)
         raise
