@@ -664,6 +664,17 @@ async def clean_duplicate_tenants():
                         ).update({ChartAccount.tenant_id: keep_tenant.id})
                         print(f"      ✅ Migrados {chart_accounts_count} contas")
                     
+                    # Migrar liquidation_accounts do tenant
+                    from app.models.liquidation_accounts import LiquidationAccount
+                    liquidation_accounts_count = db.query(LiquidationAccount).filter(
+                        LiquidationAccount.tenant_id == tenant.id
+                    ).count()
+                    if liquidation_accounts_count > 0:
+                        db.query(LiquidationAccount).filter(
+                            LiquidationAccount.tenant_id == tenant.id
+                        ).update({LiquidationAccount.tenant_id: keep_tenant.id})
+                        print(f"      ✅ Migrados {liquidation_accounts_count} contas de liquidação")
+                    
                     # Migrar BUs para o tenant mantido
                     bus_to_migrate = db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).all()
                     for bu in bus_to_migrate:
