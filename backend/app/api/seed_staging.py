@@ -609,10 +609,24 @@ async def clean_duplicate_tenants():
                         LancamentoDiario.tenant_id == tenant.id
                     ).count()
                     
-                    # Se tem lançamentos ou usuários, não deletar
+                    # Se tem lançamentos ou usuários, migrar antes de deletar (não pular)
                     if previstos_count > 0 or diarios_count > 0 or user_count > 0:
-                        print(f"   ⚠️  Tenant {tenant.id[:8]}... tem dados (Users: {user_count}, Previstos: {previstos_count}, Diários: {diarios_count}) - pulando remoção")
-                        continue
+                        print(f"   ⚠️  Tenant {tenant.id[:8]}... tem dados (Users: {user_count}, Previstos: {previstos_count}, Diários: {diarios_count}) - migrando...")
+                        # Migrar usuários
+                        if user_count > 0:
+                            db.query(User).filter(User.tenant_id == tenant.id).update({
+                                User.tenant_id: keep_tenant.id
+                            })
+                        # Migrar lançamentos previstos
+                        if previstos_count > 0:
+                            db.query(LancamentoPrevisto).filter(
+                                LancamentoPrevisto.tenant_id == tenant.id
+                            ).update({LancamentoPrevisto.tenant_id: keep_tenant.id})
+                        # Migrar lançamentos diários
+                        if diarios_count > 0:
+                            db.query(LancamentoDiario).filter(
+                                LancamentoDiario.tenant_id == tenant.id
+                            ).update({LancamentoDiario.tenant_id: keep_tenant.id})
                     
                     # Migrar dados relacionados para o tenant mantido
                     print(f"   🔄 Migrando dados do tenant {tenant.id[:8]}... para {keep_tenant.id[:8]}...")
