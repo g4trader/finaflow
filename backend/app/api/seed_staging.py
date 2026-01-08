@@ -614,29 +614,85 @@ async def clean_duplicate_tenants():
                         print(f"   ⚠️  Tenant {tenant.id[:8]}... tem dados (Users: {user_count}, Previstos: {previstos_count}, Diários: {diarios_count}) - pulando remoção")
                         continue
                     
-                    # Deletar BUs do tenant (só se não tiverem dados)
-                    bus_to_delete = db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).all()
-                    for bu in bus_to_delete:
-                        # Verificar se BU tem dados
-                        bu_previstos = db.query(LancamentoPrevisto).filter(
-                            LancamentoPrevisto.business_unit_id == bu.id
-                        ).count()
-                        bu_diarios = db.query(LancamentoDiario).filter(
-                            LancamentoDiario.business_unit_id == bu.id
-                        ).count()
-                        bu_users = db.query(User).filter(User.business_unit_id == bu.id).count()
-                        
-                        if bu_previstos > 0 or bu_diarios > 0 or bu_users > 0:
-                            print(f"   ⚠️  BU {bu.id[:8]}... tem dados - pulando remoção")
-                            continue
-                        
-                        db.delete(bu)
+                    # Migrar dados relacionados para o tenant mantido
+                    print(f"   🔄 Migrando dados do tenant {tenant.id[:8]}... para {keep_tenant.id[:8]}...")
                     
-                    # Deletar tenant
+                    # Migrar chart_account_groups
+                    from app.models.chart_of_accounts import ChartAccountGroup
+                    chart_groups_count = db.query(ChartAccountGroup).filter(
+                        ChartAccountGroup.tenant_id == tenant.id
+                    ).count()
+                    if chart_groups_count > 0:
+                        db.query(ChartAccountGroup).filter(
+                            ChartAccountGroup.tenant_id == tenant.id
+                        ).update({ChartAccountGroup.tenant_id: keep_tenant.id})
+                        print(f"      ✅ Migrados {chart_groups_count} grupos de contas")
+                    
+                    # Migrar chart_account_subgroups
+                    from app.models.chart_of_accounts import ChartAccountSubgroup
+                    chart_subgroups_count = db.query(ChartAccountSubgroup).filter(
+                        ChartAccountSubgroup.tenant_id == tenant.id
+                    ).count()
+                    if chart_subgroups_count > 0:
+                        db.query(ChartAccountSubgroup).filter(
+                            ChartAccountSubgroup.tenant_id == tenant.id
+                        ).update({ChartAccountSubgroup.tenant_id: keep_tenant.id})
+                        print(f"      ✅ Migrados {chart_subgroups_count} subgrupos de contas")
+                    
+                    # Migrar chart_accounts
+                    from app.models.chart_of_accounts import ChartAccount
+                    chart_accounts_count = db.query(ChartAccount).filter(
+                        ChartAccount.tenant_id == tenant.id
+                    ).count()
+                    if chart_accounts_count > 0:
+                        db.query(ChartAccount).filter(
+                            ChartAccount.tenant_id == tenant.id
+                        ).update({ChartAccount.tenant_id: keep_tenant.id})
+                        print(f"      ✅ Migrados {chart_accounts_count} contas")
+                    
+                    # Migrar BUs para o tenant mantido
+                    bus_to_migrate = db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).all()
+                    for bu in bus_to_migrate:
+                        # Verificar se já existe BU com mesmo nome no tenant mantido
+                        existing_bu = db.query(BusinessUnit).filter(
+                            BusinessUnit.tenant_id == keep_tenant.id,
+                            BusinessUnit.name == bu.name
+                        ).first()
+                        
+                        if existing_bu:
+                            # Se já existe, migrar dados da BU e deletar a duplicada
+                            # Migrar lançamentos previstos
+                            db.query(LancamentoPrevisto).filter(
+                                LancamentoPrevisto.business_unit_id == bu.id
+                            ).update({LancamentoPrevisto.business_unit_id: existing_bu.id})
+                            
+                            # Migrar lançamentos diários
+                            db.query(LancamentoDiario).filter(
+                                LancamentoDiario.business_unit_id == bu.id
+                            ).update({LancamentoDiario.business_unit_id: existing_bu.id})
+                            
+                            # Migrar usuários
+                            db.query(User).filter(User.business_unit_id == bu.id).update({
+                                User.business_unit_id: existing_bu.id
+                            })
+                            
+                            # Migrar acessos
+                            db.query(UserBusinessUnitAccess).filter(
+                                UserBusinessUnitAccess.business_unit_id == bu.id
+                            ).update({UserBusinessUnitAccess.business_unit_id: existing_bu.id})
+                            
+                            db.delete(bu)
+                            print(f"      ✅ BU {bu.name} migrada e removida (dados para BU existente)")
+                        else:
+                            # Se não existe, apenas migrar a BU para o tenant mantido
+                            bu.tenant_id = keep_tenant.id
+                            print(f"      ✅ BU {bu.name} migrada para tenant mantido")
+                    
+                    # Deletar tenant (agora que todos os dados foram migrados)
                     db.delete(tenant)
                     deleted_count += 1
                     detail["deleted_tenant_ids"].append(str(tenant.id))
-                    print(f"   ✅ Tenant {tenant.id[:8]}... removido")
+                    print(f"   ✅ Tenant {tenant.id[:8]}... removido após migração")
                 
                 if detail["deleted_tenant_ids"]:
                     details.append(detail)
