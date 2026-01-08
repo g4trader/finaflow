@@ -657,12 +657,38 @@ async def test_seed_direct():
                 LancamentoPrevisto.tenant_id == tenant.id,
                 LancamentoPrevisto.business_unit_id == business_unit.id
             ).count()
+
+            # Contagem apenas de registros ativos (as APIs filtram is_active=True)
+            db_diarios_active = db.query(LancamentoDiario).filter(
+                LancamentoDiario.tenant_id == tenant.id,
+                LancamentoDiario.business_unit_id == business_unit.id,
+                LancamentoDiario.is_active.is_(True),
+            ).count()
+
+            db_previstos_active = db.query(LancamentoPrevisto).filter(
+                LancamentoPrevisto.tenant_id == tenant.id,
+                LancamentoPrevisto.business_unit_id == business_unit.id,
+                LancamentoPrevisto.is_active.is_(True),
+            ).count()
+
+            # Amostra rápida para diagnosticar is_active
+            sample_previsto = (
+                db.query(LancamentoPrevisto)
+                .filter(
+                    LancamentoPrevisto.tenant_id == tenant.id,
+                    LancamentoPrevisto.business_unit_id == business_unit.id,
+                )
+                .order_by(LancamentoPrevisto.created_at.desc())
+                .first()
+            )
             
             log_capture("\n" + "="*80)
             log_capture("📊 RESULTADO FINAL")
             log_capture("="*80)
             log_capture(f"Lançamentos Diários no banco: {db_diarios}")
             log_capture(f"Lançamentos Previstos no banco: {db_previstos}")
+            log_capture(f"Lançamentos Diários ATIVOS: {db_diarios_active}")
+            log_capture(f"Lançamentos Previstos ATIVOS: {db_previstos_active}")
             log_capture(f"Stats: {logger.stats}")
             log_capture("="*80)
             
@@ -670,6 +696,15 @@ async def test_seed_direct():
                 "success": db_diarios > 0 or db_previstos > 0,
                 "diarios_banco": db_diarios,
                 "previstos_banco": db_previstos,
+                "diarios_ativos": db_diarios_active,
+                "previstos_ativos": db_previstos_active,
+                "sample_previsto": {
+                    "id": sample_previsto.id,
+                    "is_active": bool(sample_previsto.is_active),
+                    "tenant_id": sample_previsto.tenant_id,
+                    "business_unit_id": sample_previsto.business_unit_id,
+                    "data_prevista": sample_previsto.data_prevista.isoformat() if getattr(sample_previsto, "data_prevista", None) else None,
+                } if sample_previsto else None,
                 "diarios_criados": diarios_count,
                 "previstos_criados": previstos_count,
                 "stats": logger.stats,
