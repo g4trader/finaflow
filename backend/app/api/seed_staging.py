@@ -523,6 +523,120 @@ async def clean_duplicate_business_units():
     finally:
         db.close()
 
+@router.post("/clean-duplicate-tenants", summary="Remove Tenants duplicados por nome (APENAS STAGING)", status_code=200)
+async def clean_duplicate_tenants():
+    """
+    Remove Tenants duplicados, mantendo apenas um por nome (o que tem mais dados).
+    Migra dados relacionados para o tenant mantido.
+    ATENÇÃO: Endpoint temporário sem autenticação - remover após uso
+    """
+    from app.database import SessionLocal
+    from app.models.auth import Tenant, BusinessUnit, User, UserBusinessUnitAccess
+    from collections import defaultdict
+    from sqlalchemy import func
+    
+    db = SessionLocal()
+    
+    try:
+        print("🔍 Analisando Tenants duplicados...")
+        
+        # Buscar todos os tenants
+        all_tenants = db.query(Tenant).all()
+        
+        # Agrupar por nome
+        groups = defaultdict(list)
+        for tenant in all_tenants:
+            groups[tenant.name].append(tenant)
+        
+        # Identificar e remover duplicatas
+        deleted_count = 0
+        details = []
+        
+        for tenant_name, tenants in groups.items():
+            if len(tenants) > 1:
+                print(f"\n📋 Encontrados {len(tenants)} tenants com nome '{tenant_name}'")
+                
+                # Para cada tenant, contar quantos dados tem
+                tenant_scores = []
+                for tenant in tenants:
+                    # Contar BUs
+                    bu_count = db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).count()
+                    
+                    # Contar usuários
+                    user_count = db.query(User).filter(User.tenant_id == tenant.id).count()
+                    
+                    # Contar lançamentos
+                    from app.models.lancamento_previsto import LancamentoPrevisto
+                    from app.models.lancamento_diario import LancamentoDiario
+                    previstos_count = db.query(LancamentoPrevisto).filter(
+                        LancamentoPrevisto.tenant_id == tenant.id
+                    ).count()
+                    diarios_count = db.query(LancamentoDiario).filter(
+                        LancamentoDiario.tenant_id == tenant.id
+                    ).count()
+                    
+                    total_data = bu_count + user_count + previstos_count + diarios_count
+                    tenant_scores.append((tenant, total_data))
+                    print(f"   Tenant {tenant.id[:8]}...: {total_data} registros (BUs: {bu_count}, Users: {user_count}, Previstos: {previstos_count}, Diários: {diarios_count})")
+                
+                # Ordenar por quantidade de dados (mais dados = manter)
+                tenant_scores.sort(key=lambda x: x[1], reverse=True)
+                
+                # Manter o que tem mais dados
+                keep_tenant = tenant_scores[0][0]
+                to_delete = [t[0] for t in tenant_scores[1:]]
+                
+                print(f"   ✅ Mantendo tenant: {keep_tenant.id[:8]}... ({tenant_scores[0][1]} registros)")
+                print(f"   ❌ Removendo {len(to_delete)} tenant(s) duplicado(s)")
+                
+                detail = {
+                    "tenant_name": tenant_name,
+                    "kept_tenant_id": str(keep_tenant.id),
+                    "deleted_tenant_ids": []
+                }
+                
+                for tenant in to_delete:
+                    # Verificar se tem dados antes de deletar
+                    bu_count = db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).count()
+                    user_count = db.query(User).filter(User.tenant_id == tenant.id).count()
+                    
+                    if bu_count > 0 or user_count > 0:
+                        print(f"   ⚠️  Tenant {tenant.id[:8]}... tem {bu_count} BUs e {user_count} usuários - pulando remoção")
+                        continue
+                    
+                    # Deletar BUs do tenant
+                    db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).delete()
+                    
+                    # Deletar tenant
+                    db.delete(tenant)
+                    deleted_count += 1
+                    detail["deleted_tenant_ids"].append(str(tenant.id))
+                    print(f"   ✅ Tenant {tenant.id[:8]}... removido")
+                
+                if detail["deleted_tenant_ids"]:
+                    details.append(detail)
+        
+        db.commit()
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": f"Limpeza concluída! {deleted_count} Tenants removidos.",
+            "deleted_count": deleted_count,
+            "details": details
+        })
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+    finally:
+        db.close()
+
 @router.post("/test-seed-direct", summary="Testa seed diretamente com logging detalhado (APENAS STAGING)", status_code=200)
 async def test_seed_direct():
     """
