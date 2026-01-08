@@ -150,7 +150,6 @@ def list_lancamentos_previstos(
                 # Se não conseguir converter, tentar filtrar como string
                 query = query.filter(LancamentoPrevisto.transaction_type == transaction_type)
         if status:
-            from app.models.lancamento_previsto import TransactionStatus
             try:
                 status_enum = TransactionStatus(status)
                 query = query.filter(LancamentoPrevisto.status == status_enum)
