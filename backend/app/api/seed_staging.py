@@ -863,6 +863,13 @@ async def remove_empty_tenants():
             if not has_data and active_users == 0:
                 print(f"   ✅ Removendo tenant vazio: {tenant.name}")
                 
+                # Migrar/deletar audit_logs antes de deletar tenant
+                from app.models.auth import AuditLog
+                audit_logs_count = db.query(AuditLog).filter(AuditLog.tenant_id == tenant.id).count()
+                if audit_logs_count > 0:
+                    db.query(AuditLog).filter(AuditLog.tenant_id == tenant.id).delete()
+                    print(f"      ✅ Removidos {audit_logs_count} logs de auditoria")
+                
                 # Deletar BUs do tenant
                 bus = db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant.id).all()
                 for bu in bus:
