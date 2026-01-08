@@ -284,7 +284,9 @@ async def select_business_unit(
             "username": current_user.username,
             "email": current_user.email,
             "role": current_user.role,
-            "tenant_id": str(current_user.tenant_id),
+            # IMPORTANT: tenant_id deve refletir o tenant da BU selecionada
+            # (especialmente para SUPER_ADMIN que pode alternar entre tenants via seleção de BU)
+            "tenant_id": str(target_bu.tenant_id),
             "business_unit_id": str(current_user.business_unit_id) if current_user.business_unit_id else None,
             "department_id": str(current_user.department_id) if current_user.department_id else None,
         }

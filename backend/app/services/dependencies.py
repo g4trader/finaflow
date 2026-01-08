@@ -36,15 +36,16 @@ def get_current_user(
                 detail="Usuário não encontrado"
             )
         
-        # Atualizar business_unit_id do usuário se presente no token
-        # Isso garante que o business_unit_id selecionado seja usado
+        # Aplicar contexto do token em memória (não persistir no DB aqui)
+        # - business_unit_id: permite que o token de "select-business-unit" tenha efeito imediato
+        # - tenant_id: para SUPER_ADMIN, permite alternar tenant ao selecionar BU de outro tenant
         token_business_unit_id = payload.get("business_unit_id")
         if token_business_unit_id:
-            # Atualizar apenas se diferente do atual (evita queries desnecessárias)
-            if str(user.business_unit_id) != str(token_business_unit_id):
-                user.business_unit_id = token_business_unit_id
-                db.commit()
-                db.refresh(user)
+            user.business_unit_id = token_business_unit_id
+
+        token_tenant_id = payload.get("tenant_id")
+        if token_tenant_id and user.role == UserRole.SUPER_ADMIN:
+            user.tenant_id = token_tenant_id
         
         # Verificar se usuário está ativo
         user_status = getattr(user, "status", UserStatus.ACTIVE)
