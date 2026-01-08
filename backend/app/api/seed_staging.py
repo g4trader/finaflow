@@ -696,7 +696,7 @@ async def clean_duplicate_tenants():
                             ).update({UserBusinessUnitAccess.business_unit_id: existing_bu.id})
                             
                             # Migrar liquidation_accounts
-                            from app.models.liquidation_account import LiquidationAccount
+                            from app.models.liquidation_accounts import LiquidationAccount
                             db.query(LiquidationAccount).filter(
                                 LiquidationAccount.business_unit_id == bu.id
                             ).update({LiquidationAccount.business_unit_id: existing_bu.id})
