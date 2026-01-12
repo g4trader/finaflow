@@ -50,7 +50,7 @@ except ImportError as e:
 DEFAULT_EXCEL_FILE = backend_path / "data" / "fluxo_caixa_2025.xlsx"
 DEFAULT_BACKEND_URL = os.getenv(
     "BACKEND_URL",
-    "https://finaflow-backend-staging-642830139828.us-central1.run.app"
+    "https://finaflow-backend-staging-556803510516.us-central1.run.app"
 )
 TOLERANCE = Decimal("0.00")  # Tolerância ZERO - dados financeiros devem bater exatamente
 

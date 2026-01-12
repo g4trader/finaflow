@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     DATABASE_URL: Optional[str] = None
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", ".env.local"),  # Carrega .env.local se existir (local dev)
         extra="ignore",
         env_prefix="",
         case_sensitive=False,

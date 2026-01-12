@@ -1,0 +1,51 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - img "finaFlow" [ref=e7]
+      - paragraph [ref=e8]: Gestão financeira inteligente
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - heading "Bem-vindo de volta" [level=2] [ref=e13]
+        - paragraph [ref=e14]: Entre na sua conta para continuar
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - generic:
+            - img
+          - generic [ref=e17]:
+            - generic [ref=e18]: Username ou Email
+            - textbox "admin ou seu@email.com" [ref=e20]: qa@finaflow.test
+        - generic [ref=e21]:
+          - generic:
+            - img
+          - generic [ref=e22]:
+            - generic [ref=e23]: Senha
+            - textbox "Digite sua senha" [ref=e25]: QaFinaflow123!
+            - paragraph [ref=e26]: Network Error
+          - button "Mostrar senha" [ref=e27] [cursor=pointer]:
+            - img [ref=e28]
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - checkbox "Lembrar de mim" [ref=e33]
+            - generic [ref=e34]: Lembrar de mim
+          - link "Esqueci minha senha" [ref=e35] [cursor=pointer]:
+            - /url: /forgot-password
+        - button "Entrar" [ref=e36] [cursor=pointer]
+      - paragraph [ref=e38]:
+        - text: Não tem uma conta?
+        - link "Cadastre-se gratuitamente" [ref=e39] [cursor=pointer]:
+          - /url: /signup
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - img [ref=e44]
+        - generic [ref=e47]: Relatórios
+      - generic [ref=e48]:
+        - img [ref=e50]
+        - generic [ref=e53]: Seguro
+      - generic [ref=e54]:
+        - img [ref=e56]
+        - generic [ref=e59]: Suporte 24/7
+  - alert [ref=e60]: FinaFlow - Login
+```
