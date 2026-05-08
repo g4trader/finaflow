@@ -15,6 +15,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar dependências Python
@@ -23,6 +24,12 @@ RUN pip install -r requirements.txt
 
 # Copiar toda a estrutura do projeto
 COPY . .
+
+# Garantir que o arquivo Excel está presente (mesmo que esteja no .gitignore)
+# O arquivo foi commitado com git add -f, então deve estar no contexto do build
+# Verificar se o arquivo está presente após COPY
+RUN ls -la /app/data/ || echo "Diretório data não existe"
+RUN ls -la /app/data/*.xlsx 2>/dev/null || echo "Nenhum arquivo .xlsx encontrado em data/"
 
 # Alterar proprietário dos arquivos para o usuário não-root
 RUN chown -R appuser:appuser /app
@@ -34,5 +41,4 @@ USER appuser
 EXPOSE 8080
 
 # Comando para iniciar a aplicação principal com uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--log-level", "info"]
-
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --log-level info"]

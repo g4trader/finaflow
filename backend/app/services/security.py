@@ -88,7 +88,10 @@ class SecurityService:
     @staticmethod
     def authenticate_user(db: Session, username: str, password: str, ip_address: str = None, user_agent: str = None) -> User:
         """Autentica usuário com proteção contra brute force."""
-        user = db.query(User).filter(User.username == username).first()
+        # Aceitar tanto username quanto email
+        user = db.query(User).filter(
+            (User.username == username) | (User.email == username)
+        ).first()
         
         if not user:
             SecurityService._log_failed_login(db, username, ip_address, user_agent, "Usuário não encontrado")
@@ -152,16 +155,30 @@ class SecurityService:
     @staticmethod
     def _log_failed_login(db: Session, username: str, ip_address: str = None, user_agent: str = None, reason: str = None):
         """Registra tentativa falhada de login."""
-        # Criar log de auditoria
+        tenant_id = None
+        user_id = None
+
+        # Tentar associar tenant quando houver usuário conhecido.
+        user = db.query(User).filter(
+            (User.username == username) | (User.email == username)
+        ).first()
+        if user:
+            tenant_id = user.tenant_id
+            user_id = user.id
+
+        # Evitar erro de constraint quando tenant_id não existe.
+        if not tenant_id:
+            return
+
         audit_log = AuditLog(
-            user_id=None,  # Usuário não autenticado
-            tenant_id=None,  # Será preenchido quando encontrar o usuário
+            user_id=user_id,
+            tenant_id=tenant_id,
             action="LOGIN_FAILED",
             resource_type="USER",
             resource_id=username,
             details=f"Tentativa de login falhada: {reason}",
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
         )
         db.add(audit_log)
         db.commit()

@@ -1,0 +1,12 @@
+# Supabase environment template for FinaFlow
+# Replace the placeholders with values from your Supabase project
+DATABASE_URL: "postgresql://<user>:<password>@<host>:<port>/<database>"
+SUPABASE_URL: "https://your-project.supabase.co"
+SUPABASE_ANON_KEY: "public-anon-key-or-publishable-key"
+SUPABASE_SERVICE_ROLE_KEY: "service-role-key"
+SECRET_KEY: "replace-with-secret"
+NEXT_PUBLIC_API_URL: "https://your-backend.example.com"
+ALLOWED_HOSTS: "localhost,127.0.0.1"
+CORS_ORIGINS: "https://your-frontend.example.com,http://localhost:3000"
+NEXT_PUBLIC_SUPABASE_URL: "https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "your-publishable-key"

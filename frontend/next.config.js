@@ -1,20 +1,25 @@
 /** @type {import('next').NextConfig} */
+const backendUrl =
+  process.env.BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:8000';
+
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
 
+  // Configurações de deploy
+  poweredByHeader: false,
+  generateEtags: false,
+
   async rewrites() {
     return [
       {
-        source: '/:path*',
-        destination: '/',
+        source: '/api/v1/:path*',
+        destination: `${backendUrl.replace(/\/$/, '')}/api/v1/:path*`,
       },
     ];
   },
-  // Configurações para Vercel
-  output: 'standalone',
-  poweredByHeader: false,
-  generateEtags: false,
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

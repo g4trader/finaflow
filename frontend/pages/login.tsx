@@ -27,14 +27,22 @@ export default function Login() {
       await login(username, password);
       console.log('✅ Login bem-sucedido!');
       
-      // Sempre redirecionar para seleção de empresa após login
-      // O usuário pode ter acesso a múltiplas empresas
-      console.log('📋 Redirecionando para seleção de empresa');
-      
+      // Decidir destino após login (seleção de empresa ou onboarding)
+      console.log('📋 Avaliando empresas disponíveis para o usuário');
+
       // Pequeno delay para garantir que o token foi persistido
       await new Promise(resolve => setTimeout(resolve, 100));
-      
-      window.location.href = '/select-business-unit';
+
+      const apiModule = await import('../services/api');
+      const businessUnits = await apiModule.getUserBusinessUnits();
+
+      if (!businessUnits || businessUnits.length === 0) {
+        console.log('🚀 Nenhuma empresa encontrada, redirecionando para onboarding');
+        window.location.href = '/admin/onboard-company?from=login';
+      } else {
+        console.log('🏢 Empresas encontradas, redirecionando para seleção de empresa');
+        window.location.href = '/select-business-unit';
+      }
     } catch (err: any) {
       console.error('❌ Erro no login:', err);
       const detail = err?.response?.data?.detail;

@@ -7,9 +7,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "jest"
+    "test": "jest",
+    "e2e": "playwright test",
+    "e2e:consistency": "playwright test e2e/dashboard-sheet-consistency.spec.ts",
+    "e2e:navigation": "playwright test e2e/navigation.spec.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.78.0",
     "axios": "^1.6.7",
     "chart.js": "^4.5.1",
     "framer-motion": "^11.3.12",
@@ -23,6 +27,8 @@
     "typescript": "^5.4.0"
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.15.10",
+    "@playwright/test": "^1.40.0",
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.0",
     "@types/jest": "^29.5.11",
