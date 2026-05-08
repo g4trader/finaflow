@@ -1,68 +1,170 @@
 import axios from 'axios';
 
-// Build timestamp: 2025-10-21 18:45:00 - FORÇANDO URL CORRETA DO BACKEND
-const API_BASE_URL = 'https://finaflow-backend-642830139828.us-central1.run.app';
+const DEFAULT_API_BASE_URL = 'https://finaflow-api.72.61.34.133.sslip.io';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL;
 
-// Log da URL da API (para debug)
-if (typeof window !== 'undefined') {
-  console.log('🔧 [API Config] API Base URL:', API_BASE_URL);
-  console.log('🔧 [API Config] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-}
+const resolveApiBaseUrl = () => {
+  return process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL;
+};
 
-// Configuração do axios
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: false,  // Temporariamente desabilitar credentials para CORS funcionar
-});
+// Log da URL da API (para debug) - só no cliente
+// Removido do top-level para evitar execução durante SSR
 
-// Interceptor para adicionar token de autenticação
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+// Lazy initialization do axios - só cria quando necessário e no cliente
+let apiInstance: any = null;
+
+export const getApiInstance = () => {
+  // Só criar no cliente
+  if (typeof window === 'undefined') {
+    throw new Error('API só pode ser usada no cliente');
   }
-  return config;
-});
 
-// Interceptor para tratamento de erros
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      // Token expirado, tentar renovar
-      try {
-        const refreshToken = localStorage.getItem('refresh-token');
-        if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
-            refresh_token: refreshToken,
+  const desiredBaseURL = resolveApiBaseUrl();
+
+  // Sempre recriar a instância se o token mudou (para garantir que o interceptor tenha o token atualizado)
+  // Mas manter a instância se já existe para evitar recriação desnecessária
+  if (apiInstance && apiInstance.defaults?.baseURL !== desiredBaseURL) {
+    apiInstance = null;
+  }
+
+  if (!apiInstance) {
+    const baseURL = desiredBaseURL;
+    apiInstance = axios.create({
+      baseURL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: false,
+    });
+
+    // Interceptor para adicionar token de autenticação
+    apiInstance.interceptors.request.use((config: any) => {
+      if (typeof window !== 'undefined') {
+        // Sempre ler o token do localStorage na hora da requisição (não usar valor em cache)
+        const token = localStorage.getItem('token');
+        if (token && token.trim() !== '') {
+          config.headers = config.headers || {};
+          config.headers.Authorization = `Bearer ${token.trim()}`;
+          // Log de debug (sempre em staging para diagnóstico)
+          console.log('[AUTH DEBUG] Token usado na requisição:', {
+            url: config.url,
+            token_preview: token.substring(0, 20) + '...',
+            has_auth_header: !!config.headers.Authorization,
+            auth_header_preview: config.headers.Authorization?.substring(0, 30) + '...'
           });
-          
-          const newToken = response.data.access_token;
-          localStorage.setItem('token', newToken);
-          
-          // Reenviar requisição original com novo token
-          error.config.headers.Authorization = `Bearer ${newToken}`;
-          return axios(error.config);
+        } else {
+          console.error('[AUTH ERROR] Token não encontrado ou vazio no localStorage para requisição:', {
+            url: config.url,
+            method: config.method,
+            localStorage_token: localStorage.getItem('token')
+          });
         }
-      } catch (refreshError) {
-        // Falha ao renovar token, redirecionar para login
-        localStorage.removeItem('token');
-        localStorage.removeItem('refresh-token');
-        window.location.href = '/login';
       }
-    }
-    return Promise.reject(error);
+      return config;
+    });
+
+    // Interceptor para tratamento de erros
+    apiInstance.interceptors.response.use(
+      (response: any) => response,
+      async (error: any) => {
+        // Só processar no cliente
+        if (typeof window === 'undefined') {
+          return Promise.reject(error);
+        }
+
+        if (error.response?.status === 401) {
+          // Token expirado, tentar renovar
+          try {
+            const refreshToken = localStorage.getItem('refresh-token');
+            if (refreshToken) {
+              const response = await axios.post(`${baseURL}/api/v1/auth/refresh`, {
+                refresh_token: refreshToken,
+              });
+              
+              const newToken = response.data.access_token;
+              localStorage.setItem('token', newToken);
+              
+              // Reenviar requisição original com novo token
+              error.config.headers.Authorization = `Bearer ${newToken}`;
+              return axios(error.config);
+            }
+          } catch (refreshError) {
+            // Falha ao renovar token, redirecionar para login
+            localStorage.removeItem('token');
+            localStorage.removeItem('refresh-token');
+            if (typeof window !== 'undefined' && window.location) {
+              window.location.href = '/login';
+            }
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
   }
-);
+  
+  return apiInstance;
+};
+
+// Exportar objeto com métodos que fazem lazy initialization
+// Isso evita que o Proxy seja avaliado durante SSR
+const api = {
+  get: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.get(...args);
+  },
+  post: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.post(...args);
+  },
+  put: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.put(...args);
+  },
+  delete: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.delete(...args);
+  },
+  patch: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.patch(...args);
+  },
+  request: (...args: any[]) => {
+    const instance = getApiInstance();
+    return instance.request(...args);
+  },
+  interceptors: {
+    request: {
+      use: (...args: any[]) => {
+        const instance = getApiInstance();
+        return instance.interceptors.request.use(...args);
+      },
+    },
+    response: {
+      use: (...args: any[]) => {
+        const instance = getApiInstance();
+        return instance.interceptors.response.use(...args);
+      },
+    },
+  },
+} as any;
+
+export default api;
 
 // Autenticação - Usar proxy para contornar CORS
 export const login = async (username: string, password: string) => {
-  console.log('📡 [API] Preparando login...', { username, api_url: API_BASE_URL });
+  // Só executar no cliente
+  if (typeof window === 'undefined') {
+    throw new Error('login só pode ser usado no cliente');
+  }
+  
+  // Log da URL da API (para debug) - só no cliente
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (typeof window !== 'undefined') {
+    console.log('🔧 [API Config] API Base URL:', apiBaseUrl);
+    console.log('🔧 [API Config] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+  }
+
+  console.log('📡 [API] Preparando login...', { username, api_url: apiBaseUrl });
   
   try {
     // Tentar via proxy do Next.js (contorna CORS)
@@ -78,7 +180,7 @@ export const login = async (username: string, password: string) => {
     });
     
     // Salvar refresh token
-    if (proxyResponse.data.refresh_token) {
+    if (proxyResponse.data.refresh_token && typeof window !== 'undefined') {
       localStorage.setItem('refresh-token', proxyResponse.data.refresh_token);
       console.log('💾 [API] Refresh token salvo');
     }
@@ -88,13 +190,13 @@ export const login = async (username: string, password: string) => {
     console.error('❌ [API] Erro no proxy, tentando direto...', proxyError.message);
     
     // Fallback: tentar direto (pode falhar por CORS)
-    const formData = new FormData();
+    const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
     
     console.log('📤 [API] Enviando requisição direta para /api/v1/auth/login');
     
-    const response = await api.post('/api/v1/auth/login', formData, {
+    const response = await api.post('/api/v1/auth/login', formData.toString(), {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
@@ -107,7 +209,7 @@ export const login = async (username: string, password: string) => {
     });
     
     // Salvar refresh token
-    if (response.data.refresh_token) {
+    if (response.data.refresh_token && typeof window !== 'undefined') {
       localStorage.setItem('refresh-token', response.data.refresh_token);
       console.log('💾 [API] Refresh token salvo');
     }
@@ -122,18 +224,25 @@ export const signup = async (data: any, token?: string) => {
     headers.Authorization = `Bearer ${token}`;
   }
   
-  const response = await api.post('/api/v1/users', data, { headers });
+  const response = await api.post('/api/v1/auth/users', data, { headers });
   return response.data;
 };
 
 export const logout = async () => {
+  // Só executar no cliente
+  if (typeof window === 'undefined') {
+    return;
+  }
+
   try {
     await api.post('/api/v1/auth/logout');
   } catch (error) {
     console.error('Erro no logout:', error);
   } finally {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refresh-token');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refresh-token');
+    }
   }
 };
 
@@ -144,6 +253,11 @@ export const getCurrentUser = async () => {
 
 // Novos endpoints para seleção de BU/Empresa
 export const getUserBusinessUnits = async () => {
+  // Só executar no cliente
+  if (typeof window === 'undefined') {
+    throw new Error('getUserBusinessUnits só pode ser usado no cliente');
+  }
+
   const token = localStorage.getItem('token');
   
   if (!token) {
@@ -171,6 +285,11 @@ export const getUserBusinessUnits = async () => {
 };
 
 export const selectBusinessUnit = async (businessUnitId: string) => {
+  // Só executar no cliente
+  if (typeof window === 'undefined') {
+    throw new Error('selectBusinessUnit só pode ser usado no cliente');
+  }
+
   const token = localStorage.getItem('token');
   
   if (!token) {
@@ -332,7 +451,7 @@ export const getUsers = async (token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.get('/api/v1/users', { headers });
+  const response = await api.get('/api/v1/auth/users', { headers });
   return response.data;
 };
 
@@ -341,7 +460,7 @@ export const createUser = async (data: any, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.post('/api/v1/users', data, { headers });
+  const response = await api.post('/api/v1/auth/users', data, { headers });
   return response.data;
 };
 
@@ -350,7 +469,7 @@ export const deleteUser = async (id: string, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.delete(`/api/v1/users/${id}`, { headers });
+  const response = await api.delete(`/api/v1/auth/users/${id}`, { headers });
   return response.data;
 };
 
@@ -360,7 +479,7 @@ export const getTenants = async (token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.get('/api/v1/tenants', { headers });
+  const response = await api.get('/api/v1/auth/tenants', { headers });
   return response.data;
 };
 
@@ -369,7 +488,7 @@ export const createTenant = async (data: any, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.post('/api/v1/tenants', data, { headers });
+  const response = await api.post('/api/v1/auth/tenants', data, { headers });
   return response.data;
 };
 
@@ -378,7 +497,7 @@ export const deleteTenant = async (id: string, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.delete(`/api/v1/tenants/${id}`, { headers });
+  const response = await api.delete(`/api/v1/auth/tenants/${id}`, { headers });
   return response.data;
 };
 
@@ -542,7 +661,7 @@ export const updateUser = async (id: string, data: any, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.put(`/api/v1/users/${id}`, data, { headers });
+  const response = await api.put(`/api/v1/auth/users/${id}`, data, { headers });
   return response.data;
 };
 
@@ -552,7 +671,7 @@ export const updateTenant = async (id: string, data: any, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.put(`/api/v1/tenants/${id}`, data, { headers });
+  const response = await api.put(`/api/v1/auth/tenants/${id}`, data, { headers });
   return response.data;
 };
 
@@ -701,8 +820,12 @@ export const needsBusinessUnitSelection = async (): Promise<any> => {
 };
 
 export const getPermissions = async (): Promise<any> => {
-  const response = await api.get('/api/v1/permissions');
-  return response.data;
+  return [
+    { code: 'can_read', name: 'Visualizar' },
+    { code: 'can_write', name: 'Editar' },
+    { code: 'can_delete', name: 'Excluir' },
+    { code: 'can_manage_users', name: 'Gerenciar Usuários' },
+  ];
 };
 
 export const getUserPermissions = async (userId: string, businessUnitId: string): Promise<any> => {
@@ -771,6 +894,52 @@ export const getChartAccounts = async (subgroupId?: string, groupId?: string, to
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || 'Erro ao buscar contas');
+  }
+};
+
+// Funções de Onboarding
+export const validateSpreadsheet = async (url: string, tenantId: string, businessUnitId: string, token?: string) => {
+  try {
+    const response = await api.post('/api/v1/onboarding/validate-spreadsheet', {
+      url,
+      tenant_id: tenantId,
+      business_unit_id: businessUnitId
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao validar planilha');
+  }
+};
+
+export const startOnboarding = async (tenantId: string, businessUnitId: string, spreadsheetUrl: string, resetData: boolean = false, token?: string) => {
+  try {
+    const response = await api.post('/api/v1/onboarding/import', {
+      tenant_id: tenantId,
+      business_unit_id: businessUnitId,
+      spreadsheet_url: spreadsheetUrl,
+      reset_data: resetData
+    });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao iniciar onboarding');
+  }
+};
+
+export const getOnboardingStatus = async (tenantId: string, businessUnitId: string, token?: string) => {
+  try {
+    const response = await api.get(`/api/v1/onboarding/status/${tenantId}/${businessUnitId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao buscar status do onboarding');
+  }
+};
+
+export const getReconciliation = async (tenantId: string, businessUnitId: string, token?: string) => {
+  try {
+    const response = await api.get(`/api/v1/onboarding/reconciliation/${tenantId}/${businessUnitId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || 'Erro ao buscar conciliação');
   }
 };
 
@@ -848,5 +1017,3 @@ export const getImportStatus = async (importId: string, token?: string) => {
   const response = await api.get(`/api/v1/import/status/${importId}`, { headers });
   return response.data;
 };
-
-export default api;

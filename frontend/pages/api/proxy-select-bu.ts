@@ -1,11 +1,19 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL =
+  process.env.BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'https://finaflow-api.72.61.34.133.sslip.io';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'POST') {
     try {
+      // Validar body
+      if (!req.body) {
+        return res.status(400).json({ detail: 'Body é obrigatório' });
+      }
+      
       const authHeader = req.headers.authorization;
       
       if (!authHeader) {
@@ -29,6 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             'Authorization': authHeader,
             'Content-Type': 'application/json',
           },
+          timeout: 25000, // Timeout de 25 segundos
         }
       );
 
@@ -36,13 +45,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(backendResponse.status).json(backendResponse.data);
     } catch (error: any) {
       console.error('❌ [Proxy Select] Erro:', error.response?.status, error.response?.data || error.message);
-      res.status(error.response?.status || 500).json(error.response?.data || { detail: 'Internal Server Error' });
+      const statusCode = error.response?.status || 500;
+      const errorData = error.response?.data || { detail: error.message || 'Internal Server Error' };
+      return res.status(statusCode).json(errorData);
     }
   } else {
     res.setHeader('Allow', ['POST']);
     res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }
-
-
 
