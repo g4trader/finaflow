@@ -33,6 +33,7 @@ class LancamentoPrevisto(Base):
     data_prevista = Column(DateTime, nullable=False)  # Data Prevista
     valor = Column(Numeric(15, 2), nullable=False)  # Valor
     observacoes = Column(Text, nullable=True)  # Observações
+    import_ref = Column(String(128), nullable=True)  # Referência de importação (linha/arquivo)
     
     # Campos obrigatórios vinculados ao plano de contas
     conta_id = Column(String(36), ForeignKey("chart_accounts.id"), nullable=False)  # Conta
@@ -62,6 +63,16 @@ class LancamentoPrevisto(Base):
     tenant = relationship("Tenant")
     business_unit = relationship("BusinessUnit")
     creator = relationship("User", foreign_keys=[created_by])
+
+    __table_args__ = (
+        UniqueConstraint(
+            'tenant_id',
+            'business_unit_id',
+            'import_ref',
+            name='uq_lancamento_previsto_import_ref',
+        ),
+        {'extend_existing': True},
+    )
 
 # Modelos Pydantic para APIs
 from pydantic import BaseModel, validator
@@ -129,4 +140,3 @@ class LancamentoPrevistoResponse(BaseModel):
 
     class Config:
         from_attributes = True
-

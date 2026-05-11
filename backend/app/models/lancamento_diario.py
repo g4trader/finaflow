@@ -26,15 +26,16 @@ class LancamentoDiario(Base):
     Estrutura: Data Movimentação, Conta, Subgrupo, Grupo, Valor, Liquidação, Observações
     """
     __tablename__ = "lancamentos_diarios"
-    __table_args__ = {'extend_existing': True}
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     
     # Campos obrigatórios da planilha
     data_movimentacao = Column(DateTime, nullable=False)  # Data Movimentação
     valor = Column(Numeric(15, 2), nullable=False)  # Valor
-    liquidacao = Column(DateTime, nullable=True)  # Liquidação
+    liquidacao = Column(DateTime, nullable=True)  # Liquidação (data)
+    liquidation_account_id = Column(String(36), ForeignKey("liquidation_accounts.id"), nullable=True)  # Conta de liquidação (scb, cef, cx, etc.)
     observacoes = Column(Text, nullable=True)  # Observações
+    import_ref = Column(String(128), nullable=True)  # Referência de importação (linha/arquivo)
     
     # Campos obrigatórios vinculados ao plano de contas
     conta_id = Column(String(36), ForeignKey("chart_accounts.id"), nullable=False)  # Conta
@@ -61,14 +62,20 @@ class LancamentoDiario(Base):
     conta = relationship("ChartAccount", foreign_keys=[conta_id])
     subgrupo = relationship("ChartAccountSubgroup", foreign_keys=[subgrupo_id])
     grupo = relationship("ChartAccountGroup", foreign_keys=[grupo_id])
+    liquidation_account = relationship("LiquidationAccount", foreign_keys=[liquidation_account_id])
     tenant = relationship("Tenant")
     business_unit = relationship("BusinessUnit")
     creator = relationship("User", foreign_keys=[created_by])
     
     # Constraints
     __table_args__ = (
-        UniqueConstraint('data_movimentacao', 'conta_id', 'valor', 'tenant_id', 'business_unit_id', 
-                        name='uq_lancamento_data_conta_valor'),
+        UniqueConstraint(
+            'tenant_id',
+            'business_unit_id',
+            'import_ref',
+            name='uq_lancamento_import_ref',
+        ),
+        {'extend_existing': True},
     )
 
 # Modelos Pydantic para APIs

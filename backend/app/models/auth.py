@@ -31,6 +31,8 @@ class Tenant(Base):
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name = Column(String(255), nullable=False)
+    cnpj = Column(String(20), nullable=True)
+    spreadsheet_url = Column(Text, nullable=True)
     domain = Column(String(255), unique=True, nullable=False)
     status = Column(String(50), default="active")
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -199,16 +201,22 @@ class AuditLog(Base):
 class TenantCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     domain: str = Field(..., min_length=1, max_length=255)
+    cnpj: Optional[str] = Field(None, max_length=20)
+    spreadsheet_url: Optional[str] = None
 
 class TenantUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
+    domain: Optional[str] = Field(None, min_length=1, max_length=255)
     status: Optional[str] = None
+    spreadsheet_url: Optional[str] = None
 
 class TenantResponse(BaseModel):
     id: str
     name: str
+    cnpj: Optional[str] = None
     domain: str
     status: str
+    spreadsheet_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -259,6 +267,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8)
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
+    phone: Optional[str] = None
     role: UserRole = UserRole.USER
 
 class UserUpdate(BaseModel):
@@ -267,6 +276,8 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     first_name: Optional[str] = Field(None, min_length=1, max_length=100)
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    phone: Optional[str] = None
+    password: Optional[str] = Field(None, min_length=8)
     role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
 
