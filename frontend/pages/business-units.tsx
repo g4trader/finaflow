@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getBusinessUnits, createBusinessUnit, updateBusinessUnit, deleteBusinessUnit, getTenants } from '../services/api';
+import { createBusinessUnit, updateBusinessUnit, deleteBusinessUnit, getUserBusinessUnits } from '../services/api';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
@@ -10,6 +10,7 @@ import ProtectedRoute from '../components/ProtectedRoute';
 interface BusinessUnit {
   id: string;
   tenant_id: string;
+  tenant_name?: string | null;
   name: string;
   code: string;
   status: string;
@@ -48,28 +49,31 @@ const BusinessUnitsContent: React.FC = () => {
   const fetchBusinessUnits = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getBusinessUnits(token ?? undefined);
+      const data = await getUserBusinessUnits();
       setBusinessUnits(data);
+
+      const tenantsById = new Map<string, Tenant>();
+      data.forEach((bu: BusinessUnit) => {
+        if (bu.tenant_id && !tenantsById.has(bu.tenant_id)) {
+          tenantsById.set(bu.tenant_id, {
+            id: bu.tenant_id,
+            name: bu.tenant_name || bu.tenant_id,
+            domain: '',
+            status: 'active',
+          });
+        }
+      });
+      setTenants(Array.from(tenantsById.values()));
     } catch (error) {
       console.error('Erro ao carregar BUs:', error);
     } finally {
       setLoading(false);
     }
-  }, [token]);
-
-  const fetchTenants = useCallback(async () => {
-    try {
-      const data = await getTenants(token ?? undefined);
-      setTenants(data);
-    } catch (error) {
-      console.error('Erro ao carregar empresas:', error);
-    }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchBusinessUnits();
-    fetchTenants();
-  }, [fetchBusinessUnits, fetchTenants]);
+  }, [fetchBusinessUnits]);
 
   const handleInputChange = useCallback((field: keyof BusinessUnitFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
