@@ -157,7 +157,7 @@ async def health_check():
 # Incluir routers legacy (compatibilidade) e versão com prefixo
 include_api_routers(app)
 include_api_routers(app, prefix="/api/v1")
-app.include_router(financial.router, prefix="/api/v1/financial")
+app.include_router(financial.router, prefix="/api/v1")
 app.include_router(permissions.router)
 
 # Rota raiz

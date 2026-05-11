@@ -1,17 +1,23 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import json
+import io
 import calendar
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+import re
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+import pandas as pd
+import requests
+from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.auth import User
+from app.models.auth import User, UserRole, BusinessUnit
 from app.models.caixa import Caixa
 from app.models.conta_bancaria import ContaBancaria
 from app.models.investimento import Investimento
@@ -21,26 +27,49 @@ from app.models.chart_of_accounts import (
     ChartAccountSubgroup,
 )
 from app.models.lancamento_diario import LancamentoDiario, TransactionType
-from app.models.lancamento_previsto import LancamentoPrevisto
+from app.models.lancamento_previsto import LancamentoPrevisto, TransactionStatus
+from app.models.cash_flow_settings import CashFlowYearSettings
+from app.models.cash_flow_forecast_values import CashFlowForecastValue
 from app.services.dependencies import get_current_active_user
+from app.services.financial_aggregation_service import FinancialAggregationService
+from app.services.monthly_drilldown_service import MonthlyDrilldownService
+from app.services.cash_flow_service import CashFlowService
 
 router = APIRouter(tags=["dashboard"])
 
 
-def _require_business_unit(user: User) -> str:
+def _require_business_unit(user: User) -> Optional[str]:
+    """
+    Obtém o business_unit_id do usuário.
+    Primeiro tenta obter do token (atualizado em get_current_user),
+    depois do objeto user, e por último retorna None (permitindo acesso sem BU para super_admin).
+    """
+    # Primeiro, tentar obter do token (já atualizado em get_current_user)
     business_unit_id = getattr(user, "business_unit_id", None)
+    
+    # Se não tiver business_unit_id e não for super_admin, retornar erro
     if not business_unit_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Usuário precisa selecionar uma unidade de negócio para acessar o dashboard.",
-        )
+        if user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=400,
+                detail="Usuário precisa selecionar uma unidade de negócio para acessar o dashboard.",
+            )
+        # Para super_admin sem BU, usar None (permitir acesso sem filtro de BU)
+        return None
+    
     return str(business_unit_id)
 
 
 def _decimal_to_float(value: Optional[Decimal]) -> float:
     if value is None:
         return 0.0
-    return float(value)
+    if isinstance(value, Decimal):
+        return float(value.quantize(Decimal("0.01")))
+    return float(Decimal(str(value)).quantize(Decimal("0.01")))
+
+
+def _to_cent(value: float) -> float:
+    return float(Decimal(str(value)).quantize(Decimal("0.01")))
 
 
 MONTH_LABELS = [
@@ -78,10 +107,13 @@ def list_transactions(
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
         )
     )
+    
+    # Filtrar por business_unit_id apenas se fornecido
+    if business_unit_id:
+        query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
 
     start_dt = datetime(target_year, 1, 1)
     end_dt = datetime(target_year, 12, 31, 23, 59, 59)
@@ -142,57 +174,220 @@ def annual_summary(
 ) -> Dict[str, Any]:
     """
     Consolida receitas, despesas e custos por mês para o ano informado.
+    
+    Retorna:
+    - 12 meses completos (mesmo sem lançamentos)
+    - Totais anuais de receita, despesa, custo e saldo
+    - Saldo mensal e saldo acumulado por mês
+    - Metadata explicativa das fórmulas de cálculo
+    
+    FÓRMULAS DE CÁLCULO:
+    - receita = soma(lancamentos.tipo == RECEITA)
+    - despesa = soma(lancamentos.tipo == DESPESA)
+    - custo = soma(lancamentos.tipo == CUSTO)
+    - saldo_mensal = receita - despesa - custo
+    - saldo_acumulado[jan] = saldo_mensal[jan]
+    - saldo_acumulado[fev] = saldo_acumulado[jan] + saldo_mensal[fev]
+    - saldo_acumulado[mar] = saldo_acumulado[fev] + saldo_mensal[mar]
+    - ... (soma progressiva)
+    
+    REGRAS IMPORTANTES:
+    - Saldo acumulado sempre começa no primeiro mês do ano (janeiro)
+    - Meses sem lançamentos: saldo_mensal = 0, saldo_acumulado se propaga
+    - Todos os cálculos usam Decimal para precisão absoluta
     """
     target_year = year or datetime.utcnow().year
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    start_dt = datetime(target_year, 1, 1)
-    end_dt = datetime(target_year, 12, 31, 23, 59, 59)
+    result = FinancialAggregationService.aggregate_monthly_summary(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=target_year,
+    )
+    
+    # Adicionar metadata explicativa (BLOCO 2)
+    result["metadata"] = {
+        "saldo_formula": "receita - despesa - custo",
+        "saldo_acumulado_formula": "soma progressiva dos saldos mensais",
+        "saldo_acumulado_explanation": "O saldo acumulado de cada mês é a soma do saldo acumulado do mês anterior com o saldo mensal do mês atual. Janeiro não tem mês anterior, então o saldo acumulado é igual ao saldo mensal.",
+        "calculation_precision": "Decimal (precisão absoluta)",
+        "empty_months_behavior": "Meses sem lançamentos têm saldo_mensal = 0, mas o saldo_acumulado se propaga (mantém o valor do mês anterior)"
+    }
+    
+    return result
 
-    transactions: List[LancamentoDiario] = (
-        db.query(LancamentoDiario)
-        .filter(
-            LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
-            LancamentoDiario.is_active.is_(True),
-            LancamentoDiario.data_movimentacao >= start_dt,
-            LancamentoDiario.data_movimentacao <= end_dt,
-        )
-        .all()
+
+@router.get("/financial/annual-summary-with-previstos")
+def annual_summary_with_previstos(
+    year: Optional[int] = Query(default=None, ge=1900),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Consolida receitas, despesas e custos por mês para o ano informado,
+    incluindo lançamentos previstos e diários.
+    """
+    target_year = year or datetime.utcnow().year
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+
+    result = FinancialAggregationService.aggregate_monthly_summary(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=target_year,
+        include_previstos=True,
     )
 
-    monthly: Dict[int, Dict[str, float]] = {
-        month: {"month": month, "revenue": 0.0, "expense": 0.0, "cost": 0.0}
-        for month in range(1, 13)
+    result["metadata"] = {
+        "includes_previstos": True,
+        "saldo_formula": "receita - despesa - custo",
+        "saldo_acumulado_formula": "soma progressiva dos saldos mensais",
+        "saldo_acumulado_explanation": "O saldo acumulado de cada mês é a soma do saldo acumulado do mês anterior com o saldo mensal do mês atual. Janeiro não tem mês anterior, então o saldo acumulado é igual ao saldo mensal.",
+        "calculation_precision": "Decimal (precisão absoluta)",
+        "empty_months_behavior": "Meses sem lançamentos têm saldo_mensal = 0, mas o saldo_acumulado se propaga (mantém o valor do mês anterior)",
     }
 
-    for tx in transactions:
-        if tx.transaction_type is None:
-            continue
-        month = tx.data_movimentacao.month
-        amount = _decimal_to_float(tx.valor)
-        if tx.transaction_type == TransactionType.RECEITA:
-            monthly[month]["revenue"] += amount
-        elif tx.transaction_type == TransactionType.DESPESA:
-            monthly[month]["expense"] += amount
-        elif tx.transaction_type == TransactionType.CUSTO:
-            monthly[month]["cost"] += amount
+    return result
 
-    totals = {"revenue": 0.0, "expense": 0.0, "cost": 0.0}
-    monthly_list: List[Dict[str, float]] = []
-    for month in range(1, 13):
-        bucket = monthly[month]
-        totals["revenue"] += bucket["revenue"]
-        totals["expense"] += bucket["expense"]
-        totals["cost"] += bucket["cost"]
-        monthly_list.append(bucket)
 
-    return {
-        "year": target_year,
-        "totals": totals,
-        "monthly": monthly_list,
-    }
+@router.get("/financial/annual-summary/debug")
+def annual_summary_debug(
+    year: Optional[int] = Query(default=None, ge=1900),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Endpoint auxiliar para QA/Debug.
+    
+    Retorna comparação entre:
+    - Agregação SQL direta (GROUP BY)
+    - Agregação em memória (método atual)
+    
+    Útil para identificar discrepâncias entre métodos de cálculo.
+    """
+    target_year = year or datetime.utcnow().year
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+
+    return FinancialAggregationService.get_debug_summary(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=target_year,
+    )
+
+
+@router.get("/financial/monthly-daily-summary")
+def monthly_daily_summary(
+    year: int = Query(..., ge=1900, description="Ano (ex: 2025)"),
+    month: int = Query(..., ge=1, le=12, description="Mês (1-12)"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna resumo diário de um mês específico.
+    
+    Agrega receitas, despesas e custos por dia do mês informado.
+    Os totais mensais DEVEM bater com o mês correspondente de /annual-summary.
+    
+    Retorna:
+    - Lista de dias do mês (mesmo sem lançamentos)
+    - Totais mensais de receita, despesa, custo e saldo
+    - Metadata explicativa das fórmulas
+    
+    FÓRMULAS:
+    - saldo_diário = receita - despesa - custo
+    - month_total_* = soma dos dias do mês
+    
+    CONSISTÊNCIA:
+    - month_total_* deve bater com monthly[month-1] de /annual-summary
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    
+    try:
+        result = MonthlyDrilldownService.aggregate_daily_summary(
+            db=db,
+            tenant_id=tenant_id,
+            business_unit_id=business_unit_id,
+            year=year,
+            month=month,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao calcular resumo diário: {str(e)}")
+
+
+@router.get("/financial/monthly-transactions")
+def monthly_transactions(
+    year: int = Query(..., ge=1900, description="Ano (ex: 2025)"),
+    month: int = Query(..., ge=1, le=12, description="Mês (1-12)"),
+    type: Optional[str] = Query(None, description="Tipo: RECEITA, DESPESA ou CUSTO"),
+    group_id: Optional[str] = Query(None, description="ID do grupo"),
+    subgroup_id: Optional[str] = Query(None, description="ID do subgrupo"),
+    account_id: Optional[str] = Query(None, description="ID da conta"),
+    page: int = Query(1, ge=1, description="Página (começa em 1)"),
+    page_size: int = Query(50, ge=1, le=200, description="Itens por página (máx 200)"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna lançamentos detalhados de um mês específico com filtros e paginação.
+    
+    Parâmetros:
+    - year, month: obrigatórios
+    - type: opcional (RECEITA, DESPESA, CUSTO)
+    - group_id, subgroup_id, account_id: filtros opcionais
+    - page, page_size: paginação
+    
+    Retorna:
+    - Lista paginada de lançamentos
+    - Summary com totais do mês (considerando filtros)
+    - Metadados de paginação
+    
+    CONSISTÊNCIA:
+    - Se nenhum filtro for aplicado, summary.* deve bater com monthly[month-1] de /annual-summary
+    - A soma dos items retornados (dentro da página) é parcial
+    - O summary.* é o total do mês considerando os filtros aplicados
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    
+    # Converter type string para enum
+    transaction_type = None
+    if type:
+        try:
+            transaction_type = TransactionType(type.upper())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tipo inválido: {type}. Use RECEITA, DESPESA ou CUSTO."
+            )
+    
+    try:
+        result = MonthlyDrilldownService.get_monthly_transactions(
+            db=db,
+            tenant_id=tenant_id,
+            business_unit_id=business_unit_id,
+            year=year,
+            month=month,
+            transaction_type=transaction_type,
+            group_id=group_id,
+            subgroup_id=subgroup_id,
+            account_id=account_id,
+            page=page,
+            page_size=page_size,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar lançamentos: {str(e)}")
 
 
 @router.get("/financial/wallet")
@@ -210,33 +405,38 @@ def wallet_overview(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    bank_accounts = (
+    bank_query = (
         db.query(ContaBancaria)
         .filter(
             ContaBancaria.tenant_id == tenant_id,
-            ContaBancaria.business_unit_id == business_unit_id,
             ContaBancaria.is_active.is_(True),
         )
-        .all()
     )
-    cash_accounts = (
+    if business_unit_id:
+        bank_query = bank_query.filter(ContaBancaria.business_unit_id == business_unit_id)
+    bank_accounts = bank_query.all()
+    
+    cash_query = (
         db.query(Caixa)
         .filter(
             Caixa.tenant_id == tenant_id,
-            Caixa.business_unit_id == business_unit_id,
             Caixa.is_active.is_(True),
         )
-        .all()
     )
-    investments = (
+    if business_unit_id:
+        cash_query = cash_query.filter(Caixa.business_unit_id == business_unit_id)
+    cash_accounts = cash_query.all()
+    
+    investment_query = (
         db.query(Investimento)
         .filter(
             Investimento.tenant_id == tenant_id,
-            Investimento.business_unit_id == business_unit_id,
             Investimento.is_active.is_(True),
         )
-        .all()
     )
+    if business_unit_id:
+        investment_query = investment_query.filter(Investimento.business_unit_id == business_unit_id)
+    investments = investment_query.all()
 
     bank_payload = [
         {"label": account.banco, "amount": _decimal_to_float(account.saldo_atual)}
@@ -302,12 +502,15 @@ def cash_flow(
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
             LancamentoDiario.data_movimentacao >= start_dt,
             LancamentoDiario.data_movimentacao <= end_dt,
         )
     )
+    
+    # Filtrar por business_unit_id apenas se fornecido
+    if business_unit_id:
+        query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
     
     # Aplicar filtros adicionais
     if group_id:
@@ -388,7 +591,7 @@ def _load_plan_structure(
                 model.tenant_id == tenant_id,
                 model.is_active.is_(True),
             )
-            .order_by(model.code)
+            .order_by(model.created_at.asc(), model.id.asc())
             .all()
         )
         if tenant_items:
@@ -399,7 +602,7 @@ def _load_plan_structure(
                 model.tenant_id.is_(None),
                 model.is_active.is_(True),
             )
-            .order_by(model.code)
+            .order_by(model.created_at.asc(), model.id.asc())
             .all()
         )
 
@@ -415,6 +618,18 @@ def _load_plan_structure(
     for account in accounts:
         account_by_subgroup[str(account.subgroup_id)].append(account)
 
+    for group_id, items in subgroup_by_group.items():
+        subgroup_by_group[group_id] = sorted(
+            items,
+            key=lambda sg: (sg.created_at or datetime.min, sg.id),
+        )
+
+    for subgroup_id, items in account_by_subgroup.items():
+        account_by_subgroup[subgroup_id] = sorted(
+            items,
+            key=lambda acc: (acc.created_at or datetime.min, acc.id),
+        )
+
     return groups, subgroups, accounts, subgroup_by_group, account_by_subgroup
 
 
@@ -429,6 +644,270 @@ def _empty_days(last_day: int) -> Dict[int, float]:
     return {day: 0.0 for day in range(1, last_day + 1)}
 
 
+_SHEET_CACHE: Dict[str, Tuple[float, bytes]] = {}
+_SHEET_CACHE_TTL_SECONDS = 300
+
+
+def _load_cash_flow_settings(
+    db: Session,
+    tenant_id: str,
+    business_unit_id: Optional[str],
+    year: int,
+) -> Tuple[Optional[List[str]], float]:
+    settings_query = (
+        db.query(CashFlowYearSettings)
+        .filter(
+            CashFlowYearSettings.tenant_id == tenant_id,
+            CashFlowYearSettings.year == year,
+        )
+    )
+    if business_unit_id:
+        settings_query = settings_query.filter(
+            CashFlowYearSettings.business_unit_id == business_unit_id
+        )
+    settings = settings_query.first()
+    if not settings:
+        # fallback: usar a ordem mais recente disponível para manter o espelhamento da planilha
+        fallback_query = (
+            db.query(CashFlowYearSettings)
+            .filter(CashFlowYearSettings.tenant_id == tenant_id)
+            .order_by(CashFlowYearSettings.year.desc())
+        )
+        if business_unit_id:
+            fallback_query = fallback_query.filter(
+                CashFlowYearSettings.business_unit_id == business_unit_id
+            )
+        settings = fallback_query.first()
+        if not settings:
+            return None, 0.0
+        line_order = None
+        if settings.line_order:
+            try:
+                line_order = json.loads(settings.line_order)
+            except Exception:
+                line_order = None
+        # saldo do ano anterior não deve ser reutilizado quando o ano solicitado não tem settings
+        return line_order, 0.0
+
+    line_order = None
+    if settings.line_order:
+        try:
+            line_order = json.loads(settings.line_order)
+        except Exception:
+            line_order = None
+
+    saldo_ano_anterior = _decimal_to_float(settings.saldo_ano_anterior)
+    return line_order, saldo_ano_anterior
+
+
+def _load_forecast_values(
+    db: Session,
+    tenant_id: str,
+    business_unit_id: Optional[str],
+    year: int,
+) -> Dict[str, Dict[str, float]]:
+    query = (
+        db.query(CashFlowForecastValue)
+        .filter(
+            CashFlowForecastValue.tenant_id == tenant_id,
+            CashFlowForecastValue.year == year,
+        )
+    )
+    if business_unit_id:
+        query = query.filter(CashFlowForecastValue.business_unit_id == business_unit_id)
+
+    values: Dict[str, Dict[str, float]] = defaultdict(dict)
+    for row in query.all():
+        label_key = (row.label or "").strip().lower()
+        if not label_key:
+            continue
+        if row.month and 1 <= row.month <= 12:
+            month_label = MONTH_LABELS[row.month - 1]
+            values[label_key][month_label] = _decimal_to_float(row.value)
+
+    return values
+
+
+def _normalize_spreadsheet_url(spreadsheet_url: str) -> str:
+    if "docs.google.com/spreadsheets" not in spreadsheet_url:
+        return spreadsheet_url
+    match = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", spreadsheet_url)
+    if match:
+        sheet_id = match.group(1)
+        return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
+    base_url = spreadsheet_url.split("?")[0].split("#")[0]
+    if base_url.endswith("/edit"):
+        base_url = base_url[:-5]
+    return f"{base_url}/export?format=xlsx"
+
+
+def _load_spreadsheet_bytes(spreadsheet_url: str) -> bytes:
+    normalized_url = _normalize_spreadsheet_url(spreadsheet_url)
+    cached = _SHEET_CACHE.get(normalized_url)
+    now = time.time()
+    if cached and now - cached[0] < _SHEET_CACHE_TTL_SECONDS:
+        return cached[1]
+    response = requests.get(normalized_url, timeout=30)
+    response.raise_for_status()
+    content = response.content
+    _SHEET_CACHE[normalized_url] = (now, content)
+    return content
+
+
+def _load_forecast_sheet(spreadsheet_url: str, year: int) -> pd.DataFrame:
+    content = _load_spreadsheet_bytes(spreadsheet_url)
+    excel = pd.ExcelFile(io.BytesIO(content))
+    candidates = [
+        f"Fluxo de caixa-{year}",
+        f"Previsão Fluxo de caixa-{year}",
+    ]
+    for sheet_name in candidates:
+        if sheet_name in excel.sheet_names:
+            return pd.read_excel(excel, sheet_name=sheet_name, header=None)
+    raise HTTPException(
+        status_code=400,
+        detail="Planilha não contém aba de previsão/fluxo para o ano selecionado.",
+    )
+
+
+def _get_forecast_years(spreadsheet_url: str) -> List[int]:
+    content = _load_spreadsheet_bytes(spreadsheet_url)
+    excel = pd.ExcelFile(io.BytesIO(content))
+    years: set[int] = set()
+    for name in excel.sheet_names:
+        match = re.search(r"(?:Fluxo de caixa|Previsão Fluxo de caixa)-(\d{4})", name, re.IGNORECASE)
+        if match:
+            try:
+                years.add(int(match.group(1)))
+            except ValueError:
+                continue
+    return sorted(years)
+
+
+def _resolve_forecast_year(spreadsheet_url: str, desired_year: int) -> int:
+    years = _get_forecast_years(spreadsheet_url)
+    if not years:
+        return desired_year
+    eligible = [year for year in years if year <= desired_year]
+    return max(eligible) if eligible else max(years)
+
+
+def _find_month_header_row(df: pd.DataFrame) -> Optional[int]:
+    max_scan = min(10, len(df))
+    for idx in range(max_scan):
+        row = df.iloc[idx].astype(str).str.strip().str.upper()
+        if "JANEIRO" in row.values and "FEVEREIRO" in row.values:
+            return idx
+    return None
+
+
+def _resolve_business_unit_id(
+    db: Session,
+    tenant_id: str,
+    business_unit_id: Optional[str],
+) -> Optional[str]:
+    if business_unit_id:
+        return business_unit_id
+    bu = (
+        db.query(BusinessUnit)
+        .filter(BusinessUnit.tenant_id == tenant_id)
+        .order_by(BusinessUnit.created_at.asc())
+        .first()
+    )
+    return str(bu.id) if bu else None
+
+
+def _resolve_year_from_settings(
+    db: Session,
+    tenant_id: str,
+    business_unit_id: Optional[str],
+    fallback_year: int,
+) -> int:
+    query = (
+        db.query(CashFlowYearSettings.year)
+        .filter(CashFlowYearSettings.tenant_id == tenant_id)
+        .order_by(CashFlowYearSettings.year.desc())
+    )
+    if business_unit_id:
+        query = query.filter(CashFlowYearSettings.business_unit_id == business_unit_id)
+    row = query.first()
+    return int(row[0]) if row else fallback_year
+
+
+def _detect_label_column(df: pd.DataFrame, start_row: int) -> int:
+    best_col = 1
+    best_count = -1
+    for col in df.columns:
+        series = df.iloc[start_row:, col]
+        count = int(series.apply(lambda v: isinstance(v, str) and v.strip() != "").sum())
+        if count > best_count:
+            best_count = count
+            best_col = int(col)
+    return best_col
+
+
+def _parse_numeric(value: Any) -> float:
+    if value is None:
+        return 0.0
+    if isinstance(value, float) and pd.isna(value):
+        return 0.0
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = (
+            value.replace("R$", "")
+            .replace(" ", "")
+            .replace(".", "")
+            .replace(",", ".")
+            .strip()
+        )
+        try:
+            return float(cleaned)
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def _extract_forecast_rows(df: pd.DataFrame, year: int) -> List[Dict[str, Any]]:
+    header_row_idx = _find_month_header_row(df)
+    if header_row_idx is None:
+        raise HTTPException(status_code=400, detail="Não foi possível localizar cabeçalhos de meses na planilha.")
+
+    header_row = df.iloc[header_row_idx].astype(str).str.strip().str.upper()
+    month_columns = {month: idx for idx, month in enumerate(header_row) if month in MONTH_LABELS}
+
+    data_start = header_row_idx + 2
+    label_col = _detect_label_column(df, data_start)
+
+    rows: List[Dict[str, Any]] = []
+    for row_idx in range(data_start, len(df)):
+        raw_label = df.iloc[row_idx, label_col]
+        if raw_label is None or (isinstance(raw_label, float) and pd.isna(raw_label)):
+            continue
+        label = str(raw_label).strip()
+        if not label:
+            continue
+        if label.lower() in {"previsão de fluxo de caixa", "ano do fluxo:"}:
+            continue
+        if label.isdigit() and int(label) == year:
+            continue
+
+        months = {}
+        realized_months = {}
+        for month in MONTH_LABELS:
+            col_idx = month_columns.get(month)
+            value = df.iloc[row_idx, col_idx] if col_idx is not None else 0
+            months[month] = _parse_numeric(value)
+            realized_value = df.iloc[row_idx, col_idx + 1] if col_idx is not None else 0
+            realized_months[month] = _parse_numeric(realized_value)
+
+        rows.append({"label": label, "previstos": months, "realizados": realized_months})
+
+    return rows
+
+
 @router.get("/cash-flow/previsto-realizado")
 def cash_flow_previsto_realizado(
     year: Optional[int] = Query(default=None, ge=1900),
@@ -436,108 +915,409 @@ def cash_flow_previsto_realizado(
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
-    Compara valores previstos (planilha de previsões) e realizados (lançamentos diários)
+    Compara valores previstos (lançamentos previstos) e realizados (lançamentos diários)
     agrupando por plano de contas (grupo → subgrupo → conta) por mês.
     """
-    target_year = year or datetime.utcnow().year
+    current_year = datetime.utcnow().year
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
+    if year is None:
+        target_year = _resolve_year_from_settings(
+            db=db,
+            tenant_id=tenant_id,
+            business_unit_id=business_unit_id,
+            fallback_year=current_year,
+        )
+    else:
+        target_year = year
+
+    line_order, saldo_ano_anterior = _load_cash_flow_settings(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=target_year,
+    )
+    forecast_values = _load_forecast_values(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=target_year,
+    )
+
+    groups, subgroups, accounts, subgroup_by_group, account_by_subgroup = _load_plan_structure(db, tenant_id)
+    group_map = {g.name.strip().lower(): str(g.id) for g in groups}
+    subgroup_map = {sg.name.strip().lower(): str(sg.id) for sg in subgroups}
+    account_map = {acc.name.strip().lower(): str(acc.id) for acc in accounts}
+
+    subtotal_labels = {
+        "receita líquida",
+        "lucro bruto",
+        "lucro antes dos investimentos",
+        "desembolso total",
+        "lucro operacional",
+        "lucro líquido de caixa mensal",
+        "lucro líquido acumulado (reservas)",
+        "saldo do ano anterior",
+    }
+
+    rows: List[Dict[str, Any]] = []
+    row_by_label: Dict[str, Dict[str, Any]] = {}
+    row_meta: List[Dict[str, Any]] = []
+    current_group_id: Optional[str] = None
+
+    def _make_row(name: str, level: int, row_type: str) -> Dict[str, Any]:
+        return {
+            "categoria": name,
+            "nivel": level,
+            "tipo": row_type,
+            "meses": _empty_months(),
+        }
+
+    def _append_row(label: str, level: int, row_type: str, group_id=None, subgroup_id=None, account_id=None) -> None:
+        row = _make_row(label, level, row_type)
+        rows.append(row)
+        row_by_label[label.strip().lower()] = row
+        row_meta.append(
+            {
+                "row": row,
+                "type": row_type,
+                "group_id": group_id,
+                "subgroup_id": subgroup_id,
+                "account_id": account_id,
+                "label_key": label.strip().lower(),
+            }
+        )
+
+    # Montar ordem de linhas (preferir ordem salva no onboarding)
+    order_labels: List[str] = []
+    if line_order:
+        order_labels = [str(label) for label in line_order if str(label).strip()]
+    else:
+        for group in groups:
+            order_labels.append(group.name)
+            for subgroup in subgroup_by_group.get(str(group.id), []):
+                order_labels.append(subgroup.name)
+                for account in account_by_subgroup.get(str(subgroup.id), []):
+                    order_labels.append(account.name)
+        for subtotal in [
+            "Receita Líquida",
+            "Lucro Bruto",
+            "Lucro antes dos investimentos",
+            "Desembolso Total",
+            "LUCRO OPERACIONAL",
+            "Lucro Líquido de caixa mensal",
+            "Lucro líquido acumulado (Reservas)",
+            "Saldo do ano anterior",
+        ]:
+            if subtotal.strip().lower() not in {l.strip().lower() for l in order_labels}:
+                order_labels.append(subtotal)
+
+    used_labels: set[str] = set()
+    for label in order_labels:
+        label = str(label).strip()
+        if not label:
+            continue
+        label_key = label.lower()
+
+        group_id = group_map.get(label_key)
+        subgroup_id = subgroup_map.get(label_key)
+        account_id = account_map.get(label_key)
+
+        if group_id:
+            row_type = "grupo"
+            level = 0
+            current_group_id = group_id
+        elif subgroup_id:
+            row_type = "subgrupo"
+            level = 1
+        elif account_id:
+            row_type = "conta"
+            level = 2
+        elif label_key in subtotal_labels:
+            row_type = "subtotal"
+            level = 0
+        else:
+            row_type = "subgrupo" if current_group_id else "subtotal"
+            level = 1 if current_group_id else 0
+
+        _append_row(label, level, row_type, group_id, subgroup_id, account_id)
+        used_labels.add(label_key)
+
+    # Adicionar itens do plano de contas ausentes na ordem
+    # Quando a ordem vem da planilha (line_order), não incluir itens fora dela
+    # para manter espelhamento exato da estrutura do cliente.
+    if not line_order:
+        for group in groups:
+            key = group.name.strip().lower()
+            if key not in used_labels:
+                _append_row(group.name, 0, "grupo", group_id=str(group.id))
+                used_labels.add(key)
+            for subgroup in subgroup_by_group.get(str(group.id), []):
+                sub_key = subgroup.name.strip().lower()
+                if sub_key not in used_labels:
+                    _append_row(subgroup.name, 1, "subgrupo", subgroup_id=str(subgroup.id))
+                    used_labels.add(sub_key)
+                for account in account_by_subgroup.get(str(subgroup.id), []):
+                    acc_key = account.name.strip().lower()
+                    if acc_key not in used_labels:
+                        _append_row(account.name, 2, "conta", account_id=str(account.id))
+                        used_labels.add(acc_key)
 
     start_dt = datetime(target_year, 1, 1)
     end_dt = datetime(target_year, 12, 31, 23, 59, 59)
 
-    (
-        groups,
-        subgroups,
-        accounts,
-        subgroup_by_group,
-        account_by_subgroup,
-    ) = _load_plan_structure(db, tenant_id)
+    def _init_months_decimal() -> Dict[str, Decimal]:
+        return {label: Decimal("0") for label in MONTH_LABELS}
 
-    rows: List[Dict[str, Any]] = []
-    group_rows: Dict[str, Dict[str, Any]] = {}
-    subgroup_rows: Dict[str, Dict[str, Any]] = {}
-    account_rows: Dict[str, Dict[str, Any]] = {}
-
-    def _make_row(name: str, level: int) -> Dict[str, Any]:
-        return {"categoria": name, "nivel": level, "meses": _empty_months()}
-
-    for group in groups:
-        group_id = str(group.id)
-        group_row = _make_row(group.name, 0)
-        rows.append(group_row)
-        group_rows[group_id] = group_row
-
-        for sub in subgroup_by_group.get(group_id, []):
-            sub_id = str(sub.id)
-            sub_row = _make_row(sub.name, 1)
-            rows.append(sub_row)
-            subgroup_rows[sub_id] = sub_row
-
-            for account in account_by_subgroup.get(sub_id, []):
-                account_id = str(account.id)
-                acc_row = _make_row(account.name, 2)
-                rows.append(acc_row)
-                account_rows[account_id] = acc_row
-
-    # Realizados
-    realizados = (
-        db.query(LancamentoDiario)
-        .filter(
-            LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
-            LancamentoDiario.is_active.is_(True),
-            LancamentoDiario.data_movimentacao >= start_dt,
-            LancamentoDiario.data_movimentacao <= end_dt,
-        )
-        .all()
-    )
-
-    for tx in realizados:
-        month_label = MONTH_LABELS[tx.data_movimentacao.month - 1]
-        amount = _decimal_to_float(tx.valor)
-        conta_row = account_rows.get(str(tx.conta_id))
-        if conta_row:
-            conta_row["meses"][month_label]["realizado"] += amount
-        sub_row = subgroup_rows.get(str(tx.subgrupo_id))
-        if sub_row:
-            sub_row["meses"][month_label]["realizado"] += amount
-        grp_row = group_rows.get(str(tx.grupo_id))
-        if grp_row:
-            grp_row["meses"][month_label]["realizado"] += amount
-
-    # Previsto
-    previstos = (
+    # Previstos
+    previstos_query = (
         db.query(LancamentoPrevisto)
         .filter(
             LancamentoPrevisto.tenant_id == tenant_id,
-            LancamentoPrevisto.business_unit_id == business_unit_id,
             LancamentoPrevisto.is_active.is_(True),
             LancamentoPrevisto.data_prevista >= start_dt,
             LancamentoPrevisto.data_prevista <= end_dt,
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
         )
-        .all()
     )
+    if business_unit_id:
+        previstos_query = previstos_query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+    previstos = previstos_query.all()
 
-    for forecast in previstos:
-        month_label = MONTH_LABELS[forecast.data_prevista.month - 1]
-        amount = _decimal_to_float(forecast.valor)
-        conta_row = account_rows.get(str(forecast.conta_id))
-        if conta_row:
-            conta_row["meses"][month_label]["previsto"] += amount
-        sub_row = subgroup_rows.get(str(forecast.subgrupo_id))
-        if sub_row:
-            sub_row["meses"][month_label]["previsto"] += amount
-        grp_row = group_rows.get(str(forecast.grupo_id))
-        if grp_row:
-            grp_row["meses"][month_label]["previsto"] += amount
+    previsto_group_totals: Dict[str, Dict[str, Decimal]] = defaultdict(_init_months_decimal)
+    previsto_subgroup_totals: Dict[str, Dict[str, Decimal]] = defaultdict(_init_months_decimal)
+    previsto_account_totals: Dict[str, Dict[str, Decimal]] = defaultdict(_init_months_decimal)
 
-    # Totais por mês para cálculo da análise vertical
+    for tx in previstos:
+        if not tx.data_prevista or tx.valor is None:
+            continue
+        month_label = MONTH_LABELS[tx.data_prevista.month - 1]
+        amount = Decimal(str(tx.valor))
+        if tx.conta_id:
+            previsto_account_totals[str(tx.conta_id)][month_label] += amount
+        if tx.subgrupo_id:
+            previsto_subgroup_totals[str(tx.subgrupo_id)][month_label] += amount
+        if tx.grupo_id:
+            previsto_group_totals[str(tx.grupo_id)][month_label] += amount
+
+    # Realizados
+    realizados_query = (
+        db.query(LancamentoDiario)
+        .filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.is_active.is_(True),
+            LancamentoDiario.data_movimentacao >= start_dt,
+            LancamentoDiario.data_movimentacao <= end_dt,
+            LancamentoDiario.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        realizados_query = realizados_query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+    realizados = realizados_query.all()
+
+    realized_group_totals: Dict[str, Dict[str, Decimal]] = defaultdict(_init_months_decimal)
+    realized_subgroup_totals: Dict[str, Dict[str, Decimal]] = defaultdict(_init_months_decimal)
+    realized_account_totals: Dict[str, Dict[str, Decimal]] = defaultdict(_init_months_decimal)
+
+    for tx in realizados:
+        if not tx.data_movimentacao or tx.valor is None:
+            continue
+        month_label = MONTH_LABELS[tx.data_movimentacao.month - 1]
+        amount = Decimal(str(tx.valor))
+        if tx.conta_id:
+            realized_account_totals[str(tx.conta_id)][month_label] += amount
+        if tx.subgrupo_id:
+            realized_subgroup_totals[str(tx.subgrupo_id)][month_label] += amount
+        if tx.grupo_id:
+            realized_group_totals[str(tx.grupo_id)][month_label] += amount
+
+    for meta in row_meta:
+        row = meta["row"]
+        if meta["type"] == "grupo" and meta["group_id"]:
+            totals_prev = previsto_group_totals.get(meta["group_id"], _init_months_decimal())
+            totals_real = realized_group_totals.get(meta["group_id"], _init_months_decimal())
+        elif meta["type"] == "subgrupo" and meta["subgroup_id"]:
+            totals_prev = previsto_subgroup_totals.get(meta["subgroup_id"], _init_months_decimal())
+            totals_real = realized_subgroup_totals.get(meta["subgroup_id"], _init_months_decimal())
+        elif meta["type"] == "conta" and meta["account_id"]:
+            totals_prev = previsto_account_totals.get(meta["account_id"], _init_months_decimal())
+            totals_real = realized_account_totals.get(meta["account_id"], _init_months_decimal())
+        else:
+            continue
+        for label in MONTH_LABELS:
+            row["meses"][label]["previsto"] = float(totals_prev[label])
+            row["meses"][label]["realizado"] = float(totals_real[label])
+
+    def _get_row_by_name(name: str, row_type: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        key = name.strip().lower()
+        row = row_by_label.get(key)
+        if row_type and row and row.get("tipo") != row_type:
+            return None
+        return row
+
+    def _sum_groups_by_predicate(group_totals, predicate) -> Dict[str, Decimal]:
+        totals = {label: Decimal("0") for label in MONTH_LABELS}
+        for group in groups:
+            if not predicate(group.name):
+                continue
+            data = group_totals.get(str(group.id), _init_months_decimal())
+            for label in MONTH_LABELS:
+                totals[label] += data[label]
+        return totals
+
+    def _sum_group_by_name(group_totals, name: str) -> Dict[str, Decimal]:
+        group = next((g for g in groups if g.name.strip().lower() == name.strip().lower()), None)
+        if not group:
+            return {label: Decimal("0") for label in MONTH_LABELS}
+        return group_totals.get(str(group.id), _init_months_decimal())
+
+    def _sum_subgroup_by_name(subgroup_totals, name: str) -> Dict[str, Decimal]:
+        subgroup = next((sg for sg in subgroups if sg.name.strip().lower() == name.strip().lower()), None)
+        if not subgroup:
+            return {label: Decimal("0") for label in MONTH_LABELS}
+        return subgroup_totals.get(str(subgroup.id), _init_months_decimal())
+
+    receita_totais_prev = _sum_groups_by_predicate(
+        previsto_group_totals,
+        lambda name: "receita" in name.lower() and "dedu" not in name.lower(),
+    )
+    deducoes_totais_prev = _sum_groups_by_predicate(previsto_group_totals, lambda name: "dedu" in name.lower())
+    custos_totais_prev = _sum_groups_by_predicate(previsto_group_totals, lambda name: "custo" in name.lower())
+    despesas_operacionais_totais_prev = _sum_group_by_name(previsto_group_totals, "Despesas Operacionais")
+    investimentos_totais_prev = _sum_groups_by_predicate(previsto_group_totals, lambda name: "investimento" in name.lower())
+
+    entradas_nao_op_prev = _sum_subgroup_by_name(previsto_subgroup_totals, "Entradas não Operacionais")
+    saidas_nao_op_prev = _sum_subgroup_by_name(previsto_subgroup_totals, "Saídas não Operacionais")
+
+    receita_totais_real = _sum_groups_by_predicate(
+        realized_group_totals,
+        lambda name: "receita" in name.lower() and "dedu" not in name.lower(),
+    )
+    deducoes_totais_real = _sum_groups_by_predicate(realized_group_totals, lambda name: "dedu" in name.lower())
+    custos_totais_real = _sum_groups_by_predicate(realized_group_totals, lambda name: "custo" in name.lower())
+    despesas_operacionais_totais_real = _sum_group_by_name(realized_group_totals, "Despesas Operacionais")
+    investimentos_totais_real = _sum_groups_by_predicate(realized_group_totals, lambda name: "investimento" in name.lower())
+
+    entradas_nao_op_real = _sum_subgroup_by_name(realized_subgroup_totals, "Entradas não Operacionais")
+    saidas_nao_op_real = _sum_subgroup_by_name(realized_subgroup_totals, "Saídas não Operacionais")
+
+    mov_group_row = _get_row_by_name("Movimentações Não Operacionais", "grupo")
+    if mov_group_row:
+        for label in MONTH_LABELS:
+            mov_group_row["meses"][label]["previsto"] = float(
+                entradas_nao_op_prev[label] - saidas_nao_op_prev[label]
+            )
+            mov_group_row["meses"][label]["realizado"] = float(
+                entradas_nao_op_real[label] - saidas_nao_op_real[label]
+            )
+
+    receita_liquida_prev = {label: Decimal("0") for label in MONTH_LABELS}
+    lucro_bruto_prev = {label: Decimal("0") for label in MONTH_LABELS}
+    lucro_antes_invest_prev = {label: Decimal("0") for label in MONTH_LABELS}
+    desembolso_total_prev = {label: Decimal("0") for label in MONTH_LABELS}
+    lucro_operacional_prev = {label: Decimal("0") for label in MONTH_LABELS}
+    lucro_liquido_prev = {label: Decimal("0") for label in MONTH_LABELS}
+
+    receita_liquida_real = {label: Decimal("0") for label in MONTH_LABELS}
+    lucro_bruto_real = {label: Decimal("0") for label in MONTH_LABELS}
+    lucro_antes_invest_real = {label: Decimal("0") for label in MONTH_LABELS}
+    desembolso_total_real = {label: Decimal("0") for label in MONTH_LABELS}
+    lucro_operacional_real = {label: Decimal("0") for label in MONTH_LABELS}
+    lucro_liquido_real = {label: Decimal("0") for label in MONTH_LABELS}
+
+    for label in MONTH_LABELS:
+        receita_total_prev = receita_totais_prev[label]
+        ded_prev = deducoes_totais_prev[label]
+        custo_prev = custos_totais_prev[label]
+        desp_prev = despesas_operacionais_totais_prev[label]
+        inv_prev = investimentos_totais_prev[label]
+
+        receita_liquida_prev[label] = receita_total_prev - ded_prev
+        lucro_bruto_prev[label] = receita_liquida_prev[label] - custo_prev
+        lucro_antes_invest_prev[label] = lucro_bruto_prev[label] - desp_prev
+        desembolso_total_prev[label] = ded_prev + custo_prev + desp_prev + inv_prev
+        lucro_operacional_prev[label] = receita_total_prev - desembolso_total_prev[label]
+
+        mov_prev = entradas_nao_op_prev[label] - saidas_nao_op_prev[label]
+        lucro_liquido_prev[label] = lucro_operacional_prev[label] + mov_prev
+
+        receita_total_real = receita_totais_real[label]
+        ded_real = deducoes_totais_real[label]
+        custo_real = custos_totais_real[label]
+        desp_real = despesas_operacionais_totais_real[label]
+        inv_real = investimentos_totais_real[label]
+
+        receita_liquida_real[label] = receita_total_real - ded_real
+        lucro_bruto_real[label] = receita_liquida_real[label] - custo_real
+        lucro_antes_invest_real[label] = lucro_bruto_real[label] - desp_real
+        desembolso_total_real[label] = ded_real + custo_real + desp_real + inv_real
+        lucro_operacional_real[label] = receita_total_real - desembolso_total_real[label]
+
+        mov_real = entradas_nao_op_real[label] - saidas_nao_op_real[label]
+        lucro_liquido_real[label] = lucro_operacional_real[label] + mov_real
+
+    def _apply_values(label: str, previsto_values: Dict[str, Decimal], realizado_values: Dict[str, Decimal]) -> None:
+        row = _get_row_by_name(label)
+        if not row:
+            return
+        for month in MONTH_LABELS:
+            row["meses"][month]["previsto"] = float(previsto_values[month])
+            row["meses"][month]["realizado"] = float(realizado_values[month])
+
+    _apply_values("Receita Líquida", receita_liquida_prev, receita_liquida_real)
+    _apply_values("Lucro Bruto", lucro_bruto_prev, lucro_bruto_real)
+    _apply_values("Lucro antes dos investimentos", lucro_antes_invest_prev, lucro_antes_invest_real)
+    _apply_values("Desembolso Total", desembolso_total_prev, desembolso_total_real)
+    _apply_values("LUCRO OPERACIONAL", lucro_operacional_prev, lucro_operacional_real)
+    _apply_values("Lucro Líquido de caixa mensal", lucro_liquido_prev, lucro_liquido_real)
+
+    if forecast_values:
+        for row in rows:
+            label_key = str(row.get("categoria", "")).strip().lower()
+            if label_key not in forecast_values:
+                continue
+            for month in MONTH_LABELS:
+                row["meses"][month]["previsto"] = float(forecast_values[label_key].get(month, 0.0))
+
+    saldo_row = _get_row_by_name("Saldo do ano anterior")
+    if not saldo_row and saldo_ano_anterior:
+        _append_row("Saldo do ano anterior", 0, "subtotal")
+        saldo_row = _get_row_by_name("Saldo do ano anterior")
+
+    if saldo_row:
+        if (saldo_row.get("categoria") or "").strip().lower() in forecast_values:
+            for month in MONTH_LABELS:
+                saldo_row["meses"][month]["previsto"] = float(
+                    forecast_values[saldo_row["categoria"].strip().lower()].get(month, 0.0)
+                )
+        else:
+            for month in MONTH_LABELS:
+                saldo_row["meses"][month]["previsto"] = 0.0
+                saldo_row["meses"][month]["realizado"] = 0.0
+            saldo_row["meses"][MONTH_LABELS[0]]["previsto"] = float(saldo_ano_anterior)
+            saldo_row["meses"][MONTH_LABELS[0]]["realizado"] = float(saldo_ano_anterior)
+
+    lucro_acumulado_prev = {label: Decimal("0") for label in MONTH_LABELS}
+    lucro_acumulado_real = {label: Decimal("0") for label in MONTH_LABELS}
+    acc_prev = Decimal(str(saldo_ano_anterior))
+    acc_real = Decimal(str(saldo_ano_anterior))
+    lucro_liquido_row = _get_row_by_name("Lucro Líquido de caixa mensal")
+    for label in MONTH_LABELS:
+        prev_value = lucro_liquido_prev[label]
+        if lucro_liquido_row:
+            prev_value = Decimal(str(lucro_liquido_row["meses"][label]["previsto"]))
+        acc_prev += prev_value
+        acc_real += Decimal(str(lucro_liquido_real[label]))
+        lucro_acumulado_prev[label] = acc_prev
+        lucro_acumulado_real[label] = acc_real
+
+    _apply_values("Lucro líquido acumulado (Reservas)", lucro_acumulado_prev, lucro_acumulado_real)
+
     total_realizado_por_mes: Dict[str, float] = {
         label: sum(
             row["meses"][label]["realizado"]
             for row in rows
-            if row["nivel"] == 0
+            if row.get("nivel") == 0 and row.get("tipo") == "grupo"
         )
         for label in MONTH_LABELS
     }
@@ -559,6 +1339,11 @@ def cash_flow_previsto_realizado(
                 bucket["av"] = (realizado / total_mes) * 100
             else:
                 bucket["av"] = 0.0
+
+            bucket["previsto"] = _to_cent(bucket["previsto"])
+            bucket["realizado"] = _to_cent(bucket["realizado"])
+            bucket["ah"] = _to_cent(bucket["ah"])
+            bucket["av"] = _to_cent(bucket["av"])
 
     return {
         "success": True,
@@ -582,6 +1367,12 @@ def cash_flow_daily(
 ) -> Dict[str, Any]:
     """
     Fluxo de caixa diário agregando valores realizados por grupo/subgrupo/conta.
+    
+    Replica fielmente a estrutura e ordem da planilha do cliente:
+    - Ordem explícita dos grupos (não alfabética)
+    - Todas as contas aparecem mesmo quando zeradas
+    - Subtotais calculados (Receita Líquida, Lucro Bruto, etc.)
+    - Estrutura hierárquica completa
     """
     today = datetime.utcnow()
     target_year = year or today.year
@@ -592,104 +1383,39 @@ def cash_flow_daily(
 
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
-
-    last_day = calendar.monthrange(target_year, target_month)[1]
-    start_dt = datetime(target_year, target_month, 1)
-    end_dt = datetime(target_year, target_month, last_day, 23, 59, 59)
-
-    (
-        groups,
-        subgroups,
-        accounts,
-        subgroup_by_group,
-        account_by_subgroup,
-    ) = _load_plan_structure(db, tenant_id)
-
-    rows: List[Dict[str, Any]] = []
-    group_rows: Dict[str, Dict[str, Any]] = {}
-    subgroup_rows: Dict[str, Dict[str, Any]] = {}
-    account_rows: Dict[str, Dict[str, Any]] = {}
-
-    def _make_row(name: str, level: int, row_type: str) -> Dict[str, Any]:
-        return {
-            "categoria": name,
-            "nivel": level,
-            "tipo": row_type,
-            "dias": _empty_days(last_day),
-        }
-
-    for group in groups:
-        group_id = str(group.id)
-        group_row = _make_row(group.name, 0, "grupo")
-        rows.append(group_row)
-        group_rows[group_id] = group_row
-
-        for sub in subgroup_by_group.get(group_id, []):
-            sub_id = str(sub.id)
-            sub_row = _make_row(sub.name, 1, "subgrupo")
-            rows.append(sub_row)
-            subgroup_rows[sub_id] = sub_row
-
-            for account in account_by_subgroup.get(sub_id, []):
-                account_id = str(account.id)
-                acc_row = _make_row(account.name, 2, "conta")
-                rows.append(acc_row)
-                account_rows[account_id] = acc_row
-
-    transactions = (
-        db.query(LancamentoDiario)
-        .filter(
-            LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
-            LancamentoDiario.is_active.is_(True),
-            LancamentoDiario.data_movimentacao >= start_dt,
-            LancamentoDiario.data_movimentacao <= end_dt,
-        )
-        .all()
+    order_labels, saldo_ano_anterior = _load_cash_flow_settings(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=target_year,
     )
 
-    net_by_day = _empty_days(last_day)
-
-    for tx in transactions:
-        if not tx.data_movimentacao:
-            continue
-        day = tx.data_movimentacao.day
-        amount = _decimal_to_float(tx.valor)
-
-        conta_row = account_rows.get(str(tx.conta_id))
-        if conta_row:
-            conta_row["dias"][day] += amount
-
-        sub_row = subgroup_rows.get(str(tx.subgrupo_id))
-        if sub_row:
-            sub_row["dias"][day] += amount
-
-        grp_row = group_rows.get(str(tx.grupo_id))
-        if grp_row:
-            grp_row["dias"][day] += amount
-
-        tx_type = tx.transaction_type
-        if tx_type == TransactionType.RECEITA:
-            net_by_day[day] += amount
-        elif tx_type in {TransactionType.DESPESA, TransactionType.CUSTO}:
-            net_by_day[day] -= amount
-
-    total_row = {
-        "categoria": "TOTAL",
-        "nivel": 0,
-        "tipo": "total",
-        "dias": net_by_day,
-    }
-
-    rows.append(total_row)
-
-    return {
-        "success": True,
-        "year": target_year,
-        "month": target_month,
-        "days_in_month": last_day,
-        "data": rows,
-    }
+    try:
+        result = CashFlowService.get_monthly_cash_flow(
+            db=db,
+            tenant_id=tenant_id,
+            business_unit_id=business_unit_id,
+            year=target_year,
+            month=target_month,
+            order_labels=order_labels,
+            saldo_ano_anterior=saldo_ano_anterior,
+        )
+        
+        return {
+            "success": True,
+            "year": result["year"],
+            "month": result["month"],
+            "days_in_month": result["days_in_month"],
+            "data": result["rows"],
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"❌ Erro ao gerar fluxo de caixa: {e}")
+        print(f"📋 Traceback:\n{error_trace}")
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar fluxo de caixa: {str(e)}")
 
 
 @router.get("/saldo-disponivel")
@@ -703,61 +1429,71 @@ def saldo_disponivel(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    contas_total = (
+    contas_query = (
         db.query(func.sum(ContaBancaria.saldo_atual))
         .filter(
             ContaBancaria.tenant_id == tenant_id,
-            ContaBancaria.business_unit_id == business_unit_id,
             ContaBancaria.is_active.is_(True),
         )
-        .scalar()
     )
-    caixas_total = (
+    if business_unit_id:
+        contas_query = contas_query.filter(ContaBancaria.business_unit_id == business_unit_id)
+    contas_total = contas_query.scalar()
+    
+    caixas_query = (
         db.query(func.sum(Caixa.saldo_atual))
         .filter(
             Caixa.tenant_id == tenant_id,
-            Caixa.business_unit_id == business_unit_id,
             Caixa.is_active.is_(True),
         )
-        .scalar()
     )
-    investimentos_total = (
+    if business_unit_id:
+        caixas_query = caixas_query.filter(Caixa.business_unit_id == business_unit_id)
+    caixas_total = caixas_query.scalar()
+    
+    investimentos_query = (
         db.query(func.sum(Investimento.valor_atual))
         .filter(
             Investimento.tenant_id == tenant_id,
-            Investimento.business_unit_id == business_unit_id,
             Investimento.is_active.is_(True),
         )
-        .scalar()
     )
+    if business_unit_id:
+        investimentos_query = investimentos_query.filter(Investimento.business_unit_id == business_unit_id)
+    investimentos_total = investimentos_query.scalar()
 
-    contas = (
+    contas_filter = (
         db.query(ContaBancaria)
         .filter(
             ContaBancaria.tenant_id == tenant_id,
-            ContaBancaria.business_unit_id == business_unit_id,
             ContaBancaria.is_active.is_(True),
         )
-        .all()
     )
-    caixas = (
+    if business_unit_id:
+        contas_filter = contas_filter.filter(ContaBancaria.business_unit_id == business_unit_id)
+    contas = contas_filter.all()
+    
+    caixas_filter = (
         db.query(Caixa)
         .filter(
             Caixa.tenant_id == tenant_id,
-            Caixa.business_unit_id == business_unit_id,
             Caixa.is_active.is_(True),
         )
-        .all()
     )
-    investimentos = (
+    if business_unit_id:
+        caixas_filter = caixas_filter.filter(Caixa.business_unit_id == business_unit_id)
+    caixas = caixas_filter.all()
+    
+    investimentos_filter = (
         db.query(Investimento)
         .filter(
             Investimento.tenant_id == tenant_id,
-            Investimento.business_unit_id == business_unit_id,
             Investimento.is_active.is_(True),
         )
-        .all()
     )
+    if business_unit_id:
+        investimentos_filter = investimentos_filter.filter(Investimento.business_unit_id == business_unit_id)
+    investimentos = investimentos_filter.all()
 
     total_contas = _decimal_to_float(contas_total)
     total_caixas = _decimal_to_float(caixas_total)
@@ -809,13 +1545,18 @@ def listar_lancamentos_simples(
     tenant_id = str(current_user.tenant_id)
     business_unit_id = _require_business_unit(current_user)
 
-    lancamentos = (
+    query = (
         db.query(LancamentoDiario)
         .filter(
             LancamentoDiario.tenant_id == tenant_id,
-            LancamentoDiario.business_unit_id == business_unit_id,
             LancamentoDiario.is_active.is_(True),
         )
+    )
+    if business_unit_id:
+        query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+    
+    lancamentos = (
+        query
         .order_by(LancamentoDiario.data_movimentacao.desc())
         .limit(limit)
         .all()
@@ -836,3 +1577,956 @@ def listar_lancamentos_simples(
         for lanc in lancamentos
     ]
 
+
+# ============================================================================
+# DASHBOARD OPERACIONAL - ENDPOINTS
+# ============================================================================
+
+def _classify_account_type(
+    account_name: str, 
+    account_code: str = "", 
+    account_type: str = "",
+    grupo_nome: str = "",
+    subgrupo_nome: str = ""
+) -> str:
+    """
+    Classifica o tipo de conta baseado no nome, código, tipo e grupo/subgrupo.
+    
+    IMPORTANTE: Só classifica contas de ATIVO (disponibilidade).
+    Exclui contas de DESPESA, CUSTO ou RECEITA mesmo que tenham palavras-chave.
+    
+    Retorna: 'BANK', 'CASH', 'INVESTMENT' ou None
+    """
+    # CRÍTICO: Excluir contas que estão em grupos de Despesa/Custo/Receita/Saída/Investimento em bens
+    grupo_lower = (grupo_nome or "").lower().strip()
+    subgrupo_lower = (subgrupo_nome or "").lower().strip()
+    
+    # Se o grupo ou subgrupo contém palavras de despesa/custo/receita, excluir
+    exclude_groups = ["despesa", "custo", "receita", "dedução"]
+    if any(keyword in grupo_lower for keyword in exclude_groups):
+        return None
+    if any(keyword in subgrupo_lower for keyword in exclude_groups):
+        return None
+    
+    # Excluir grupos de Movimentações Não Operacionais (especialmente Saídas)
+    if "movimentação" in grupo_lower or "movimentacao" in grupo_lower:
+        if "saída" in subgrupo_lower or "saida" in subgrupo_lower:
+            return None
+    
+    # Excluir Investimentos em Bens Materiais (não são disponibilidade)
+    if "investimento" in grupo_lower:
+        if "bens" in subgrupo_lower or "material" in subgrupo_lower:
+            return None
+    
+    # Excluir explicitamente contas de DESPESA, CUSTO ou RECEITA
+    account_type_lower = (account_type or "").lower().strip()
+    if account_type_lower in ["despesa", "custo", "receita", "dedução"]:
+        return None
+    
+    # Verificar nome e código da conta
+    name_lower = account_name.lower().strip()
+    code_lower = (account_code or "").lower().strip()
+    combined = f"{name_lower} {code_lower}"
+    
+    # Excluir contas que são claramente despesas/custos/saídas mesmo tendo palavras-chave
+    exclude_keywords = [
+        "despesa", "custo", "tarifa", "taxa", "juros", "multa", "encargo", "tarifas",
+        "pagamento", "compra", "saída", "saida", "pagar", "pagamento de", "compra de",
+        "empréstimo", "emprestimo", "máquina", "maquina", "equipamento"
+    ]
+    if any(keyword in combined for keyword in exclude_keywords):
+        return None
+    
+    # Excluir códigos específicos que não são de banco
+    # CPAG = Pagamento, CCOM = Compra, etc.
+    exclude_codes = ["cpag", "ccom", "csaida", "csaída"]
+    if code_lower in exclude_codes:
+        return None
+    
+    # Bancos (apenas se não for despesa/custo/saída)
+    # Verificar se é realmente uma conta bancária (não um pagamento ou compra)
+    bank_keywords = ["banco", "banc", "conta bancária", "conta corrente", "conta poupança"]
+    if any(keyword in combined for keyword in bank_keywords):
+        # Verificar se não é uma despesa/saída/pagamento/compra
+        if not any(exclude in combined for exclude in ["pagamento", "compra", "saída", "saida", "pagar", "empréstimo", "emprestimo"]):
+            return "BANK"
+    
+    # Códigos específicos de banco (se houver no futuro)
+    # Por enquanto, não usar códigos genéricos como "CPAG" ou "CCOM"
+    
+    # Caixa/Dinheiro (apenas se não for despesa/custo)
+    cash_keywords = ["caixa", "dinheiro", "cash", "cx"]
+    if any(keyword in combined for keyword in cash_keywords):
+        # Verificar se não é uma despesa de caixa
+        if "despesa" not in combined and "custo" not in combined:
+            # Excluir "caixa" que seja parte de "caixa de entrada" ou similar
+            if "caixa físico" in combined or "caixa fisico" in combined or combined == "caixa":
+                return "CASH"
+    
+    # Investimentos (apenas se não for despesa/custo)
+    investment_keywords = ["investimento", "aplicação", "aplicacao", "invest", "cdb", "lci", "lca", "tesouro", "fundo"]
+    if any(keyword in combined for keyword in investment_keywords):
+        if "despesa" not in combined and "custo" not in combined:
+            return "INVESTMENT"
+    
+    return None
+
+
+@router.get("/dashboard/operational/availability")
+def operational_availability(
+    year: Optional[int] = Query(default=None, ge=1900),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna a disponibilidade financeira consolidada.
+    
+    Calcula baseado na apuração de resultado (lucro/prejuízo líquido acumulado):
+    - Usa o mesmo cálculo do annual-summary para garantir consistência
+    - Saldo acumulado até o mês atual (ou até dezembro se for fim do ano)
+    - Considera apenas lançamentos realizados (status != CANCELADO)
+    
+    IMPORTANTE: Retorna um valor consolidado único, sem separação por contas bancárias,
+    caixa ou investimentos, conforme a visão da planilha do cliente.
+    
+    A fórmula é a mesma da planilha "Lucro líquido acumulado (Reservas)":
+    - Receitas - Despesas - Custos (acumulado até o mês atual)
+    
+    Retorna:
+    - total: Saldo consolidado total (resultado líquido acumulado)
+    - receitas: Total de receitas realizadas no ano
+    - despesas: Total de despesas realizadas no ano
+    - custos: Total de custos realizados no ano
+    - saldo_consolidado: Resultado líquido acumulado (receitas - despesas - custos)
+    - saldo_inicial: Saldo inicial do exercício (se houver, será 0 por enquanto)
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _resolve_business_unit_id(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=_require_business_unit(current_user),
+    )
+    today = date.today()
+    current_year = today.year
+    effective_year = _resolve_year_from_settings(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        fallback_year=year or current_year,
+    )
+
+    # Usar o mesmo serviço do annual-summary para garantir consistência de totais por tipo
+    annual_summary = FinancialAggregationService.aggregate_monthly_summary(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=effective_year,
+    )
+
+    current_month = min(max(today.month, 1), 12)
+    if effective_year != current_year:
+        current_month = 12
+
+    # Somar receitas/despesas/custos até o mês atual
+    receitas = Decimal("0")
+    despesas = Decimal("0")
+    custos = Decimal("0")
+    monthly_list = annual_summary.get("monthly") or []
+    for month_data in monthly_list[:current_month]:
+        receitas += Decimal(str(month_data.get("revenue", 0)))
+        despesas += Decimal(str(month_data.get("expense", 0)))
+        custos += Decimal(str(month_data.get("cost", 0)))
+
+    # Alinhar total disponível com o fluxo de caixa mensal (Lucro líquido acumulado - Reservas)
+    month_label = MONTH_LABELS[current_month - 1]
+    cash_rows: List[Dict[str, Any]] = []
+    try:
+        cash_flow = cash_flow_previsto_realizado(
+            year=effective_year,
+            current_user=current_user,
+            db=db,
+        )
+        cash_rows = cash_flow.get("data") or []
+    except HTTPException:
+        cash_rows = []
+
+    def _find_row(label: str) -> Optional[Dict[str, Any]]:
+        key = label.strip().lower()
+        for row in cash_rows:
+            if str(row.get("categoria", "")).strip().lower() == key:
+                return row
+        return None
+
+    def _sum_row_realizado(row: Dict[str, Any]) -> Decimal:
+        total = Decimal("0")
+        for label in MONTH_LABELS[:current_month]:
+            total += Decimal(str(row["meses"][label]["realizado"]))
+        return total
+
+    _, saldo_ano_anterior = _load_cash_flow_settings(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        year=effective_year,
+    )
+    saldo_inicial = Decimal(str(saldo_ano_anterior))
+
+    acumulado_row = _find_row("Lucro líquido acumulado (Reservas)")
+    total_disponivel = Decimal("0")
+    if acumulado_row:
+        total_disponivel = Decimal(str(acumulado_row["meses"][month_label]["realizado"]))
+    else:
+        total_disponivel = saldo_inicial + saldo_consolidado
+
+    # Se houver dados do fluxo de caixa, alinhar receitas/despesas/custos à planilha
+    receita_liquida_row = _find_row("Receita Líquida")
+    despesas_row = _find_row("Despesas Operacionais")
+    custos_row = _find_row("Custos")
+    if receita_liquida_row and despesas_row and custos_row:
+        receitas = _sum_row_realizado(receita_liquida_row)
+        despesas = _sum_row_realizado(despesas_row)
+        custos = _sum_row_realizado(custos_row)
+
+    saldo_consolidado = total_disponivel - saldo_inicial
+    saldo_acumulado = total_disponivel
+
+    return {
+        "total": _decimal_to_float(total_disponivel),
+        "receitas": _decimal_to_float(receitas),
+        "despesas": _decimal_to_float(despesas),
+        "custos": _decimal_to_float(custos),
+        "saldo_consolidado": _decimal_to_float(saldo_consolidado),
+        "saldo_acumulado": _decimal_to_float(saldo_acumulado),
+        "saldo_inicial": _decimal_to_float(saldo_inicial),
+        # Manter campos antigos para compatibilidade (retornando total consolidado)
+        "banks": _decimal_to_float(total_disponivel),
+        "cash": 0.0,
+        "investments": 0.0,
+    }
+
+
+@router.get("/dashboard/operational/availability/liquidation-status")
+def liquidation_status_debug(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Endpoint de debug para verificar status das contas de liquidação e lançamentos associados.
+    """
+    from app.models.liquidation_accounts import LiquidationAccount, LiquidationAccountType
+    
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = date.today()
+    
+    # 1. Contas de liquidação criadas
+    liquidation_accounts = db.query(LiquidationAccount).filter(
+        LiquidationAccount.tenant_id == tenant_id
+    ).all()
+    
+    # 2. Lançamentos com/sem liquidation_account_id
+    total_lancamentos = db.query(LancamentoDiario).filter(
+        LancamentoDiario.tenant_id == tenant_id,
+        LancamentoDiario.is_active.is_(True)
+    ).count()
+    
+    lancamentos_com_liquidation = db.query(LancamentoDiario).filter(
+        LancamentoDiario.tenant_id == tenant_id,
+        LancamentoDiario.is_active.is_(True),
+        LancamentoDiario.liquidation_account_id.isnot(None)
+    ).count()
+    
+    # 3. Distribuição por código
+    distribution = []
+    if lancamentos_com_liquidation > 0:
+        query = (
+            db.query(
+                LiquidationAccount.code,
+                LiquidationAccount.name,
+                LiquidationAccount.account_type,
+                func.count(LancamentoDiario.id).label("count")
+            )
+            .join(LancamentoDiario, LiquidationAccount.id == LancamentoDiario.liquidation_account_id)
+            .filter(
+                LancamentoDiario.tenant_id == tenant_id,
+                LancamentoDiario.is_active.is_(True)
+            )
+            .group_by(LiquidationAccount.code, LiquidationAccount.name, LiquidationAccount.account_type)
+        )
+        
+        for row in query.all():
+            distribution.append({
+                "code": row.code,
+                "name": row.name,
+                "account_type": row.account_type.value,
+                "lancamentos_count": row.count
+            })
+    
+    # 4. Saldos calculados
+    saldos = {
+        "banks": 0.0,
+        "cash": 0.0,
+        "investments": 0.0,
+        "total": 0.0
+    }
+    
+    if lancamentos_com_liquidation > 0:
+        query = (
+            db.query(
+                LiquidationAccount.account_type,
+                func.sum(
+                    case(
+                        (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
+                        else_=-LancamentoDiario.valor
+                    )
+                ).label("saldo")
+            )
+            .join(LiquidationAccount, LancamentoDiario.liquidation_account_id == LiquidationAccount.id)
+            .filter(
+                LancamentoDiario.tenant_id == tenant_id,
+                LancamentoDiario.is_active.is_(True),
+                LancamentoDiario.status != TransactionStatus.CANCELADO,
+                func.date(LancamentoDiario.data_movimentacao) <= today
+            )
+            .group_by(LiquidationAccount.account_type)
+        )
+        
+        if business_unit_id:
+            query = query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+        
+        for row in query.all():
+            saldo = float(row.saldo or 0)
+            if row.account_type == LiquidationAccountType.BANK_ACCOUNT:
+                saldos["banks"] = saldo
+            elif row.account_type == LiquidationAccountType.CASH:
+                saldos["cash"] = saldo
+            elif row.account_type == LiquidationAccountType.INVESTMENT:
+                saldos["investments"] = saldo
+        
+        saldos["total"] = saldos["banks"] + saldos["cash"] + saldos["investments"]
+    
+    return {
+        "liquidation_accounts": [
+            {
+                "id": acc.id,
+                "code": acc.code,
+                "name": acc.name,
+                "account_type": acc.account_type.value,
+                "tenant_id": str(acc.tenant_id)
+            }
+            for acc in liquidation_accounts
+        ],
+        "lancamentos": {
+            "total": total_lancamentos,
+            "com_liquidation_account_id": lancamentos_com_liquidation,
+            "sem_liquidation_account_id": total_lancamentos - lancamentos_com_liquidation,
+            "percentual_com_liquidation": round((lancamentos_com_liquidation / total_lancamentos * 100) if total_lancamentos > 0 else 0, 2)
+        },
+        "distribution": distribution,
+        "saldos_calculados": saldos,
+        "diagnostico": {
+            "contas_criadas": len(liquidation_accounts) > 0,
+            "lancamentos_associados": lancamentos_com_liquidation > 0,
+            "cobertura_associacao": round((lancamentos_com_liquidation / total_lancamentos * 100) if total_lancamentos > 0 else 0, 2),
+            "status": "ok" if len(liquidation_accounts) > 0 and lancamentos_com_liquidation > total_lancamentos * 0.9 else "precisa_re_seed"
+        }
+    }
+
+@router.get("/dashboard/operational/availability/debug")
+def operational_availability_debug(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Endpoint de debug para investigar saldo negativo de disponibilidades.
+    Retorna detalhes de todas as contas classificadas e seus saldos.
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = date.today()
+
+    lancamentos_query = (
+        db.query(
+            LancamentoDiario.conta_id,
+            ChartAccount.name.label("conta_nome"),
+            ChartAccount.code.label("conta_codigo"),
+            ChartAccount.account_type.label("conta_tipo"),
+            ChartAccountSubgroup.name.label("subgrupo_nome"),
+            ChartAccountGroup.name.label("grupo_nome"),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
+                    else_=-LancamentoDiario.valor
+                )
+            ).label("saldo"),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label("total_receitas"),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]), LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label("total_despesas_custos"),
+            func.count(LancamentoDiario.id).label("qtd_lancamentos")
+        )
+        .join(ChartAccount, LancamentoDiario.conta_id == ChartAccount.id)
+        .join(ChartAccountSubgroup, ChartAccount.subgroup_id == ChartAccountSubgroup.id)
+        .join(ChartAccountGroup, ChartAccountSubgroup.group_id == ChartAccountGroup.id)
+        .filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.is_active.is_(True),
+            LancamentoDiario.status != TransactionStatus.CANCELADO,
+            func.date(LancamentoDiario.data_movimentacao) <= today,
+        )
+        .group_by(
+            LancamentoDiario.conta_id, 
+            ChartAccount.name, 
+            ChartAccount.code, 
+            ChartAccount.account_type,
+            ChartAccountSubgroup.name,
+            ChartAccountGroup.name
+        )
+    )
+    
+    if business_unit_id:
+        lancamentos_query = lancamentos_query.filter(
+            LancamentoDiario.business_unit_id == business_unit_id
+        )
+    
+    lancamentos = lancamentos_query.all()
+    
+    banks = []
+    cash = []
+    investments = []
+    
+    for lanc in lancamentos:
+        account_type = _classify_account_type(
+            lanc.conta_nome, 
+            lanc.conta_codigo, 
+            lanc.conta_tipo or "",
+            lanc.grupo_nome or "",
+            lanc.subgrupo_nome or ""
+        )
+        
+        if account_type:
+            item = {
+                "conta": lanc.conta_nome,
+                "codigo": lanc.conta_codigo,
+                "grupo": lanc.grupo_nome,
+                "subgrupo": lanc.subgrupo_nome,
+                "account_type": lanc.conta_tipo,
+                "saldo": _decimal_to_float(lanc.saldo or Decimal(0)),
+                "receitas": _decimal_to_float(lanc.total_receitas or Decimal(0)),
+                "despesas_custos": _decimal_to_float(lanc.total_despesas_custos or Decimal(0)),
+                "qtd_lancamentos": lanc.qtd_lancamentos or 0,
+            }
+            
+            if account_type == "BANK":
+                banks.append(item)
+            elif account_type == "CASH":
+                cash.append(item)
+            elif account_type == "INVESTMENT":
+                investments.append(item)
+    
+    return {
+        "banks": banks,
+        "cash": cash,
+        "investments": investments,
+        "summary": {
+            "total_banks": sum(b["saldo"] for b in banks),
+            "total_cash": sum(c["saldo"] for c in cash),
+            "total_investments": sum(i["saldo"] for i in investments),
+        }
+    }
+
+
+@router.get("/dashboard/operational/alerts")
+def operational_alerts(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna alertas financeiros rápidos (luz vermelha).
+    
+    Retorna:
+    - overdue_payables: Contas vencidas a pagar (quantidade e valor)
+    - overdue_receivables: Contas vencidas a receber (quantidade e valor)
+    - negative_cash_forecast: Projeção negativa de caixa nos próximos 30 dias
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = datetime.utcnow().date()
+
+    # Contas vencidas a pagar (DESPESA ou CUSTO com data_prevista < hoje e status != CANCELADO)
+    overdue_payables_query = (
+        db.query(
+            func.count(LancamentoPrevisto.id),
+            func.sum(LancamentoPrevisto.valor)
+        )
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista < today,
+            LancamentoPrevisto.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]),
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        overdue_payables_query = overdue_payables_query.filter(
+            LancamentoPrevisto.business_unit_id == business_unit_id
+        )
+    overdue_payables_result = overdue_payables_query.first()
+    overdue_payables_count = overdue_payables_result[0] or 0
+    overdue_payables_value = overdue_payables_result[1] or Decimal(0)
+
+    # Contas vencidas a receber (RECEITA com data_prevista < hoje e status != CANCELADO)
+    overdue_receivables_query = (
+        db.query(
+            func.count(LancamentoPrevisto.id),
+            func.sum(LancamentoPrevisto.valor)
+        )
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista < today,
+            LancamentoPrevisto.transaction_type == TransactionType.RECEITA,
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        overdue_receivables_query = overdue_receivables_query.filter(
+            LancamentoPrevisto.business_unit_id == business_unit_id
+        )
+    overdue_receivables_result = overdue_receivables_query.first()
+    overdue_receivables_count = overdue_receivables_result[0] or 0
+    overdue_receivables_value = overdue_receivables_result[1] or Decimal(0)
+
+    # Projeção negativa de caixa (próximos 30 dias)
+    # Calcular saldo atual + entradas previstas - saídas previstas
+    end_date = today + timedelta(days=30)
+    
+    # Saldo atual (disponibilidades) - calcular diretamente
+    bank_query = (
+        db.query(func.sum(ContaBancaria.saldo_atual))
+        .filter(
+            ContaBancaria.tenant_id == tenant_id,
+            ContaBancaria.is_active.is_(True),
+        )
+    )
+    if business_unit_id:
+        bank_query = bank_query.filter(ContaBancaria.business_unit_id == business_unit_id)
+    banks_total = bank_query.scalar() or Decimal(0)
+
+    cash_query = (
+        db.query(func.sum(Caixa.saldo_atual))
+        .filter(
+            Caixa.tenant_id == tenant_id,
+            Caixa.is_active.is_(True),
+        )
+    )
+    if business_unit_id:
+        cash_query = cash_query.filter(Caixa.business_unit_id == business_unit_id)
+    cash_total = cash_query.scalar() or Decimal(0)
+
+    investment_query = (
+        db.query(func.sum(Investimento.valor_atual))
+        .filter(
+            Investimento.tenant_id == tenant_id,
+            Investimento.is_active.is_(True),
+        )
+    )
+    if business_unit_id:
+        investment_query = investment_query.filter(Investimento.business_unit_id == business_unit_id)
+    investments_total = investment_query.scalar() or Decimal(0)
+
+    current_balance = banks_total + cash_total + investments_total
+
+    # Entradas previstas (RECEITA) nos próximos 30 dias
+    future_receivables_query = (
+        db.query(func.sum(LancamentoPrevisto.valor))
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista >= today,
+            LancamentoPrevisto.data_prevista <= end_date,
+            LancamentoPrevisto.transaction_type == TransactionType.RECEITA,
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        future_receivables_query = future_receivables_query.filter(
+            LancamentoPrevisto.business_unit_id == business_unit_id
+        )
+    future_receivables = future_receivables_query.scalar() or Decimal(0)
+
+    # Saídas previstas (DESPESA + CUSTO) nos próximos 30 dias
+    future_payables_query = (
+        db.query(func.sum(LancamentoPrevisto.valor))
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista >= today,
+            LancamentoPrevisto.data_prevista <= end_date,
+            LancamentoPrevisto.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]),
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        future_payables_query = future_payables_query.filter(
+            LancamentoPrevisto.business_unit_id == business_unit_id
+        )
+    future_payables = future_payables_query.scalar() or Decimal(0)
+
+    projected_balance = current_balance + future_receivables - future_payables
+    has_negative_forecast = projected_balance < 0
+
+    return {
+        "overdue_payables": {
+            "count": overdue_payables_count,
+            "value": _decimal_to_float(overdue_payables_value),
+        },
+        "overdue_receivables": {
+            "count": overdue_receivables_count,
+            "value": _decimal_to_float(overdue_receivables_value),
+        },
+        "negative_cash_forecast": {
+            "has_alert": has_negative_forecast,
+            "projected_balance": _decimal_to_float(projected_balance),
+            "current_balance": _decimal_to_float(current_balance),
+        },
+    }
+
+
+@router.get("/dashboard/operational/forecast-vs-realized")
+def operational_forecast_vs_realized(
+    year: Optional[int] = Query(default=None, ge=1900, description="Ano de referência"),
+    months: int = Query(default=6, ge=1, le=12, description="Número de meses para exibir"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna comparação entre previsto e realizado mensal.
+    
+    Retorna:
+    - months: Lista de meses com previsto e realizado
+    - totals: Totais de saldo realizado, previsto e diferença
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _resolve_business_unit_id(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=_require_business_unit(current_user),
+    )
+    today = datetime.utcnow()
+
+    target_year = year or today.year
+    effective_year = _resolve_year_from_settings(
+        db=db,
+        tenant_id=tenant_id,
+        business_unit_id=business_unit_id,
+        fallback_year=target_year,
+    )
+
+    # Se o ano for informado, sempre retornar o ano todo
+    if year is not None:
+        months = 12
+    
+    cash_flow = cash_flow_previsto_realizado(
+        year=effective_year,
+        current_user=current_user,
+        db=db,
+    )
+    cash_rows = cash_flow.get("data") or []
+    target_label = "lucro líquido de caixa mensal"
+    target_row = next(
+        (row for row in cash_rows if str(row.get("categoria", "")).strip().lower() == target_label),
+        None,
+    )
+    if target_row:
+        months_list = []
+        total_realizado = Decimal(0)
+        total_previsto = Decimal(0)
+        for idx, label in enumerate(MONTH_LABELS):
+            realized = Decimal(str(target_row["meses"][label]["realizado"]))
+            forecast = Decimal(str(target_row["meses"][label]["previsto"]))
+            total_realizado += realized
+            total_previsto += forecast
+            months_list.append({
+                "year": effective_year,
+                "month": idx + 1,
+                "label": label,
+                "realized": _decimal_to_float(realized),
+                "forecast": _decimal_to_float(forecast),
+            })
+
+        return {
+            "year": effective_year,
+            "months": months_list[:months],
+            "totals": {
+                "realized": _decimal_to_float(total_realizado),
+                "forecast": _decimal_to_float(total_previsto),
+                "difference": _decimal_to_float(total_realizado - total_previsto),
+            },
+        }
+
+    # Buscar realizados (LancamentoDiario) - fallback
+    # Calcular range de meses (últimos N meses a partir do mês atual)
+    start_date = today.replace(day=1)
+    for _ in range(months - 1):
+        if start_date.month == 1:
+            start_date = start_date.replace(year=start_date.year - 1, month=12)
+        else:
+            start_date = start_date.replace(month=start_date.month - 1)
+    
+    end_date = today.replace(day=1)
+    if end_date.month == 12:
+        end_date = end_date.replace(year=end_date.year + 1, month=1)
+    else:
+        end_date = end_date.replace(month=end_date.month + 1)
+    realizados_query = (
+        db.query(
+            func.extract('year', LancamentoDiario.data_movimentacao).label('year'),
+            func.extract('month', LancamentoDiario.data_movimentacao).label('month'),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type == TransactionType.RECEITA, LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label('receita'),
+            func.sum(
+                case(
+                    (LancamentoDiario.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]), LancamentoDiario.valor),
+                    else_=0
+                )
+            ).label('saida'),
+        )
+        .filter(
+            LancamentoDiario.tenant_id == tenant_id,
+            LancamentoDiario.is_active.is_(True),
+            LancamentoDiario.data_movimentacao >= start_date,
+            LancamentoDiario.data_movimentacao <= end_date,
+        )
+        .group_by('year', 'month')
+    )
+    if business_unit_id:
+        realizados_query = realizados_query.filter(LancamentoDiario.business_unit_id == business_unit_id)
+    
+    realizados_data = {}
+    for row in realizados_query.all():
+        key = f"{int(row.year)}-{int(row.month):02d}"
+        realizados_data[key] = {
+            "receita": row.receita or Decimal(0),
+            "saida": row.saida or Decimal(0),
+        }
+
+    # Buscar previstos (LancamentoPrevisto)
+    previstos_query = (
+        db.query(
+            func.extract('year', LancamentoPrevisto.data_prevista).label('year'),
+            func.extract('month', LancamentoPrevisto.data_prevista).label('month'),
+            func.sum(
+                case(
+                    (LancamentoPrevisto.transaction_type == TransactionType.RECEITA, LancamentoPrevisto.valor),
+                    else_=0
+                )
+            ).label('receita'),
+            func.sum(
+                case(
+                    (LancamentoPrevisto.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]), LancamentoPrevisto.valor),
+                    else_=0
+                )
+            ).label('saida'),
+        )
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.data_prevista >= start_date,
+            LancamentoPrevisto.data_prevista <= end_date,
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+        .group_by('year', 'month')
+    )
+    if business_unit_id:
+        previstos_query = previstos_query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+    
+    previstos_data = {}
+    for row in previstos_query.all():
+        key = f"{int(row.year)}-{int(row.month):02d}"
+        previstos_data[key] = {
+            "receita": row.receita or Decimal(0),
+            "saida": row.saida or Decimal(0),
+        }
+
+    # Montar resposta com todos os meses
+    months_list = []
+    total_realizado = Decimal(0)
+    total_previsto = Decimal(0)
+    
+    current_month = start_date
+    for i in range(months):
+        year = current_month.year
+        month = current_month.month
+        key = f"{year}-{month:02d}"
+        
+        # Avançar para o próximo mês
+        if current_month.month == 12:
+            current_month = current_month.replace(year=current_month.year + 1, month=1)
+        else:
+            current_month = current_month.replace(month=current_month.month + 1)
+        
+        realizado = realizados_data.get(key, {"receita": Decimal(0), "saida": Decimal(0)})
+        previsto = previstos_data.get(key, {"receita": Decimal(0), "saida": Decimal(0)})
+        
+        saldo_realizado = realizado["receita"] - realizado["saida"]
+        saldo_previsto = previsto["receita"] - previsto["saida"]
+        
+        total_realizado += saldo_realizado
+        total_previsto += saldo_previsto
+        
+        months_list.append({
+            "year": year,
+            "month": month,
+            "label": MONTH_LABELS[month - 1] if month <= 12 else "",
+            "realized": _decimal_to_float(saldo_realizado),
+            "forecast": _decimal_to_float(saldo_previsto),
+        })
+
+    return {
+        "year": target_year,
+        "months": months_list,
+        "totals": {
+            "realized": _decimal_to_float(total_realizado),
+            "forecast": _decimal_to_float(total_previsto),
+            "difference": _decimal_to_float(total_realizado - total_previsto),
+        },
+    }
+
+
+@router.get("/dashboard/operational/payables-summary")
+def operational_payables_summary(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna posição de contas a pagar.
+    
+    Retorna:
+    - overdue: Vencido (valor total)
+    - due_today: Vence hoje (valor total)
+    - next_7_days: Próximos 7 dias (valor total)
+    - next_30_days: Próximos 30 dias (valor total)
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = datetime.utcnow().date()
+    tomorrow = today + timedelta(days=1)
+    next_7_days = today + timedelta(days=7)
+    next_30_days = today + timedelta(days=30)
+
+    base_query = (
+        db.query(func.sum(LancamentoPrevisto.valor))
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.transaction_type.in_([TransactionType.DESPESA, TransactionType.CUSTO]),
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        base_query = base_query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+
+    # Vencido
+    overdue_query = base_query.filter(LancamentoPrevisto.data_prevista < today)
+    overdue = overdue_query.scalar() or Decimal(0)
+
+    # Vence hoje
+    due_today_query = base_query.filter(LancamentoPrevisto.data_prevista == today)
+    due_today = due_today_query.scalar() or Decimal(0)
+
+    # Próximos 7 dias
+    next_7_days_query = base_query.filter(
+        LancamentoPrevisto.data_prevista >= tomorrow,
+        LancamentoPrevisto.data_prevista <= next_7_days,
+    )
+    next_7_days_value = next_7_days_query.scalar() or Decimal(0)
+
+    # Próximos 30 dias
+    next_30_days_query = base_query.filter(
+        LancamentoPrevisto.data_prevista >= tomorrow,
+        LancamentoPrevisto.data_prevista <= next_30_days,
+    )
+    next_30_days_value = next_30_days_query.scalar() or Decimal(0)
+
+    return {
+        "overdue": _decimal_to_float(overdue),
+        "due_today": _decimal_to_float(due_today),
+        "next_7_days": _decimal_to_float(next_7_days_value),
+        "next_30_days": _decimal_to_float(next_30_days_value),
+    }
+
+
+@router.get("/dashboard/operational/receivables-summary")
+def operational_receivables_summary(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retorna posição de contas a receber.
+    
+    Retorna:
+    - overdue: Vencido (valor total)
+    - due_today: Vence hoje (valor total)
+    - next_7_days: Próximos 7 dias (valor total)
+    - next_30_days: Próximos 30 dias (valor total)
+    """
+    tenant_id = str(current_user.tenant_id)
+    business_unit_id = _require_business_unit(current_user)
+    today = datetime.utcnow().date()
+    tomorrow = today + timedelta(days=1)
+    next_7_days = today + timedelta(days=7)
+    next_30_days = today + timedelta(days=30)
+
+    base_query = (
+        db.query(func.sum(LancamentoPrevisto.valor))
+        .filter(
+            LancamentoPrevisto.tenant_id == tenant_id,
+            LancamentoPrevisto.is_active.is_(True),
+            LancamentoPrevisto.transaction_type == TransactionType.RECEITA,
+            LancamentoPrevisto.status != TransactionStatus.CANCELADO,
+        )
+    )
+    if business_unit_id:
+        base_query = base_query.filter(LancamentoPrevisto.business_unit_id == business_unit_id)
+
+    # Vencido
+    overdue_query = base_query.filter(LancamentoPrevisto.data_prevista < today)
+    overdue = overdue_query.scalar() or Decimal(0)
+
+    # Vence hoje
+    due_today_query = base_query.filter(LancamentoPrevisto.data_prevista == today)
+    due_today = due_today_query.scalar() or Decimal(0)
+
+    # Próximos 7 dias
+    next_7_days_query = base_query.filter(
+        LancamentoPrevisto.data_prevista >= tomorrow,
+        LancamentoPrevisto.data_prevista <= next_7_days,
+    )
+    next_7_days_value = next_7_days_query.scalar() or Decimal(0)
+
+    # Próximos 30 dias
+    next_30_days_query = base_query.filter(
+        LancamentoPrevisto.data_prevista >= tomorrow,
+        LancamentoPrevisto.data_prevista <= next_30_days,
+    )
+    next_30_days_value = next_30_days_query.scalar() or Decimal(0)
+
+    return {
+        "overdue": _decimal_to_float(overdue),
+        "due_today": _decimal_to_float(due_today),
+        "next_7_days": _decimal_to_float(next_7_days_value),
+        "next_30_days": _decimal_to_float(next_30_days_value),
+    }
