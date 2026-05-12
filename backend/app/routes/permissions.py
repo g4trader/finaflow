@@ -10,7 +10,8 @@ from app.models.auth import (
     UserBusinessUnitAccessCreate, UserBusinessUnitAccessUpdate, UserBusinessUnitAccessResponse,
     UserRole
 )
-from app.middleware.auth import get_current_user, get_access_control, AccessControl, Permission
+from app.middleware.auth import AccessControl, Permission
+from app.services.dependencies import get_current_user
 from app.models.permissions import UserPermission
 
 router = APIRouter(prefix="/api/v1/permissions", tags=["permissions"])
@@ -53,6 +54,13 @@ PERMISSION_DEFINITIONS = [
         "category": "administração",
     },
 ]
+
+
+def get_access_control(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AccessControl:
+    return AccessControl(current_user, db)
 
 
 def _permission_flags_from_payload(permissions: list) -> dict:
