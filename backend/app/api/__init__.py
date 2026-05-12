@@ -61,6 +61,10 @@ if ONBOARDING_AVAILABLE and onboarding_router:
 def include_routers(app: FastAPI, prefix: str = "") -> None:
     for router in LEGACY_ROUTERS:
         router_prefix = getattr(router, "prefix", "") or ""
-        if prefix and router_prefix.startswith(prefix):
+        has_prefixed_routes = any(
+            getattr(route, "path", "").startswith(prefix)
+            for route in getattr(router, "routes", [])
+        )
+        if prefix and (router_prefix.startswith(prefix) or has_prefixed_routes):
             continue
         app.include_router(router, prefix=prefix)
