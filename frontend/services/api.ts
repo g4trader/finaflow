@@ -333,6 +333,10 @@ export const createAccountGroup = async (data: any) => {
 
 // Subgrupos de Contas
 export const getAccountSubgroups = async (groupId?: string, token?: string) => {
+  if (groupId && !token && groupId.split('.').length === 3) {
+    token = groupId;
+    groupId = undefined;
+  }
   const params = groupId ? { group_id: groupId } : {};
   const headers: any = {};
   if (token) {
@@ -349,6 +353,10 @@ export const createAccountSubgroup = async (data: any) => {
 
 // Contas
 export const getAccounts = async (subgroupId?: string, accountType?: string, token?: string) => {
+  if (subgroupId && !accountType && !token && subgroupId.split('.').length === 3) {
+    token = subgroupId;
+    subgroupId = undefined;
+  }
   const params: any = {};
   if (subgroupId) params.subgroup_id = subgroupId;
   if (accountType) params.account_type = accountType;
@@ -544,7 +552,7 @@ export const getGroups = async (token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.get('/api/v1/financial/groups', { headers });
+  const response = await api.get('/api/v1/financial/account-groups', { headers });
   return response.data;
 };
 
@@ -553,7 +561,7 @@ export const createGroup = async (data: any, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.post('/api/v1/financial/groups', data, { headers });
+  const response = await api.post('/api/v1/financial/account-groups', data, { headers });
   return response.data;
 };
 
@@ -562,7 +570,7 @@ export const updateGroup = async (id: string, data: any, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.put(`/api/v1/financial/groups/${id}`, data, { headers });
+  const response = await api.put(`/api/v1/financial/account-groups/${id}`, data, { headers });
   return response.data;
 };
 
@@ -571,7 +579,7 @@ export const deleteGroup = async (id: string, token?: string) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.delete(`/api/v1/financial/groups/${id}`, { headers });
+  const response = await api.delete(`/api/v1/financial/account-groups/${id}`, { headers });
   return response.data;
 };
 
@@ -820,12 +828,8 @@ export const needsBusinessUnitSelection = async (): Promise<any> => {
 };
 
 export const getPermissions = async (): Promise<any> => {
-  return [
-    { code: 'can_read', name: 'Visualizar' },
-    { code: 'can_write', name: 'Editar' },
-    { code: 'can_delete', name: 'Excluir' },
-    { code: 'can_manage_users', name: 'Gerenciar Usuários' },
-  ];
+  const response = await api.get('/api/v1/permissions/available');
+  return response.data;
 };
 
 export const getUserPermissions = async (userId: string, businessUnitId: string): Promise<any> => {

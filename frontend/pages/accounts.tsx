@@ -20,6 +20,8 @@ interface Account {
   id: string;
   subgroup_id: string;
   name: string;
+  code?: string;
+  account_type?: string;
   balance: number;
   tenant_id: string;
   created_at?: string;
@@ -44,6 +46,8 @@ function AccountsContent() {
   const [formData, setFormData] = useState({
     subgroup_id: '',
     name: '',
+    code: '',
+    account_type: 'asset',
     balance: '',
   });
 
@@ -70,7 +74,7 @@ function AccountsContent() {
 
   const openNew = () => {
     setEditing(null);
-    setFormData({ subgroup_id: '', name: '', balance: '' });
+    setFormData({ subgroup_id: '', name: '', code: '', account_type: 'asset', balance: '' });
     setIsModalOpen(true);
   };
 
@@ -79,6 +83,8 @@ function AccountsContent() {
     setFormData({
       subgroup_id: a.subgroup_id,
       name: a.name,
+      code: a.code || '',
+      account_type: a.account_type || 'asset',
       balance: String(a.balance),
     });
     setIsModalOpen(true);
@@ -108,7 +114,8 @@ function AccountsContent() {
       const payload = {
         subgroup_id: formData.subgroup_id,
         name: formData.name.trim(),
-        balance: balance,
+        code: formData.code.trim() || formData.name.trim().slice(0, 20).toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        account_type: formData.account_type,
         tenant_id: tenantId,
       };
       
@@ -323,9 +330,9 @@ function AccountsContent() {
                       </Table.Cell>
                       <Table.Cell>
                         <span className={`font-medium ${
-                          account.balance >= 0 ? 'text-green-600' : 'text-red-600'
+                          (account.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          R$ {account.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R$ {(account.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
                       </Table.Cell>
                       <Table.Cell>
@@ -397,6 +404,18 @@ function AccountsContent() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
+                Código
+              </label>
+              <Input
+                type="text"
+                placeholder="Ex: CCBB"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Subgrupo *
               </label>
               <select
@@ -411,6 +430,24 @@ function AccountsContent() {
                     {subgroup.name}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo *
+              </label>
+              <select
+                value={formData.account_type}
+                onChange={(e) => setFormData({ ...formData, account_type: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              >
+                <option value="asset">Ativo</option>
+                <option value="liability">Passivo</option>
+                <option value="revenue">Receita</option>
+                <option value="expense">Despesa</option>
+                <option value="cost">Custo</option>
               </select>
             </div>
 

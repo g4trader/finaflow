@@ -11,8 +11,85 @@ from app.models.auth import (
     UserRole
 )
 from app.middleware.auth import get_current_user, get_access_control, AccessControl, Permission
+from app.models.permissions import UserPermission
 
 router = APIRouter(prefix="/api/v1/permissions", tags=["permissions"])
+
+PERMISSION_DEFINITIONS = [
+    {
+        "id": "can_read",
+        "permission_id": "can_read",
+        "permission_code": "can_read",
+        "code": "can_read",
+        "name": "Visualizar",
+        "description": "Permite visualizar dados da unidade de negócio",
+        "category": "acesso",
+    },
+    {
+        "id": "can_write",
+        "permission_id": "can_write",
+        "permission_code": "can_write",
+        "code": "can_write",
+        "name": "Editar",
+        "description": "Permite criar e editar dados da unidade de negócio",
+        "category": "acesso",
+    },
+    {
+        "id": "can_delete",
+        "permission_id": "can_delete",
+        "permission_code": "can_delete",
+        "code": "can_delete",
+        "name": "Excluir",
+        "description": "Permite excluir dados da unidade de negócio",
+        "category": "acesso",
+    },
+    {
+        "id": "can_manage_users",
+        "permission_id": "can_manage_users",
+        "permission_code": "can_manage_users",
+        "code": "can_manage_users",
+        "name": "Gerenciar Usuários",
+        "description": "Permite conceder e remover acessos de usuários",
+        "category": "administração",
+    },
+]
+
+
+def _permission_flags_from_payload(permissions: list) -> dict:
+    flags = {
+        "can_read": False,
+        "can_write": False,
+        "can_delete": False,
+        "can_manage_users": False,
+    }
+    for permission in permissions or []:
+        code = (
+            permission.get("permission_code")
+            or permission.get("permission_id")
+            or permission.get("code")
+            or permission.get("id")
+        )
+        if code in flags:
+            flags[code] = bool(permission.get("is_granted", False))
+    return flags
+
+
+def _serialize_granular_permissions(user_id: str, business_unit_id: str, access: UserBusinessUnitAccess | None):
+    flags = {
+        "can_read": bool(access.can_read) if access else False,
+        "can_write": bool(access.can_write) if access else False,
+        "can_delete": bool(access.can_delete) if access else False,
+        "can_manage_users": bool(access.can_manage_users) if access else False,
+    }
+    return [
+        {
+            **definition,
+            "user_id": user_id,
+            "business_unit_id": business_unit_id,
+            "is_granted": flags[definition["code"]],
+        }
+        for definition in PERMISSION_DEFINITIONS
+    ]
 
 # ============================================================================
 # PERMISSÕES DE EMPRESA (TENANT)
@@ -424,6 +501,120 @@ async def delete_user_business_unit_permission(
 # ============================================================================
 # ENDPOINTS DE CONSULTA
 # ============================================================================
+
+@router.get("/available")
+async def list_available_permissions(
+    current_user: User = Depends(get_current_user),
+):
+    """Lista permissões disponíveis para as telas de administração."""
+    return PERMISSION_DEFINITIONS
+
+
+@router.get("/users/{user_id}/business-units/{business_unit_id}")
+async def get_user_business_unit_granular_permissions(
+    user_id: str,
+    business_unit_id: str,
+    current_user: User = Depends(get_current_user),
+    access_control: AccessControl = Depends(get_access_control),
+    db: Session = Depends(get_db),
+):
+    """Retorna as permissões editáveis de um usuário em uma BU."""
+    if current_user.role != UserRole.SUPER_ADMIN and current_user.id != user_id:
+        if not access_control.has_business_unit_access(business_unit_id, Permission.MANAGE_USERS):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Sem permissão para visualizar permissões desta BU",
+            )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    business_unit = db.query(BusinessUnit).filter(
+        BusinessUnit.id == business_unit_id,
+        BusinessUnit.status == "active",
+    ).first()
+    if not business_unit:
+        raise HTTPException(status_code=404, detail="Business Unit não encontrada")
+
+    access = db.query(UserBusinessUnitAccess).filter(
+        UserBusinessUnitAccess.user_id == user_id,
+        UserBusinessUnitAccess.business_unit_id == business_unit_id,
+    ).first()
+
+    return _serialize_granular_permissions(user_id, business_unit_id, access)
+
+
+@router.put("/users/{user_id}/business-units/{business_unit_id}")
+async def update_user_business_unit_granular_permissions(
+    user_id: str,
+    business_unit_id: str,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    access_control: AccessControl = Depends(get_access_control),
+    db: Session = Depends(get_db),
+):
+    """Atualiza permissões de um usuário em uma BU a partir do formato usado no frontend."""
+    if current_user.role != UserRole.SUPER_ADMIN:
+        if not access_control.has_business_unit_access(business_unit_id, Permission.MANAGE_USERS):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Sem permissão para gerenciar usuários nesta BU",
+            )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    business_unit = db.query(BusinessUnit).filter(
+        BusinessUnit.id == business_unit_id,
+        BusinessUnit.status == "active",
+    ).first()
+    if not business_unit:
+        raise HTTPException(status_code=404, detail="Business Unit não encontrada")
+
+    flags = _permission_flags_from_payload(payload.get("permissions", []))
+
+    access = db.query(UserBusinessUnitAccess).filter(
+        UserBusinessUnitAccess.user_id == user_id,
+        UserBusinessUnitAccess.business_unit_id == business_unit_id,
+    ).first()
+    if not access:
+        access = UserBusinessUnitAccess(
+            user_id=user_id,
+            business_unit_id=business_unit_id,
+        )
+        db.add(access)
+
+    access.can_read = flags["can_read"]
+    access.can_write = flags["can_write"]
+    access.can_delete = flags["can_delete"]
+    access.can_manage_users = flags["can_manage_users"]
+    access.updated_at = datetime.utcnow()
+
+    for code, granted in flags.items():
+        user_permission = db.query(UserPermission).filter(
+            UserPermission.user_id == user_id,
+            UserPermission.business_unit_id == business_unit_id,
+            UserPermission.permission_code == code,
+        ).first()
+        if not user_permission:
+            user_permission = UserPermission(
+                user_id=user_id,
+                business_unit_id=business_unit_id,
+                permission_code=code,
+                granted_by=current_user.id,
+            )
+            db.add(user_permission)
+
+        user_permission.is_granted = granted
+        user_permission.granted_by = current_user.id
+        user_permission.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(access)
+
+    return _serialize_granular_permissions(user_id, business_unit_id, access)
 
 @router.get("/my-access")
 async def get_my_access(

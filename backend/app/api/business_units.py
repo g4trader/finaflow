@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,9 +10,11 @@ from app.models.auth import (
     BusinessUnitCreate,
     BusinessUnitUpdate,
     BusinessUnitResponse,
+    UserBusinessUnitAccess,
     User,
     UserRole,
 )
+from app.models.permissions import UserPermission
 from app.services.dependencies import get_current_active_user, get_super_admin
 
 
@@ -28,7 +31,7 @@ async def list_business_units(
     if current_user.role != UserRole.SUPER_ADMIN:
         tenant_id = str(current_user.tenant_id)
 
-    query = db.query(BusinessUnit)
+    query = db.query(BusinessUnit).filter(BusinessUnit.status == "active")
     if tenant_id:
         query = query.filter(BusinessUnit.tenant_id == tenant_id)
 
@@ -62,7 +65,7 @@ async def update_business_unit(
     db: Session = Depends(get_db),
 ):
     business_unit = db.query(BusinessUnit).filter(BusinessUnit.id == business_unit_id).first()
-    if not business_unit:
+    if not business_unit or business_unit.status == "deleted":
         raise HTTPException(status_code=404, detail="Business unit não encontrada")
 
     if payload.name is not None:
@@ -84,8 +87,25 @@ async def delete_business_unit(
     db: Session = Depends(get_db),
 ):
     business_unit = db.query(BusinessUnit).filter(BusinessUnit.id == business_unit_id).first()
-    if not business_unit:
+    if not business_unit or business_unit.status == "deleted":
         raise HTTPException(status_code=404, detail="Business unit não encontrada")
 
-    db.delete(business_unit)
+    if current_user.business_unit_id == business_unit.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Não é permitido excluir a unidade de negócio atualmente selecionada pelo usuário.",
+        )
+
+    business_unit.status = "deleted"
+    business_unit.updated_at = datetime.utcnow()
+    db.query(User).filter(User.business_unit_id == business_unit_id).update(
+        {User.business_unit_id: None, User.department_id: None},
+        synchronize_session=False,
+    )
+    db.query(UserBusinessUnitAccess).filter(
+        UserBusinessUnitAccess.business_unit_id == business_unit_id
+    ).delete(synchronize_session=False)
+    db.query(UserPermission).filter(
+        UserPermission.business_unit_id == business_unit_id
+    ).delete(synchronize_session=False)
     db.commit()

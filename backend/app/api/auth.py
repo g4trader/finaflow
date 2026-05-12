@@ -174,7 +174,7 @@ async def needs_business_unit_selection(
     """
     try:
         if current_user.role == UserRole.SUPER_ADMIN:
-            total_bus = db.query(BusinessUnit).count()
+            total_bus = db.query(BusinessUnit).filter(BusinessUnit.status == "active").count()
             needs_selection = total_bus > 1 and current_user.business_unit_id is None
         else:
             accesses = db.query(UserBusinessUnitAccess).filter(
@@ -212,9 +212,11 @@ async def list_user_business_units(
         result = []
 
         if current_user.role == UserRole.SUPER_ADMIN:
-            business_units = db.query(BusinessUnit).all()
+            business_units = db.query(BusinessUnit).filter(BusinessUnit.status == "active").all()
             for bu in business_units:
-                tenant = db.query(Tenant).filter(Tenant.id == bu.tenant_id).first()
+                tenant = db.query(Tenant).filter(Tenant.id == bu.tenant_id, Tenant.status == "active").first()
+                if not tenant:
+                    continue
                 result.append(
                     {
                         "id": bu.id,
@@ -235,7 +237,11 @@ async def list_user_business_units(
                 db.query(UserBusinessUnitAccess, BusinessUnit, Tenant)
                 .join(BusinessUnit, BusinessUnit.id == UserBusinessUnitAccess.business_unit_id)
                 .join(Tenant, Tenant.id == BusinessUnit.tenant_id)
-                .filter(UserBusinessUnitAccess.user_id == current_user.id)
+                .filter(
+                    UserBusinessUnitAccess.user_id == current_user.id,
+                    BusinessUnit.status == "active",
+                    Tenant.status == "active",
+                )
                 .all()
             )
 
@@ -499,8 +505,11 @@ async def create_tenant(
     Criar novo tenant (apenas super admin).
     """
     try:
-        # Verificar se domain já existe
-        existing_tenant = db.query(Tenant).filter(Tenant.domain == tenant_data.domain).first()
+        # Verificar se domain já existe em tenant ativo
+        existing_tenant = db.query(Tenant).filter(
+            Tenant.domain == tenant_data.domain,
+            Tenant.status != "deleted",
+        ).first()
         if existing_tenant:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -510,7 +519,10 @@ async def create_tenant(
         # Criar tenant
         tenant = Tenant(
             name=tenant_data.name,
-            domain=tenant_data.domain
+            domain=tenant_data.domain,
+            cnpj=tenant_data.cnpj,
+            spreadsheet_url=tenant_data.spreadsheet_url,
+            status="active",
         )
         db.add(tenant)
         db.commit()
@@ -543,12 +555,16 @@ async def create_tenant(
 async def list_tenants(
     current_user: User = Depends(get_super_admin),
     db: Session = Depends(get_db),
+    include_inactive: bool = False,
 ):
     """
     Lista tenants (apenas super admin).
     """
     try:
-        return db.query(Tenant).order_by(Tenant.created_at.asc()).all()
+        query = db.query(Tenant).filter(Tenant.status != "deleted")
+        if not include_inactive:
+            query = query.filter(Tenant.status == "active")
+        return query.order_by(Tenant.created_at.asc()).all()
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -577,7 +593,11 @@ async def update_tenant(
         if tenant_data.domain:
             existing_tenant = (
                 db.query(Tenant)
-                .filter(Tenant.domain == tenant_data.domain, Tenant.id != tenant_id)
+                .filter(
+                    Tenant.domain == tenant_data.domain,
+                    Tenant.id != tenant_id,
+                    Tenant.status != "deleted",
+                )
                 .first()
             )
             if existing_tenant:
@@ -586,6 +606,10 @@ async def update_tenant(
 
         if tenant_data.status:
             tenant.status = tenant_data.status
+        if tenant_data.cnpj is not None:
+            tenant.cnpj = tenant_data.cnpj
+        if tenant_data.spreadsheet_url is not None:
+            tenant.spreadsheet_url = tenant_data.spreadsheet_url
 
         db.commit()
         db.refresh(tenant)
@@ -607,7 +631,11 @@ async def delete_tenant(
     db: Session = Depends(get_db),
 ):
     """
-    Exclui tenant com hard delete em cascata (apenas super admin).
+    Remove tenant da operação com soft delete (apenas super admin).
+
+    O sistema possui muitas tabelas financeiras ligadas ao tenant. Para o CRUD
+    administrativo ser confiável em produção, a ação de excluir arquiva a
+    empresa, preserva histórico e evita falhas de FK durante exclusão física.
     """
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
@@ -630,162 +658,32 @@ async def delete_tenant(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Não é permitido excluir o tenant global do super_admin (finaflow.local).",
             )
-
-        super_admin_ids = [
-            row[0]
-            for row in db.query(User.id)
-            .filter(User.tenant_id == tenant_id, User.role == UserRole.SUPER_ADMIN)
-            .all()
-        ]
-        if super_admin_ids:
-            db.query(User).filter(User.id.in_(super_admin_ids)).update(
-                {User.tenant_id: global_tenant.id, User.business_unit_id: None, User.department_id: None},
-                synchronize_session=False
-            )
-            db.query(UserBusinessUnitAccess).filter(UserBusinessUnitAccess.user_id.in_(super_admin_ids)).delete(
-                synchronize_session=False
-            )
-            db.commit()
-
-        bu_ids = [row[0] for row in db.query(BusinessUnit.id).filter(BusinessUnit.tenant_id == tenant_id).all()]
-        user_ids = [row[0] for row in db.query(User.id).filter(User.tenant_id == tenant_id).all()]
-        user_ids_non_super = [
-            row[0]
-            for row in db.query(User.id)
-            .filter(User.tenant_id == tenant_id, User.role != UserRole.SUPER_ADMIN)
-            .all()
-        ]
-        if bu_ids:
-            db.query(User).filter(User.business_unit_id.in_(bu_ids)).update(
-                {User.business_unit_id: None, User.department_id: None},
-                synchronize_session=False,
-            )
-        transaction_ids = [
-            row[0]
-            for row in db.query(FinancialTransaction.id)
-            .filter(FinancialTransaction.tenant_id == tenant_id)
-            .all()
-        ]
-
-        if transaction_ids:
-            db.query(TransactionAttachment).filter(TransactionAttachment.transaction_id.in_(transaction_ids)).delete(
-                synchronize_session=False
+        if tenant.id == current_user.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não é permitido excluir a empresa atualmente selecionada pelo usuário.",
             )
 
-        db.query(TransactionCategory).filter(TransactionCategory.tenant_id == tenant_id).delete(
-            synchronize_session=False
+        suffix = f"deleted-{tenant.id}"
+        tenant.status = "deleted"
+        tenant.updated_at = datetime.utcnow()
+        if not tenant.domain.startswith("deleted-"):
+            tenant.domain = f"{suffix}-{tenant.domain}"[:255]
+        db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant_id).update(
+            {BusinessUnit.status: "deleted", BusinessUnit.updated_at: datetime.utcnow()},
+            synchronize_session=False,
         )
-        db.query(FinancialTransaction).filter(FinancialTransaction.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(ScheduledTransaction).filter(ScheduledTransaction.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(LancamentoPrevisto).filter(LancamentoPrevisto.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(LancamentoDiario).filter(LancamentoDiario.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        if user_ids:
-            db.query(LancamentoPrevisto).filter(LancamentoPrevisto.created_by.in_(user_ids)).delete(
-                synchronize_session=False
-            )
-            db.query(LancamentoDiario).filter(LancamentoDiario.created_by.in_(user_ids)).delete(
-                synchronize_session=False
-            )
-        db.query(DashboardValidationStatus).filter(DashboardValidationStatus.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(CashFlowForecastValue).filter(CashFlowForecastValue.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(CashFlowYearSettings).filter(CashFlowYearSettings.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-
-        db.query(Transaction).filter(Transaction.tenant_id == tenant_id).delete(synchronize_session=False)
-        if user_ids:
-            db.query(Transaction).filter(Transaction.created_by.in_(user_ids)).delete(
-                synchronize_session=False
-            )
-        db.query(CashFlow).filter(CashFlow.tenant_id == tenant_id).delete(synchronize_session=False)
-        db.query(BankAccount).filter(BankAccount.tenant_id == tenant_id).delete(synchronize_session=False)
-        db.query(Account).filter(Account.tenant_id == tenant_id).delete(synchronize_session=False)
-        db.query(AccountSubgroup).filter(AccountSubgroup.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(AccountGroup).filter(AccountGroup.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-
-        if bu_ids:
-            db.query(BusinessUnitChartAccount).filter(
-                BusinessUnitChartAccount.business_unit_id.in_(bu_ids)
-            ).delete(synchronize_session=False)
-            db.query(UserPermission).filter(UserPermission.business_unit_id.in_(bu_ids)).delete(
-                synchronize_session=False
-            )
-            db.query(UserBusinessUnitAccess).filter(UserBusinessUnitAccess.business_unit_id.in_(bu_ids)).delete(
-                synchronize_session=False
-            )
-            db.query(Department).filter(Department.business_unit_id.in_(bu_ids)).delete(
-                synchronize_session=False
-            )
-
-        db.query(ChartAccount).filter(ChartAccount.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(ChartAccountSubgroup).filter(ChartAccountSubgroup.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(ChartAccountGroup).filter(ChartAccountGroup.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-
-        db.query(LiquidationAccount).filter(LiquidationAccount.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(MovimentacaoBancaria).filter(MovimentacaoBancaria.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(ContaBancaria).filter(ContaBancaria.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(MovimentacaoCaixa).filter(MovimentacaoCaixa.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(Caixa).filter(Caixa.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(Investimento).filter(Investimento.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-
         db.query(UserTenantAccess).filter(UserTenantAccess.tenant_id == tenant_id).delete(
             synchronize_session=False
         )
-        if user_ids:
-            db.query(UserSession).filter(UserSession.user_id.in_(user_ids)).delete(
+        bu_ids = [row[0] for row in db.query(BusinessUnit.id).filter(BusinessUnit.tenant_id == tenant_id).all()]
+        if bu_ids:
+            db.query(UserBusinessUnitAccess).filter(UserBusinessUnitAccess.business_unit_id.in_(bu_ids)).delete(
                 synchronize_session=False
             )
-            db.query(AuditLog).filter(AuditLog.user_id.in_(user_ids_non_super)).delete(
+            db.query(UserPermission).filter(UserPermission.business_unit_id.in_(bu_ids)).delete(
                 synchronize_session=False
             )
-        if user_ids_non_super:
-            db.query(User).filter(User.id.in_(user_ids_non_super)).delete(synchronize_session=False)
-            db.query(UserBusinessUnitAccess).filter(UserBusinessUnitAccess.user_id.in_(user_ids_non_super)).delete(
-                synchronize_session=False
-            )
-
-        db.query(BusinessUnit).filter(BusinessUnit.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-        db.query(AuditLog).filter(AuditLog.tenant_id == tenant_id).delete(
-            synchronize_session=False
-        )
-
-        db.query(Tenant).filter(Tenant.id == tenant_id).delete(synchronize_session=False)
         db.commit()
         return None
     except HTTPException:

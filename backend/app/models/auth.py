@@ -207,6 +207,7 @@ class TenantCreate(BaseModel):
 class TenantUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     domain: Optional[str] = Field(None, min_length=1, max_length=255)
+    cnpj: Optional[str] = Field(None, max_length=20)
     status: Optional[str] = None
     spreadsheet_url: Optional[str] = None
 

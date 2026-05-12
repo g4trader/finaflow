@@ -207,14 +207,18 @@ async def clear_data(
 
         # Verificar se tenant e BU existem (quando informados)
         if request.tenant_id:
-            tenant = db.query(Tenant).filter(Tenant.id == request.tenant_id).first()
+            tenant = db.query(Tenant).filter(
+                Tenant.id == request.tenant_id,
+                Tenant.status == "active",
+            ).first()
             if not tenant:
                 raise HTTPException(status_code=404, detail="Tenant não encontrado")
 
             if request.business_unit_id:
                 business_unit = db.query(BusinessUnit).filter(
                     BusinessUnit.id == request.business_unit_id,
-                    BusinessUnit.tenant_id == request.tenant_id
+                    BusinessUnit.tenant_id == request.tenant_id,
+                    BusinessUnit.status == "active",
                 ).first()
                 if not business_unit:
                     raise HTTPException(status_code=404, detail="Business Unit não encontrada")
@@ -302,14 +306,18 @@ async def validate_spreadsheet(
 
         # Verificar se tenant e BU existem (quando informados)
         if request.tenant_id:
-            tenant = db.query(Tenant).filter(Tenant.id == request.tenant_id).first()
+            tenant = db.query(Tenant).filter(
+                Tenant.id == request.tenant_id,
+                Tenant.status == "active",
+            ).first()
             if not tenant:
                 raise HTTPException(status_code=404, detail="Tenant não encontrado")
 
             if request.business_unit_id:
                 business_unit = db.query(BusinessUnit).filter(
                     BusinessUnit.id == request.business_unit_id,
-                    BusinessUnit.tenant_id == request.tenant_id
+                    BusinessUnit.tenant_id == request.tenant_id,
+                    BusinessUnit.status == "active",
                 ).first()
                 if not business_unit:
                     raise HTTPException(status_code=404, detail="Business Unit não encontrada")
@@ -761,7 +769,10 @@ async def start_onboarding(
         if not normalized_cnpj:
             raise HTTPException(status_code=400, detail="CNPJ inválido")
 
-        tenant = db.query(Tenant).filter(Tenant.cnpj == normalized_cnpj).first()
+        tenant = db.query(Tenant).filter(
+            Tenant.cnpj == normalized_cnpj,
+            Tenant.status != "deleted",
+        ).first()
         normalized_spreadsheet_url = normalize_spreadsheet_url(str(request.spreadsheet_url))
         if not tenant:
             base_domain = f"cnpj-{normalized_cnpj}"
@@ -781,6 +792,7 @@ async def start_onboarding(
             db.refresh(tenant)
         elif normalized_spreadsheet_url and tenant.spreadsheet_url != normalized_spreadsheet_url:
             tenant.spreadsheet_url = normalized_spreadsheet_url
+            tenant.status = "active"
             db.commit()
 
         business_unit = (
@@ -788,6 +800,7 @@ async def start_onboarding(
             .filter(
                 BusinessUnit.tenant_id == tenant.id,
                 BusinessUnit.name == request.business_unit_name.strip(),
+                BusinessUnit.status == "active",
             )
             .first()
         )
@@ -859,52 +872,20 @@ async def import_data(
     """
     try:
         # Verificar se tenant e BU existem
-        tenant = db.query(Tenant).filter(Tenant.id == request.tenant_id).first()
+        tenant = db.query(Tenant).filter(
+            Tenant.id == request.tenant_id,
+            Tenant.status == "active",
+        ).first()
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant não encontrado")
         
         business_unit = db.query(BusinessUnit).filter(
             BusinessUnit.id == request.business_unit_id,
-            BusinessUnit.tenant_id == request.tenant_id
+            BusinessUnit.tenant_id == request.tenant_id,
+            BusinessUnit.status == "active",
         ).first()
-        
-        # Se não encontrou BU, criar automaticamente (mas verificar duplicatas primeiro)
         if not business_unit:
-            # Primeiro, tentar buscar qualquer BU do tenant (evitar duplicatas)
-            business_unit = db.query(BusinessUnit).filter(
-                BusinessUnit.tenant_id == request.tenant_id
-            ).order_by(BusinessUnit.created_at.asc()).first()  # Pegar a mais antiga
-            
-            if not business_unit:
-                # Verificar se já existe uma BU "Matriz" para este tenant (evitar duplicatas)
-                existing_matriz = db.query(BusinessUnit).filter(
-                    BusinessUnit.tenant_id == request.tenant_id,
-                    BusinessUnit.name == "Matriz",
-                    BusinessUnit.code == "MAT"
-                ).first()
-                
-                if existing_matriz:
-                    # Usar a BU existente
-                    business_unit = existing_matriz
-                    request.business_unit_id = str(business_unit.id)
-                else:
-                    # Criar BU padrão apenas se não existir nenhuma
-                    from uuid import uuid4
-                    business_unit = BusinessUnit(
-                        id=str(uuid4()),
-                        tenant_id=request.tenant_id,
-                        name="Matriz",
-                        code="MAT",
-                        status="active"
-                    )
-                    db.add(business_unit)
-                    db.commit()
-                    db.refresh(business_unit)
-                    # Atualizar request com o ID real da BU
-                    request.business_unit_id = str(business_unit.id)
-            else:
-                # Usar a BU encontrada (mais antiga)
-                request.business_unit_id = str(business_unit.id)
+            raise HTTPException(status_code=404, detail="Business Unit não encontrada")
         
         corrections = request.corrections or {}
         row_updates = corrections.get("row_updates") or []
@@ -942,6 +923,10 @@ async def import_data(
             run_id,
         )
         normalized_spreadsheet_url = normalize_spreadsheet_url(str(request.spreadsheet_url))
+        if tenant.spreadsheet_url != normalized_spreadsheet_url:
+            tenant.spreadsheet_url = normalized_spreadsheet_url
+            db.commit()
+
         log_onboarding(
             "import_started",
             status_key=status_key,
@@ -980,11 +965,21 @@ async def import_data(
 async def get_onboarding_status(
     tenant_id: str,
     business_unit_id: str,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
     """
     Retorna status atual do onboarding
     """
+    business_unit = db.query(BusinessUnit).join(Tenant, BusinessUnit.tenant_id == Tenant.id).filter(
+        Tenant.id == tenant_id,
+        Tenant.status == "active",
+        BusinessUnit.id == business_unit_id,
+        BusinessUnit.status == "active",
+    ).first()
+    if not business_unit:
+        raise HTTPException(status_code=404, detail="Tenant ou Business Unit não encontrada")
+
     status_key = f"{tenant_id}_{business_unit_id}"
     status = onboarding_status.get(status_key)
     
@@ -1008,6 +1003,15 @@ async def get_reconciliation(
     Retorna relatório de conciliação entre planilha e sistema
     """
     try:
+        business_unit = db.query(BusinessUnit).join(Tenant, BusinessUnit.tenant_id == Tenant.id).filter(
+            Tenant.id == tenant_id,
+            Tenant.status == "active",
+            BusinessUnit.id == business_unit_id,
+            BusinessUnit.status == "active",
+        ).first()
+        if not business_unit:
+            raise HTTPException(status_code=404, detail="Tenant ou Business Unit não encontrada")
+
         # Buscar última planilha importada para este tenant/BU
         data_dir = backend_path / "data"
         excel_files = sorted(
@@ -1307,13 +1311,17 @@ def execute_import(
         db = SessionLocal()
         try:
             # Buscar tenant, BU e user existentes
-            tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+            tenant = db.query(Tenant).filter(
+                Tenant.id == tenant_id,
+                Tenant.status == "active",
+            ).first()
             if not tenant:
                 raise Exception(f"Tenant {tenant_id} não encontrado")
             
             business_unit = db.query(BusinessUnit).filter(
                 BusinessUnit.id == business_unit_id,
-                BusinessUnit.tenant_id == tenant_id
+                BusinessUnit.tenant_id == tenant_id,
+                BusinessUnit.status == "active",
             ).first()
             if not business_unit:
                 raise Exception(f"Business Unit {business_unit_id} não encontrada")

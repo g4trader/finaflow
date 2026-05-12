@@ -18,6 +18,159 @@ from app.services.security import SecurityService
 
 router = APIRouter(prefix="/financial", tags=["financial"])
 
+
+def _serialize_forecast(transaction: Transaction) -> dict:
+    return {
+        "id": transaction.id,
+        "tenant_id": transaction.tenant_id,
+        "account_id": transaction.account_id,
+        "business_unit_id": transaction.business_unit_id,
+        "department_id": transaction.department_id,
+        "transaction_date": transaction.transaction_date,
+        "amount": float(transaction.amount),
+        "description": transaction.description,
+        "transaction_type": transaction.transaction_type,
+        "created_at": transaction.created_at,
+        "updated_at": transaction.updated_at,
+    }
+
+
+@router.get("/forecasts")
+async def list_forecasts(
+    account_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Listar previsões financeiras armazenadas no Postgres."""
+    query = db.query(Transaction).filter(
+        Transaction.tenant_id == current_user.tenant_id,
+        Transaction.is_forecast == True,
+    )
+    if account_id:
+        query = query.filter(Transaction.account_id == account_id)
+
+    return [_serialize_forecast(item) for item in query.order_by(Transaction.transaction_date.desc()).all()]
+
+
+@router.post("/forecasts", status_code=status.HTTP_201_CREATED)
+async def create_forecast(
+    forecast_data: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Criar previsão financeira no mesmo storage das transações."""
+    account_id = forecast_data.get("account_id")
+    if not account_id:
+        raise HTTPException(status_code=422, detail="account_id é obrigatório")
+
+    account = db.query(Account).filter(
+        Account.id == account_id,
+        Account.tenant_id == current_user.tenant_id,
+        Account.status == "active",
+    ).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Conta não encontrada")
+
+    amount = float(forecast_data.get("amount") or 0)
+    if amount <= 0:
+        raise HTTPException(status_code=422, detail="amount deve ser maior que zero")
+
+    transaction_date = forecast_data.get("transaction_date")
+    if isinstance(transaction_date, str):
+        transaction_date = datetime.fromisoformat(transaction_date.replace("Z", "+00:00"))
+    if not transaction_date:
+        transaction_date = datetime.utcnow()
+
+    transaction = Transaction(
+        tenant_id=current_user.tenant_id,
+        account_id=account_id,
+        business_unit_id=forecast_data.get("business_unit_id") or current_user.business_unit_id,
+        department_id=forecast_data.get("department_id"),
+        transaction_date=transaction_date,
+        description=forecast_data.get("description") or "Previsão",
+        amount=amount,
+        transaction_type=forecast_data.get("transaction_type")
+        or ("credit" if account.account_type == "revenue" else "debit"),
+        category=forecast_data.get("category") or "forecast",
+        is_recurring=bool(forecast_data.get("is_recurring", False)),
+        is_forecast=True,
+        is_approved=False,
+        created_by=current_user.id,
+    )
+
+    db.add(transaction)
+    db.commit()
+    db.refresh(transaction)
+    return _serialize_forecast(transaction)
+
+
+@router.put("/forecasts/{forecast_id}")
+async def update_forecast(
+    forecast_id: str,
+    forecast_data: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    transaction = db.query(Transaction).filter(
+        Transaction.id == forecast_id,
+        Transaction.tenant_id == current_user.tenant_id,
+        Transaction.is_forecast == True,
+    ).first()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Previsão não encontrada")
+
+    if forecast_data.get("account_id") and forecast_data["account_id"] != transaction.account_id:
+        account = db.query(Account).filter(
+            Account.id == forecast_data["account_id"],
+            Account.tenant_id == current_user.tenant_id,
+            Account.status == "active",
+        ).first()
+        if not account:
+            raise HTTPException(status_code=404, detail="Conta não encontrada")
+        transaction.account_id = forecast_data["account_id"]
+
+    if "amount" in forecast_data:
+        amount = float(forecast_data.get("amount") or 0)
+        if amount <= 0:
+            raise HTTPException(status_code=422, detail="amount deve ser maior que zero")
+        transaction.amount = amount
+    if "description" in forecast_data:
+        transaction.description = forecast_data.get("description") or "Previsão"
+    if "business_unit_id" in forecast_data:
+        transaction.business_unit_id = forecast_data.get("business_unit_id")
+    if "department_id" in forecast_data:
+        transaction.department_id = forecast_data.get("department_id")
+    if "transaction_type" in forecast_data:
+        transaction.transaction_type = forecast_data["transaction_type"]
+    if "transaction_date" in forecast_data and forecast_data["transaction_date"]:
+        transaction_date = forecast_data["transaction_date"]
+        if isinstance(transaction_date, str):
+            transaction_date = datetime.fromisoformat(transaction_date.replace("Z", "+00:00"))
+        transaction.transaction_date = transaction_date
+
+    db.commit()
+    db.refresh(transaction)
+    return _serialize_forecast(transaction)
+
+
+@router.delete("/forecasts/{forecast_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_forecast(
+    forecast_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    transaction = db.query(Transaction).filter(
+        Transaction.id == forecast_id,
+        Transaction.tenant_id == current_user.tenant_id,
+        Transaction.is_forecast == True,
+    ).first()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Previsão não encontrada")
+
+    db.delete(transaction)
+    db.commit()
+    return None
+
 # Account Groups
 @router.post("/account-groups", response_model=AccountGroupResponse)
 async def create_account_group(
@@ -30,7 +183,8 @@ async def create_account_group(
         # Verificar se código já existe no tenant
         existing_group = db.query(AccountGroup).filter(
             AccountGroup.tenant_id == current_user.tenant_id,
-            AccountGroup.code == group_data.code
+            AccountGroup.code == group_data.code,
+            AccountGroup.status != "deleted",
         ).first()
         
         if existing_group:
@@ -89,6 +243,74 @@ async def list_account_groups(
             detail="Erro interno do servidor"
         )
 
+@router.put("/account-groups/{group_id}", response_model=AccountGroupResponse)
+async def update_account_group(
+    group_id: str,
+    group_data: AccountGroupUpdate,
+    current_user: User = Depends(get_tenant_admin),
+    db: Session = Depends(get_db),
+):
+    group = db.query(AccountGroup).filter(
+        AccountGroup.id == group_id,
+        AccountGroup.tenant_id == current_user.tenant_id,
+    ).first()
+    if not group or group.status == "deleted":
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+
+    if group_data.code and group_data.code != group.code:
+        existing_group = db.query(AccountGroup).filter(
+            AccountGroup.tenant_id == current_user.tenant_id,
+            AccountGroup.code == group_data.code,
+            AccountGroup.id != group_id,
+            AccountGroup.status != "deleted",
+        ).first()
+        if existing_group:
+            raise HTTPException(status_code=400, detail="Código já existe no tenant")
+        group.code = group_data.code
+    if group_data.name is not None:
+        group.name = group_data.name
+    if group_data.description is not None:
+        group.description = group_data.description
+    if group_data.status is not None:
+        group.status = group_data.status
+
+    db.commit()
+    db.refresh(group)
+    return group
+
+@router.delete("/account-groups/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account_group(
+    group_id: str,
+    current_user: User = Depends(get_tenant_admin),
+    db: Session = Depends(get_db),
+):
+    group = db.query(AccountGroup).filter(
+        AccountGroup.id == group_id,
+        AccountGroup.tenant_id == current_user.tenant_id,
+    ).first()
+    if not group or group.status == "deleted":
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+
+    subgroup_ids = [
+        row[0]
+        for row in db.query(AccountSubgroup.id).filter(
+            AccountSubgroup.group_id == group_id,
+            AccountSubgroup.tenant_id == current_user.tenant_id,
+        ).all()
+    ]
+    if subgroup_ids:
+        db.query(Account).filter(
+            Account.subgroup_id.in_(subgroup_ids),
+            Account.tenant_id == current_user.tenant_id,
+        ).update({Account.status: "deleted"}, synchronize_session=False)
+        db.query(AccountSubgroup).filter(
+            AccountSubgroup.id.in_(subgroup_ids),
+            AccountSubgroup.tenant_id == current_user.tenant_id,
+        ).update({AccountSubgroup.status: "deleted"}, synchronize_session=False)
+    group.status = "deleted"
+    db.commit()
+    return None
+
 # Account Subgroups
 @router.post("/account-subgroups", response_model=AccountSubgroupResponse)
 async def create_account_subgroup(
@@ -101,7 +323,8 @@ async def create_account_subgroup(
         # Verificar se grupo existe
         group = db.query(AccountGroup).filter(
             AccountGroup.id == subgroup_data.group_id,
-            AccountGroup.tenant_id == current_user.tenant_id
+            AccountGroup.tenant_id == current_user.tenant_id,
+            AccountGroup.status == "active",
         ).first()
         
         if not group:
@@ -113,7 +336,8 @@ async def create_account_subgroup(
         # Verificar se código já existe no tenant
         existing_subgroup = db.query(AccountSubgroup).filter(
             AccountSubgroup.tenant_id == current_user.tenant_id,
-            AccountSubgroup.code == subgroup_data.code
+            AccountSubgroup.code == subgroup_data.code,
+            AccountSubgroup.status != "deleted",
         ).first()
         
         if existing_subgroup:
@@ -179,6 +403,71 @@ async def list_account_subgroups(
             detail="Erro interno do servidor"
         )
 
+@router.put("/account-subgroups/{subgroup_id}", response_model=AccountSubgroupResponse)
+async def update_account_subgroup(
+    subgroup_id: str,
+    subgroup_data: AccountSubgroupUpdate,
+    current_user: User = Depends(get_tenant_admin),
+    db: Session = Depends(get_db),
+):
+    subgroup = db.query(AccountSubgroup).filter(
+        AccountSubgroup.id == subgroup_id,
+        AccountSubgroup.tenant_id == current_user.tenant_id,
+    ).first()
+    if not subgroup or subgroup.status == "deleted":
+        raise HTTPException(status_code=404, detail="Subgrupo não encontrado")
+
+    if subgroup_data.group_id is not None:
+        group = db.query(AccountGroup).filter(
+            AccountGroup.id == subgroup_data.group_id,
+            AccountGroup.tenant_id == current_user.tenant_id,
+            AccountGroup.status == "active",
+        ).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Grupo não encontrado")
+        subgroup.group_id = subgroup_data.group_id
+    if subgroup_data.code and subgroup_data.code != subgroup.code:
+        existing_subgroup = db.query(AccountSubgroup).filter(
+            AccountSubgroup.tenant_id == current_user.tenant_id,
+            AccountSubgroup.code == subgroup_data.code,
+            AccountSubgroup.id != subgroup_id,
+            AccountSubgroup.status != "deleted",
+        ).first()
+        if existing_subgroup:
+            raise HTTPException(status_code=400, detail="Código já existe no tenant")
+        subgroup.code = subgroup_data.code
+    if subgroup_data.name is not None:
+        subgroup.name = subgroup_data.name
+    if subgroup_data.description is not None:
+        subgroup.description = subgroup_data.description
+    if subgroup_data.status is not None:
+        subgroup.status = subgroup_data.status
+
+    db.commit()
+    db.refresh(subgroup)
+    return subgroup
+
+@router.delete("/account-subgroups/{subgroup_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account_subgroup(
+    subgroup_id: str,
+    current_user: User = Depends(get_tenant_admin),
+    db: Session = Depends(get_db),
+):
+    subgroup = db.query(AccountSubgroup).filter(
+        AccountSubgroup.id == subgroup_id,
+        AccountSubgroup.tenant_id == current_user.tenant_id,
+    ).first()
+    if not subgroup or subgroup.status == "deleted":
+        raise HTTPException(status_code=404, detail="Subgrupo não encontrado")
+
+    db.query(Account).filter(
+        Account.subgroup_id == subgroup_id,
+        Account.tenant_id == current_user.tenant_id,
+    ).update({Account.status: "deleted"}, synchronize_session=False)
+    subgroup.status = "deleted"
+    db.commit()
+    return None
+
 # Accounts
 @router.post("/accounts", response_model=AccountResponse)
 async def create_account(
@@ -191,7 +480,8 @@ async def create_account(
         # Verificar se subgrupo existe
         subgroup = db.query(AccountSubgroup).filter(
             AccountSubgroup.id == account_data.subgroup_id,
-            AccountSubgroup.tenant_id == current_user.tenant_id
+            AccountSubgroup.tenant_id == current_user.tenant_id,
+            AccountSubgroup.status == "active",
         ).first()
         
         if not subgroup:
@@ -203,7 +493,8 @@ async def create_account(
         # Verificar se código já existe no tenant
         existing_account = db.query(Account).filter(
             Account.tenant_id == current_user.tenant_id,
-            Account.code == account_data.code
+            Account.code == account_data.code,
+            Account.status != "deleted",
         ).first()
         
         if existing_account:
@@ -273,6 +564,69 @@ async def list_accounts(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro interno do servidor"
         )
+
+@router.put("/accounts/{account_id}", response_model=AccountResponse)
+async def update_account(
+    account_id: str,
+    account_data: AccountUpdate,
+    current_user: User = Depends(get_tenant_admin),
+    db: Session = Depends(get_db),
+):
+    account = db.query(Account).filter(
+        Account.id == account_id,
+        Account.tenant_id == current_user.tenant_id,
+    ).first()
+    if not account or account.status == "deleted":
+        raise HTTPException(status_code=404, detail="Conta não encontrada")
+
+    if account_data.subgroup_id is not None:
+        subgroup = db.query(AccountSubgroup).filter(
+            AccountSubgroup.id == account_data.subgroup_id,
+            AccountSubgroup.tenant_id == current_user.tenant_id,
+            AccountSubgroup.status == "active",
+        ).first()
+        if not subgroup:
+            raise HTTPException(status_code=404, detail="Subgrupo não encontrado")
+        account.subgroup_id = account_data.subgroup_id
+    if account_data.code and account_data.code != account.code:
+        existing_account = db.query(Account).filter(
+            Account.tenant_id == current_user.tenant_id,
+            Account.code == account_data.code,
+            Account.id != account_id,
+            Account.status != "deleted",
+        ).first()
+        if existing_account:
+            raise HTTPException(status_code=400, detail="Código já existe no tenant")
+        account.code = account_data.code
+    if account_data.name is not None:
+        account.name = account_data.name
+    if account_data.description is not None:
+        account.description = account_data.description
+    if account_data.account_type is not None:
+        account.account_type = account_data.account_type
+    if account_data.status is not None:
+        account.status = account_data.status
+
+    db.commit()
+    db.refresh(account)
+    return account
+
+@router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    account_id: str,
+    current_user: User = Depends(get_tenant_admin),
+    db: Session = Depends(get_db),
+):
+    account = db.query(Account).filter(
+        Account.id == account_id,
+        Account.tenant_id == current_user.tenant_id,
+    ).first()
+    if not account or account.status == "deleted":
+        raise HTTPException(status_code=404, detail="Conta não encontrada")
+
+    account.status = "deleted"
+    db.commit()
+    return None
 
 # Transactions
 @router.post("/transactions", response_model=TransactionResponse)
@@ -385,6 +739,72 @@ async def list_transactions(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro interno do servidor"
         )
+
+@router.put("/transactions/{transaction_id}", response_model=TransactionResponse)
+async def update_transaction(
+    transaction_id: str,
+    transaction_data: TransactionUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.tenant_id == current_user.tenant_id,
+    ).first()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    if current_user.role not in [UserRole.SUPER_ADMIN, UserRole.TENANT_ADMIN]:
+        if transaction.business_unit_id != current_user.business_unit_id:
+            raise HTTPException(status_code=403, detail="Sem permissão para esta transação")
+
+    if transaction_data.account_id is not None:
+        account = db.query(Account).filter(
+            Account.id == transaction_data.account_id,
+            Account.tenant_id == current_user.tenant_id,
+            Account.status == "active",
+        ).first()
+        if not account:
+            raise HTTPException(status_code=404, detail="Conta não encontrada")
+        transaction.account_id = transaction_data.account_id
+    for field in [
+        "business_unit_id",
+        "department_id",
+        "transaction_date",
+        "description",
+        "amount",
+        "transaction_type",
+        "category",
+        "is_recurring",
+        "is_forecast",
+        "is_approved",
+    ]:
+        value = getattr(transaction_data, field)
+        if value is not None:
+            setattr(transaction, field, value)
+
+    db.commit()
+    db.refresh(transaction)
+    return transaction
+
+@router.delete("/transactions/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transaction(
+    transaction_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.tenant_id == current_user.tenant_id,
+    ).first()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    if current_user.role not in [UserRole.SUPER_ADMIN, UserRole.TENANT_ADMIN]:
+        if transaction.business_unit_id != current_user.business_unit_id:
+            raise HTTPException(status_code=403, detail="Sem permissão para esta transação")
+
+    db.delete(transaction)
+    db.commit()
+    return None
 
 # Cash Flow
 @router.get("/cash-flow", response_model=List[CashFlowResponse])

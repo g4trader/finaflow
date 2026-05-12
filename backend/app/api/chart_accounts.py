@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.auth import User
+from app.models.auth import User, UserRole
 from app.models.chart_of_accounts import (
     ChartAccount,
     ChartAccountGroup,
@@ -27,6 +27,15 @@ def _tenant_id(user: User) -> str:
 def _tenant_filter(tenant_id: str):
     """Return a SQLAlchemy filter to include tenant-specific and shared records."""
     return (ChartAccountGroup.tenant_id == tenant_id) | (ChartAccountGroup.tenant_id.is_(None))
+
+
+def _pick(row: dict, *names: str) -> str:
+    normalized = {str(key).strip().lower(): value for key, value in row.items()}
+    for name in names:
+        value = normalized.get(name)
+        if value is not None and str(value).strip() and str(value).lower() != "nan":
+            return str(value).strip()
+    return ""
 
 
 @router.get("/api/v1/chart-accounts/groups")
@@ -277,3 +286,107 @@ def get_chart_accounts_hierarchy(
         "subgroups": subgroups_list,
         "accounts": accounts_list,
     }
+
+
+@router.post("/api/v1/chart-accounts/import")
+async def import_chart_accounts(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, object]:
+    """Importa plano de contas por CSV/XLSX para o tenant atual."""
+    if current_user.role not in (UserRole.SUPER_ADMIN, UserRole.TENANT_ADMIN):
+        raise HTTPException(status_code=403, detail="Sem permissão para importar plano de contas")
+
+    tenant_id = _tenant_id(current_user)
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Arquivo vazio")
+
+    try:
+        import io
+        import pandas as pd
+
+        filename = (file.filename or "").lower()
+        if filename.endswith((".xlsx", ".xls")):
+            dataframe = pd.read_excel(io.BytesIO(content))
+        else:
+            dataframe = pd.read_csv(io.BytesIO(content))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Não foi possível ler o arquivo: {exc}")
+
+    imported = {"groups": 0, "subgroups": 0, "accounts": 0}
+    for _, raw_row in dataframe.fillna("").iterrows():
+        row = raw_row.to_dict()
+        group_code = _pick(row, "grupo_codigo", "group_code", "codigo_grupo", "código grupo", "grupo")
+        group_name = _pick(row, "grupo_nome", "group_name", "nome_grupo", "grupo nome", "nome grupo")
+        subgroup_code = _pick(row, "subgrupo_codigo", "subgroup_code", "codigo_subgrupo", "código subgrupo", "subgrupo")
+        subgroup_name = _pick(row, "subgrupo_nome", "subgroup_name", "nome_subgrupo", "subgrupo nome", "nome subgrupo")
+        account_code = _pick(row, "conta_codigo", "account_code", "codigo_conta", "código conta", "conta")
+        account_name = _pick(row, "conta_nome", "account_name", "nome_conta", "conta nome", "nome conta")
+        account_type = _pick(row, "tipo", "account_type", "tipo_conta", "tipo conta") or "Despesa"
+
+        if not all([group_code, group_name, subgroup_code, subgroup_name, account_code, account_name]):
+            continue
+
+        group = db.query(ChartAccountGroup).filter(
+            ChartAccountGroup.tenant_id == tenant_id,
+            ChartAccountGroup.code == group_code,
+        ).first()
+        if not group:
+            group = ChartAccountGroup(
+                tenant_id=tenant_id,
+                code=group_code[:10],
+                name=group_name[:100],
+                is_active=True,
+            )
+            db.add(group)
+            db.flush()
+            imported["groups"] += 1
+
+        subgroup = db.query(ChartAccountSubgroup).filter(
+            ChartAccountSubgroup.tenant_id == tenant_id,
+            ChartAccountSubgroup.group_id == group.id,
+            ChartAccountSubgroup.code == subgroup_code,
+        ).first()
+        if not subgroup:
+            subgroup = ChartAccountSubgroup(
+                tenant_id=tenant_id,
+                group_id=group.id,
+                code=subgroup_code[:10],
+                name=subgroup_name[:100],
+                is_active=True,
+            )
+            db.add(subgroup)
+            db.flush()
+            imported["subgroups"] += 1
+
+        account = db.query(ChartAccount).filter(
+            ChartAccount.tenant_id == tenant_id,
+            ChartAccount.subgroup_id == subgroup.id,
+            ChartAccount.code == account_code,
+        ).first()
+        if not account:
+            account = ChartAccount(
+                tenant_id=tenant_id,
+                subgroup_id=subgroup.id,
+                code=account_code[:10],
+                name=account_name[:100],
+                account_type=account_type[:20],
+                is_active=True,
+            )
+            db.add(account)
+            imported["accounts"] += 1
+        else:
+            account.name = account_name[:100]
+            account.account_type = account_type[:20]
+            account.is_active = True
+
+    if sum(imported.values()) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhuma linha válida encontrada. Use colunas de grupo, subgrupo e conta.",
+        )
+
+    db.commit()
+    return {"success": True, "imported": imported}

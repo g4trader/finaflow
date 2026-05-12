@@ -29,6 +29,7 @@ from app.models.investimento import Investimento
 
 
 router = APIRouter(prefix="/admin", tags=["admin-import"])
+compat_router = APIRouter(tags=["import-compat"])
 
 
 class SpreadsheetImportPayload(BaseModel):
@@ -39,6 +40,11 @@ class SpreadsheetImportPayload(BaseModel):
     business_unit_id: Optional[str] = Field(
         default=None, description="Business Unit ID to associate the imported data with"
     )
+
+
+class GoogleSheetsCompatibilityPayload(SpreadsheetImportPayload):
+    import_type: Optional[str] = Field(default="all")
+    validate_only: bool = Field(default=False)
 
 
 class ResetDataPayload(BaseModel):
@@ -382,3 +388,58 @@ async def importar_google_sheets(
         "business_unit_id": business_unit_id,
     }
 
+
+@compat_router.get("/api/v1/import/google-sheets/sample")
+async def google_sheets_sample_info(
+    current_user: User = Depends(require_super_admin),
+):
+    """Compatibilidade para a tela legada de Google Sheets."""
+    return {
+        "success": True,
+        "message": "Importação Google Sheets legada disponível apenas para manutenção.",
+        "required_fields": ["spreadsheet_id", "tenant_id", "business_unit_id"],
+        "recommended_flow": "/api/v1/onboarding/start",
+    }
+
+
+@compat_router.post("/api/v1/import/google-sheets/validate")
+async def validate_google_sheets_compatibility(
+    spreadsheet_id: str,
+    current_user: User = Depends(require_super_admin),
+):
+    """Validação leve para evitar 404 na tela legada."""
+    if not spreadsheet_id or len(spreadsheet_id.strip()) < 8:
+        raise HTTPException(status_code=400, detail="spreadsheet_id inválido")
+    return {
+        "success": True,
+        "message": "ID informado. Use o onboarding principal para validação completa da planilha.",
+        "spreadsheet_id": spreadsheet_id,
+    }
+
+
+@compat_router.post("/api/v1/import/google-sheets")
+async def import_google_sheets_compatibility(
+    payload: GoogleSheetsCompatibilityPayload,
+    current_user: User = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """Compatibilidade para clientes que ainda chamam o endpoint antigo."""
+    if payload.validate_only:
+        return {
+            "success": True,
+            "message": "Validação concluída. Importação completa deve usar o onboarding principal.",
+        }
+    return await importar_google_sheets(payload, current_user, db)
+
+
+@compat_router.get("/api/v1/import/status/{import_id}")
+async def get_import_status_compatibility(
+    import_id: str,
+    current_user: User = Depends(require_super_admin),
+):
+    """Status compatível para importações síncronas legadas."""
+    return {
+        "id": import_id,
+        "status": "completed",
+        "message": "Importações legadas são síncronas neste backend.",
+    }
