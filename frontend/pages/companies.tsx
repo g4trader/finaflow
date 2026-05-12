@@ -25,7 +25,7 @@ interface CompanyFormData {
 }
 
 const CompaniesContent: React.FC = () => {
-  const { token } = useAuth();
+  const { token, user, logout } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -35,18 +35,31 @@ const CompaniesContent: React.FC = () => {
     status: 'active'
   });
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const fetchCompanies = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
+      setErrorMessage('');
       const data = await getTenants(token ?? undefined);
       setCompanies(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao carregar empresas:', error);
+      if (error?.response?.status === 401) {
+        setErrorMessage('Sua sessão expirou. Faça login novamente.');
+        logout();
+        return;
+      }
+      setErrorMessage(error?.response?.data?.detail || 'Erro ao carregar empresas');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, logout]);
 
   useEffect(() => {
     fetchCompanies();
@@ -59,6 +72,7 @@ const CompaniesContent: React.FC = () => {
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setErrorMessage('');
       if (editingCompany) {
         await updateTenant(editingCompany.id, formData, token ?? undefined);
       } else {
@@ -68,8 +82,9 @@ const CompaniesContent: React.FC = () => {
       setIsModalOpen(false);
       setEditingCompany(null);
       setFormData({ name: '', domain: '', status: 'active' });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar empresa:', error);
+      setErrorMessage(error?.response?.data?.detail || 'Erro ao salvar empresa');
     }
   }, [editingCompany, formData, token, fetchCompanies]);
 
@@ -83,16 +98,31 @@ const CompaniesContent: React.FC = () => {
     setIsModalOpen(true);
   }, []);
 
-  const handleDelete = useCallback(async (id: string) => {
+  const isProtectedCompany = useCallback((company: Company) => {
+    return company.domain === 'finaflow.local' || company.id === user?.tenant_id;
+  }, [user?.tenant_id]);
+
+  const handleDelete = useCallback(async (company: Company) => {
+    if (isProtectedCompany(company)) {
+      setErrorMessage(
+        company.domain === 'finaflow.local'
+          ? 'A empresa global FinaFlow não pode ser excluída.'
+          : 'Não é possível excluir a empresa atualmente selecionada na sua sessão.'
+      );
+      return;
+    }
+
     if (window.confirm('Tem certeza que deseja excluir esta empresa?')) {
       try {
-        await deleteTenant(id, token ?? undefined);
+        setErrorMessage('');
+        await deleteTenant(company.id, token ?? undefined);
         await fetchCompanies();
-      } catch (error) {
+      } catch (error: any) {
         console.error('Erro ao excluir empresa:', error);
+        setErrorMessage(error?.response?.data?.detail || 'Erro ao excluir empresa');
       }
     }
-  }, [token, fetchCompanies]);
+  }, [token, fetchCompanies, isProtectedCompany]);
 
   const openCreateModal = useCallback(() => {
     setEditingCompany(null);
@@ -121,6 +151,12 @@ const CompaniesContent: React.FC = () => {
           Nova Empresa
         </Button>
       </div>
+
+      {errorMessage && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {errorMessage}
+        </div>
+      )}
 
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -173,8 +209,18 @@ const CompaniesContent: React.FC = () => {
                       Editar
                     </button>
                     <button
-                      onClick={() => handleDelete(company.id)}
-                      className="text-red-600 hover:text-red-900"
+                      onClick={() => handleDelete(company)}
+                      disabled={isProtectedCompany(company)}
+                      className={
+                        isProtectedCompany(company)
+                          ? 'cursor-not-allowed text-gray-400'
+                          : 'text-red-600 hover:text-red-900'
+                      }
+                      title={
+                        isProtectedCompany(company)
+                          ? 'Esta empresa não pode ser excluída'
+                          : 'Excluir empresa'
+                      }
                     >
                       Excluir
                     </button>
