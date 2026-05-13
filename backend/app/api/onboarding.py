@@ -33,6 +33,11 @@ logger = logging.getLogger(__name__)
 backend_path = Path(__file__).parent.parent.parent
 # Não adicionar ao sys.path no nível do módulo - fazer apenas quando necessário
 
+def ensure_backend_path() -> None:
+    backend_path_str = str(backend_path)
+    if backend_path_str not in sys.path:
+        sys.path.insert(0, backend_path_str)
+
 MONTH_LABELS = [
     "JANEIRO",
     "FEVEREIRO",
@@ -1032,6 +1037,7 @@ async def get_reconciliation(
         excel_file_path = excel_files[0]
         
         # Importar funções de conciliação
+        ensure_backend_path()
         from scripts.reconcile_fluxo_caixa import extract_fluxo_caixa_totals
         import requests
         import os
@@ -1302,6 +1308,7 @@ def execute_import(
         )
         
         # Executar seed do plano de contas
+        ensure_backend_path()
         from scripts.seed_from_client_sheet import seed_plano_contas
         from app.database import SessionLocal
         from app.models.auth import Tenant, BusinessUnit
@@ -1340,8 +1347,7 @@ def execute_import(
             )
             
             # Buscar ou criar usuário para o seed
-            if str(backend_path) not in sys.path:
-                sys.path.insert(0, str(backend_path))
+            ensure_backend_path()
             from scripts.seed_from_client_sheet import get_or_create_user
             user = get_or_create_user(db, tenant, business_unit, user_id)
             
