@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://finaflow-api.72.61.34.133.sslip.io';
+
 const OnboardSimplePage: React.FC = () => {
   const { user, token, logout } = useAuth();
   const router = useRouter();
@@ -37,7 +39,7 @@ const OnboardSimplePage: React.FC = () => {
     setIgnoredIssues({});
     setConfirmCorrections(false);
     try {
-      const response = await fetch('/api/v1/onboarding/validate-spreadsheet', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/onboarding/validate-spreadsheet`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -104,7 +106,7 @@ const OnboardSimplePage: React.FC = () => {
           }
         : null;
 
-      const response = await fetch('/api/v1/onboarding/start', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/onboarding/start`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -141,7 +143,7 @@ const OnboardSimplePage: React.FC = () => {
     const interval = setInterval(async () => {
       try {
         const statusResponse = await fetch(
-          `/api/v1/onboarding/status/${result.tenant_id}/${result.business_unit_id}`,
+          `${API_BASE_URL}/api/v1/onboarding/status/${result.tenant_id}/${result.business_unit_id}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`
