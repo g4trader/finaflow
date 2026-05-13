@@ -36,15 +36,17 @@ def get_current_user(
                 detail="Usuário não encontrado"
             )
         
-        # Atualizar business_unit_id do usuário se presente no token
-        # Isso garante que o business_unit_id selecionado seja usado
+        # Aplicar contexto do token em memória (não persistir no DB aqui)
+        # - business_unit_id: permite que o token de "select-business-unit" tenha efeito imediato
+        # - tenant_id: para SUPER_ADMIN, permite alternar tenant ao selecionar BU de outro tenant
         token_business_unit_id = payload.get("business_unit_id")
         if token_business_unit_id:
-            # Atualizar apenas se diferente do atual (evita queries desnecessárias)
-            if str(user.business_unit_id) != str(token_business_unit_id):
-                user.business_unit_id = token_business_unit_id
-                db.commit()
-                db.refresh(user)
+            user.business_unit_id = token_business_unit_id
+
+        token_tenant_id = payload.get("tenant_id")
+        user_role = user.role.value if hasattr(user.role, "value") else str(user.role)
+        if token_tenant_id and user_role == UserRole.SUPER_ADMIN.value:
+            user.tenant_id = str(token_tenant_id)
         
         # Verificar se usuário está ativo
         user_status = getattr(user, "status", UserStatus.ACTIVE)
@@ -103,12 +105,17 @@ def require_role(required_role: UserRole):
     Decorator para verificar role específica.
     """
 
-    def role_checker(current_user: User = Depends(get_current_active_user)) -> User:
+    def role_checker(
+        current_user: User = Depends(get_current_active_user),
+        db: Session = Depends(get_db),
+    ) -> User:
         if current_user.role != required_role and current_user.role != UserRole.SUPER_ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permissão negada. Role requerida: {required_role}",
             )
+        # Evita flush automático de alterações transitórias de contexto do token
+        db.expunge(current_user)
         return current_user
 
     return role_checker
